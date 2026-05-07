@@ -1,0 +1,42 @@
+name: mobile_app
+description: "A new Flutter project."
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.8.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true
+
+  # Bagian Assets - Pastikan indentasi (spasi) tepat 2 spasi di bawah 'flutter:'
+  assets:
+    - assets/foto katalog/ayam bakar.jpg
+    - assets/foto katalog/ayam geprek.jpg
+    - assets/foto katalog/Gudeg.jpg
+    - assets/foto katalog/Pempek.jpg
+    - assets/foto katalog/Tahu Gejrot.jpg
+    - assets/foto katalog/Martabak Telur Mini.jpg
+    - assets/foto katalog/esteh.jpg
+    - assets/foto katalog/lemon tea.jpg
+    - assets/foto katalog/matcha.jpg
+    - assets/foto katalog/caramel.jpg
+    - assets/foto katalog/hidangan.png
+    - assets/foto katalog/logobaru.png
+    - assets/foto katalog/KedaiKlikLogo.png
+    - assets/foto katalog/nasgor.jpg
+    - assets/foto katalog/sate ayam.jpg
+    - assets/foto katalog/soto.jpg
+    - assets/foto katalog/Lontong sayur.jpg
+    - assets/foto katalog/Arem-arem _ Lontong Isi.jpg
