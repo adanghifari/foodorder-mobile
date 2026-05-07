@@ -13,30 +13,30 @@ class RegisterScreen extends StatelessWidget {
         child: SingleChildScrollView(
           child: Column(
             children: [
-              header(context),
+              _header(context),
               Padding(
                 padding: const EdgeInsets.all(20),
                 child: Column(
                   children: [
-                    input("Name"),
-                    input("Username"),
-                    input("Email"),
-                    input("Password"),
-                    input("Date of Birth"),
+                    _input('Name'),
+                    _input('Username'),
+                    _input('Email'),
+                    _input('Password'),
+                    _input('Date of Birth'),
                     const SizedBox(height: 20),
-                    button(),
+                    _button(),
                     const SizedBox(height: 40),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         const Text(
-                          "Already have an account? ",
+                          'Already have an account? ',
                           style: TextStyle(color: Colors.grey),
                         ),
                         GestureDetector(
                           onTap: () => Navigator.pop(context),
                           child: const Text(
-                            "Log in",
+                            'Log in',
                             style: TextStyle(
                               color: primaryBrown,
                               fontWeight: FontWeight.w600,
@@ -55,7 +55,7 @@ class RegisterScreen extends StatelessWidget {
     );
   }
 
-  Widget header(BuildContext context) {
+  Widget _header(BuildContext context) {
     return Container(
       height: 180,
       width: double.infinity,
@@ -77,12 +77,12 @@ class RegisterScreen extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             const Text(
-              "Register",
+              'Register',
               style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 5),
             const Text(
-              "Create an account to continue!",
+              'Create an account to continue!',
               style: TextStyle(color: Colors.grey),
             ),
           ],
@@ -91,7 +91,7 @@ class RegisterScreen extends StatelessWidget {
     );
   }
 
-  Widget input(String hint) {
+  Widget _input(String hint) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 15),
       child: Container(
@@ -101,18 +101,21 @@ class RegisterScreen extends StatelessWidget {
           color: Colors.white,
         ),
         child: TextField(
-          obscureText: hint == "Password",
+          obscureText: hint == 'Password',
           decoration: InputDecoration(
             hintText: hint,
             border: InputBorder.none,
-            contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 20,
+              vertical: 18,
+            ),
           ),
         ),
       ),
     );
   }
 
-  Widget button() {
+  Widget _button() {
     return SizedBox(
       height: 60,
       width: double.infinity,
@@ -128,7 +131,7 @@ class RegisterScreen extends StatelessWidget {
           ),
         ),
         child: const Text(
-          "Sign Up",
+          'Sign Up',
           style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
         ),
       ),

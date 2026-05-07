@@ -1,31 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'menu_page.dart';
 
-void main() {
-  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-    statusBarColor: Colors.transparent,
-    statusBarIconBrightness: Brightness.dark,
-  ));
-  runApp(const KedaiKlikApp());
-}
-
-class KedaiKlikApp extends StatelessWidget {
-  const KedaiKlikApp({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'Kedai Klik',
-      theme: ThemeData(
-        fontFamily: 'Plus Jakarta Sans',
-        useMaterial3: true,
-      ),
-      home: const LandingPage(),
-    );
-  }
-}
+import '../../../app/app_routes.dart';
 
 class LandingPage extends StatelessWidget {
   const LandingPage({super.key});
@@ -39,9 +15,12 @@ class LandingPage extends StatelessWidget {
         child: SingleChildScrollView(
           child: Column(
             children: [
-              _buildHeader(),
+              _buildHeader(context),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 20,
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -50,11 +29,11 @@ class LandingPage extends StatelessWidget {
                       child: Column(
                         children: [
                           const Text(
-                            "Menu Terbaik",
+                            'Menu Terbaik',
                             style: TextStyle(
-                              fontSize: 20, 
+                              fontSize: 20,
                               fontWeight: FontWeight.bold,
-                              color: Color(0xFF2D2D2D)
+                              color: Color(0xFF2D2D2D),
                             ),
                           ),
                           const SizedBox(height: 8),
@@ -65,14 +44,14 @@ class LandingPage extends StatelessWidget {
                               color: const Color(0xFF5D2E0B),
                               borderRadius: BorderRadius.circular(2),
                             ),
-                          )
+                          ),
                         ],
                       ),
                     ),
                     const SizedBox(height: 30),
                     _buildMenuGrid(context),
                     const SizedBox(height: 40),
-                    _buildWhySection(),
+                    _buildWhySection(context),
                     const SizedBox(height: 50),
                   ],
                 ),
@@ -84,16 +63,13 @@ class LandingPage extends StatelessWidget {
     );
   }
 
-  Widget _buildHeader() {
+  Widget _buildHeader(BuildContext context) {
     return SizedBox(
-      height: 420, // Tinggi ditambah sedikit untuk komposisi visual yang lebih lega
+      height: 420,
       child: Stack(
         clipBehavior: Clip.none,
         children: [
-          // Background Krem Dasar
           Container(color: const Color(0xFFE9E0D3)),
-          
-          // Kurva Dekoratif Cokelat
           Positioned(
             bottom: -2,
             left: 0,
@@ -103,36 +79,28 @@ class LandingPage extends StatelessWidget {
               painter: HeaderCurvePainter(),
             ),
           ),
-          
-          // Gambar Hidangan (Piring & Tangan)
           Positioned(
-            right: 0, // Sedikit keluar layar agar estetik
-            bottom: -48, // Menempel pas di atas kurva
+            right: 0,
+            bottom: -48,
             child: Image.asset(
               'assets/foto katalog/hidangan.png',
-              height: 310, 
+              height: 310,
               fit: BoxFit.contain,
               errorBuilder: (context, error, stackTrace) => const SizedBox(),
             ),
           ),
-
-          // Area Konten (Slogan & Logo)
           Padding(
             padding: const EdgeInsets.fromLTRB(30, 60, 30, 0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Tombol SIGN IN
                 Align(
                   alignment: Alignment.centerRight,
-                  child: _buildSignInButton(),
+                  child: _buildSignInButton(context),
                 ),
-                
                 const SizedBox(height: 35),
-                
-                // Headline: 100% Tasty
                 const Text(
-                  "100% Tasty",
+                  '100% Tasty',
                   style: TextStyle(
                     fontSize: 30,
                     fontWeight: FontWeight.w900,
@@ -140,28 +108,24 @@ class LandingPage extends StatelessWidget {
                     letterSpacing: -0.8,
                   ),
                 ),
-                
-                const SizedBox(height: 0),
-                
-                // Slogan Pendukung
                 const Text(
-                  "Rasa Juara, Pesan Cuma Pakai Klik!",
+                  'Rasa Juara, Pesan Cuma Pakai Klik!',
                   style: TextStyle(
-                    fontSize: 12, 
+                    fontSize: 12,
                     color: Colors.black54,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-
-                const SizedBox(height: 45), // Jarak pemisah ke logo
-                
-                // Brand: Logo KedaiKlik (Pindah ke Bawah)
+                const SizedBox(height: 45),
                 Image.asset(
                   'assets/foto katalog/logobaru.png',
-                  width: 270, 
+                  width: 270,
                   fit: BoxFit.contain,
-                  errorBuilder: (context, error, stackTrace) => 
-                    const Icon(Icons.broken_image, size: 50, color: Colors.grey),
+                  errorBuilder: (context, error, stackTrace) => const Icon(
+                    Icons.broken_image,
+                    size: 50,
+                    color: Colors.grey,
+                  ),
                 ),
               ],
             ),
@@ -171,7 +135,7 @@ class LandingPage extends StatelessWidget {
     );
   }
 
-  Widget _buildSignInButton() {
+  Widget _buildSignInButton(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
         color: const Color(0xFFE9E0D3),
@@ -188,17 +152,17 @@ class LandingPage extends StatelessWidget {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: () {},
+          onTap: () => Navigator.pushNamed(context, AppRoutes.login),
           borderRadius: BorderRadius.circular(10),
           child: const Padding(
             padding: EdgeInsets.symmetric(horizontal: 18, vertical: 8),
             child: Text(
-              "SIGN IN", 
+              'SIGN IN',
               style: TextStyle(
                 color: Colors.grey,
                 fontSize: 11,
-                fontWeight: FontWeight.bold
-              )
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
         ),
@@ -213,21 +177,33 @@ class LandingPage extends StatelessWidget {
       crossAxisCount: 2,
       mainAxisSpacing: 18,
       crossAxisSpacing: 18,
-      childAspectRatio: 0.65, // Mengatasi overflow pixel
+      childAspectRatio: 0.65,
       children: [
-        _menuCard("Gudeg Juara", "Manis-gurih autentik khas nusantara.", "assets/foto katalog/Gudeg.jpg"),
-        _menuCard("Ayam Bakar", "Ayam ungkep bumbu tradisional.", "assets/foto katalog/ayam bakar.jpg"),
-        _menuCard("Ayam Geprek", "Ayam crispy sambal ulek segar.", "assets/foto katalog/ayam geprek.jpg"),
+        _menuCard(
+          'Gudeg Juara',
+          'Manis-gurih autentik khas nusantara.',
+          'assets/foto katalog/Gudeg.jpg',
+        ),
+        _menuCard(
+          'Ayam Bakar',
+          'Ayam ungkep bumbu tradisional.',
+          'assets/foto katalog/ayam bakar.jpg',
+        ),
+        _menuCard(
+          'Ayam Geprek',
+          'Ayam crispy sambal ulek segar.',
+          'assets/foto katalog/ayam geprek.jpg',
+        ),
         _buildOthersCard(context),
       ],
     );
   }
 
-  Widget _menuCard(String title, String sub, String imagePath) { 
+  Widget _menuCard(String title, String sub, String imagePath) {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFFF8F6F3), 
+        color: const Color(0xFFF8F6F3),
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
@@ -252,38 +228,56 @@ class LandingPage extends StatelessWidget {
               child: Image.asset(
                 imagePath,
                 fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) => const Icon(Icons.fastfood, color: Colors.grey, size: 30),
+                errorBuilder: (context, error, stackTrace) =>
+                    const Icon(Icons.fastfood, color: Colors.grey, size: 30),
               ),
             ),
           ),
           const SizedBox(height: 12),
           Text(
-            title, 
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF2D2D2D)),
+            title,
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 13,
+              color: Color(0xFF2D2D2D),
+            ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
           const SizedBox(height: 4),
           Text(
-            sub, 
-            maxLines: 2, 
+            sub,
+            maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(color: Colors.grey, fontSize: 9, height: 1.4),
+            style: const TextStyle(
+              color: Colors.grey,
+              fontSize: 9,
+              height: 1.4,
+            ),
           ),
           const Spacer(),
           SizedBox(
             width: double.infinity,
             height: 35,
             child: OutlinedButton(
-              onPressed: () {},
+              onPressed: () => {},
               style: OutlinedButton.styleFrom(
                 side: const BorderSide(color: Color(0xFF2D2D2D), width: 1.5),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
                 padding: EdgeInsets.zero,
               ),
-              child: const Text("Pesan", style: TextStyle(color: Color(0xFF2D2D2D), fontSize: 11, fontWeight: FontWeight.bold)),
+              child: const Text(
+                'Pesan',
+                style: TextStyle(
+                  color: Color(0xFF2D2D2D),
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
-          )
+          ),
         ],
       ),
     );
@@ -295,31 +289,45 @@ class LandingPage extends StatelessWidget {
         color: const Color(0xFFC06014),
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10, offset: const Offset(0, 5)),
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 5),
+          ),
         ],
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Text("Lainnya", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
+          const Text(
+            'Lainnya',
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 18,
+            ),
+          ),
           const SizedBox(height: 12),
           OutlinedButton(
-            onPressed: () {
-              Navigator.push(context, MaterialPageRoute(builder: (context) => const MenuPage()));
-            },
+            onPressed: () => Navigator.pushNamed(context, AppRoutes.menu),
             style: OutlinedButton.styleFrom(
               side: const BorderSide(color: Colors.white),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             ),
-            child: const Text("Lihat menu →", style: TextStyle(color: Colors.white, fontSize: 10)),
-          )
+            child: const Text(
+              'Lihat menu →',
+              style: TextStyle(color: Colors.white, fontSize: 10),
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildWhySection() {
+  Widget _buildWhySection(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -331,45 +339,71 @@ class LandingPage extends StatelessWidget {
         children: [
           RichText(
             text: const TextSpan(
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black),
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Colors.black,
+              ),
               children: [
-                TextSpan(text: "Mengapa "),
-                TextSpan(text: "KedaiKlik", style: TextStyle(color: Color(0xFFC06014))),
-                TextSpan(text: "?"),
+                TextSpan(text: 'Mengapa '),
+                TextSpan(
+                  text: 'KedaiKlik',
+                  style: TextStyle(color: Color(0xFFC06014)),
+                ),
+                TextSpan(text: '?'),
               ],
             ),
           ),
           const SizedBox(height: 10),
           const Text(
-            "Nikmati kenyamanan memesan masakan tradisional favorit Anda dalam satu aplikasi.",
+            'Nikmati kenyamanan memesan masakan tradisional favorit Anda dalam satu aplikasi.',
             style: TextStyle(fontSize: 11, color: Colors.grey, height: 1.6),
           ),
           const SizedBox(height: 20),
-          _whyItem(Icons.restaurant, "Makan ditempat"),
+          _whyItem(context, Icons.restaurant, 'Makan ditempat', AppRoutes.menu),
           const SizedBox(height: 12),
-          _whyItem(Icons.store, "Ambil ke resto"),
+          _whyItem(context, Icons.store, 'Ambil ke resto', AppRoutes.menu),
         ],
       ),
     );
   }
 
-  Widget _whyItem(IconData icon, String text) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(color: const Color(0xFFF1EDE6), borderRadius: BorderRadius.circular(10)),
-            child: Icon(icon, color: const Color(0xFFC06014), size: 18),
-          ),
-          const SizedBox(width: 14),
-          Text(text, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF2D2D2D))),
-        ],
+  Widget _whyItem(
+    BuildContext context,
+    IconData icon,
+    String text,
+    String route,
+  ) {
+    return InkWell(
+      onTap: () => Navigator.pushNamed(context, route),
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF1EDE6),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, color: const Color(0xFFC06014), size: 18),
+            ),
+            const SizedBox(width: 14),
+            Text(
+              text,
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 12,
+                color: Color(0xFF2D2D2D),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -378,17 +412,27 @@ class LandingPage extends StatelessWidget {
 class HeaderCurvePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
-    Paint paintSecondary = Paint()..color = const Color(0xFFA0522D);
-    Paint paintPrimary = Paint()..color = const Color(0xFF8B4513);
+    final paintSecondary = Paint()..color = const Color(0xFFA0522D);
+    final paintPrimary = Paint()..color = const Color(0xFF8B4513);
 
-    Path pathSecondary = Path();
+    final pathSecondary = Path();
     pathSecondary.moveTo(-size.width * 0.4, size.height * 1.1);
-    pathSecondary.quadraticBezierTo(size.width * 0.5, -size.height * 0.6, size.width * 1.4, size.height * 1.1);
+    pathSecondary.quadraticBezierTo(
+      size.width * 0.5,
+      -size.height * 0.6,
+      size.width * 1.4,
+      size.height * 1.1,
+    );
     canvas.drawPath(pathSecondary, paintSecondary);
 
-    Path pathPrimary = Path();
+    final pathPrimary = Path();
     pathPrimary.moveTo(-size.width * 0.1, size.height);
-    pathPrimary.quadraticBezierTo(size.width * 0.5, -size.height * 0.4, size.width * 1.2, size.height);
+    pathPrimary.quadraticBezierTo(
+      size.width * 0.5,
+      -size.height * 0.4,
+      size.width * 1.2,
+      size.height,
+    );
     canvas.drawPath(pathPrimary, paintPrimary);
   }
 

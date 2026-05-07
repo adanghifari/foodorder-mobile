@@ -1,20 +1,22 @@
 import 'package:flutter/material.dart';
 
-class KeranjangPage extends StatefulWidget {
-  const KeranjangPage({super.key});
+import '../../../app/app_routes.dart';
+
+class CartPage extends StatefulWidget {
+  const CartPage({super.key});
 
   @override
-  State<KeranjangPage> createState() => _KeranjangPageState();
+  State<CartPage> createState() => _CartPageState();
 }
 
-class _KeranjangPageState extends State<KeranjangPage> {
-  static const Color lightBrownColor = Color(0xFFC7985F);
-  static const Color whiteColor = Color(0xFFFFFFFF);
+class _CartPageState extends State<CartPage> {
+  static const Color _lightBrownColor = Color(0xFFC7985F);
+  static const Color _whiteColor = Color(0xFFFFFFFF);
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: whiteColor,
+      backgroundColor: _whiteColor,
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(
@@ -33,11 +35,11 @@ class _KeranjangPageState extends State<KeranjangPage> {
           ),
         ),
         centerTitle: true,
-        backgroundColor: whiteColor,
+        backgroundColor: _whiteColor,
         elevation: 0,
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -73,7 +75,7 @@ class _KeranjangPageState extends State<KeranjangPage> {
             _buildPaymentRow('Subtotal', 86000),
             _buildPaymentRow('Biaya Layanan', 5000),
             const Padding(
-              padding: EdgeInsets.symmetric(vertical: 8.0),
+              padding: EdgeInsets.symmetric(vertical: 8),
               child: Divider(thickness: 1),
             ),
             _buildPaymentRow('Total Pembayaran', 91000, isTotal: true),
@@ -82,9 +84,10 @@ class _KeranjangPageState extends State<KeranjangPage> {
               children: [
                 Expanded(
                   child: OutlinedButton(
-                    onPressed: () {},
+                    onPressed: () =>
+                        Navigator.pushNamed(context, AppRoutes.menu),
                     style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: lightBrownColor),
+                      side: const BorderSide(color: _lightBrownColor),
                       padding: const EdgeInsets.symmetric(vertical: 15),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -93,7 +96,7 @@ class _KeranjangPageState extends State<KeranjangPage> {
                     child: const Text(
                       'Tambah Item',
                       style: TextStyle(
-                        color: lightBrownColor,
+                        color: _lightBrownColor,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -102,16 +105,10 @@ class _KeranjangPageState extends State<KeranjangPage> {
                 const SizedBox(width: 15),
                 Expanded(
                   child: ElevatedButton(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const PembayaranPage(),
-                        ),
-                      );
-                    },
+                    onPressed: () =>
+                        Navigator.pushNamed(context, AppRoutes.payment),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: lightBrownColor,
+                      backgroundColor: _lightBrownColor,
                       padding: const EdgeInsets.symmetric(vertical: 15),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -137,7 +134,7 @@ class _KeranjangPageState extends State<KeranjangPage> {
 
   Widget _buildLabel(String text) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8.0),
+      padding: const EdgeInsets.only(bottom: 8),
       child: Text(
         text,
         style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
@@ -170,7 +167,7 @@ class _KeranjangPageState extends State<KeranjangPage> {
     required String imagePath,
     required String name,
     required String description,
-    required double price,
+    required int price,
     required int quantity,
   }) {
     return Container(
@@ -220,7 +217,7 @@ class _KeranjangPageState extends State<KeranjangPage> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      'Rp ${price.toInt()}',
+                      'Rp ${_idr(price)}',
                       style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                     Row(
@@ -250,14 +247,14 @@ class _KeranjangPageState extends State<KeranjangPage> {
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: lightBrownColor,
+        color: _lightBrownColor,
         borderRadius: BorderRadius.circular(6),
       ),
       child: Icon(icon, color: Colors.white, size: 16),
     );
   }
 
-  Widget _buildPaymentRow(String label, double amount, {bool isTotal = false}) {
+  Widget _buildPaymentRow(String label, int amount, {bool isTotal = false}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
@@ -271,7 +268,7 @@ class _KeranjangPageState extends State<KeranjangPage> {
             ),
           ),
           Text(
-            'Rp ${amount.toInt()}',
+            'Rp ${_idr(amount)}',
             style: TextStyle(
               fontSize: isTotal ? 16 : 14,
               fontWeight: isTotal ? FontWeight.bold : FontWeight.normal,
@@ -281,127 +278,9 @@ class _KeranjangPageState extends State<KeranjangPage> {
       ),
     );
   }
-}
 
-class PembayaranPage extends StatefulWidget {
-  const PembayaranPage({super.key});
-
-  @override
-  State<PembayaranPage> createState() => _PembayaranPageState();
-}
-
-class _PembayaranPageState extends State<PembayaranPage> {
-  String? _selectedMethod;
-  final Color primaryColor = const Color(0xFFC7985F);
-
-  void _showSuccessDialog() {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: primaryColor.withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(Icons.check, size: 50, color: primaryColor),
-            ),
-            const SizedBox(height: 20),
-            const Text(
-              'Pesanan Anda Berhasil',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () {
-                  Navigator.of(context).popUntil((route) => route.isFirst);
-                },
-                style: ElevatedButton.styleFrom(backgroundColor: primaryColor),
-                child: const Text(
-                  'Melanjutkan',
-                  style: TextStyle(color: Colors.white),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        title: const Text(
-          'Informasi Pembayaran',
-          style: TextStyle(color: Colors.black),
-        ),
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => Navigator.pop(context),
-        ),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          children: [
-            _buildRadioOption('Pilih Kartu', Icons.credit_card),
-            _buildRadioOption('Pembayaran Tunai', Icons.money),
-            const Spacer(),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _selectedMethod == null ? null : _showSuccessDialog,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: primaryColor,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                child: const Text(
-                  'Melanjutkan',
-                  style: TextStyle(color: Colors.white, fontSize: 16),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildRadioOption(String title, IconData icon) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 15),
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey.shade300),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: RadioListTile(
-        title: Row(
-          children: [
-            Icon(icon, color: primaryColor),
-            const SizedBox(width: 10),
-            Text(title),
-          ],
-        ),
-        value: title,
-        groupValue: _selectedMethod,
-        onChanged: (val) => setState(() => _selectedMethod = val as String),
-        activeColor: primaryColor,
-      ),
-    );
-  }
+  String _idr(int value) => value.toString().replaceAllMapped(
+    RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+    (m) => '${m[1]}.',
+  );
 }
