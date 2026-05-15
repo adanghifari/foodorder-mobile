@@ -1,17 +1,17 @@
 import 'package:flutter/material.dart';
 
-import '../../../app/app_routes.dart';
 import '../../../shared/widgets/app_back_button.dart';
-import 'auth_api_service.dart';
+import '../../../shared/widgets/app_notice.dart';
+import '../data/auth_api_service.dart';
 
-class RegisterScreen extends StatefulWidget {
-  const RegisterScreen({super.key});
+class RegisterPage extends StatefulWidget {
+  const RegisterPage({super.key});
 
   @override
-  State<RegisterScreen> createState() => _RegisterScreenState();
+  State<RegisterPage> createState() => _RegisterPageState();
 }
 
-class _RegisterScreenState extends State<RegisterScreen> {
+class _RegisterPageState extends State<RegisterPage> {
   static const Color primaryBrown = Color(0xFFA0522D);
 
   final _nameController = TextEditingController();
@@ -178,9 +178,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         email.isEmpty ||
         phone.isEmpty ||
         password.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Semua field wajib diisi.')),
-      );
+      AppNotice.show(context, 'Semua field wajib diisi.', type: AppNoticeType.error);
       return;
     }
 
@@ -194,15 +192,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
         password: password,
       );
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Registrasi berhasil. Silakan login.')),
+      AppNotice.show(
+        context,
+        'Registrasi berhasil. Silakan login.',
+        type: AppNoticeType.success,
       );
       Navigator.pop(context);
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Registrasi gagal: $e')),
-      );
+      AppNotice.show(context, 'Registrasi gagal: $e', type: AppNoticeType.error);
     } finally {
       if (mounted) {
         setState(() => _isSubmitting = false);

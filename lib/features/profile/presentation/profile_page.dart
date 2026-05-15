@@ -2,11 +2,12 @@ import 'package:flutter/material.dart';
 
 import '../../../../app/app_routes.dart';
 import '../../../../shared/widgets/app_back_button.dart';
-import '../../../auth/presentation/auth_session.dart';
+import '../../../../shared/widgets/app_bottom_nav_bar.dart';
+import '../../auth/data/auth_session.dart';
+import '../../landing/data/order_type_session.dart';
 import 'favorit_page.dart';
 import 'pengaturan_page.dart';
-import 'profile_api_service.dart';
-import 'struk_page.dart';
+import '../data/profile_api_service.dart';
 import 'tentang_page.dart';
 
 class ProfilePage extends StatefulWidget {
@@ -21,6 +22,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
   bool _isLoading = true;
   String? _error;
+  bool _requireLogin = false;
   ProfileUserDto? _user;
 
   @override
@@ -33,6 +35,7 @@ class _ProfilePageState extends State<ProfilePage> {
     setState(() {
       _isLoading = true;
       _error = null;
+      _requireLogin = false;
     });
 
     try {
@@ -44,8 +47,12 @@ class _ProfilePageState extends State<ProfilePage> {
       });
     } catch (e) {
       if (!mounted) return;
+      final message = e.toString();
       setState(() {
-        _error = e.toString();
+        _error = _isUnauthorizedMessage(message)
+            ? 'Anda belum login. Silakan login terlebih dahulu untuk melihat profil.'
+            : message;
+        _requireLogin = _isUnauthorizedMessage(message);
         _isLoading = false;
       });
     }
@@ -55,6 +62,14 @@ class _ProfilePageState extends State<ProfilePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFFFFFFF),
+      bottomNavigationBar: AppBottomNavBar(
+        activeItem: AppBottomNavItem.account,
+        onHomeTap: () => Navigator.pushNamed(context, AppRoutes.landing),
+        onMenuTap: () => Navigator.pushNamed(context, AppRoutes.menu),
+        onScanTap: () => Navigator.pushNamed(context, AppRoutes.scan),
+        onHistoryTap: () => Navigator.pushNamed(context, AppRoutes.orderHistory),
+        onAccountTap: () {},
+      ),
       body: Stack(
         children: [
           Container(
@@ -146,18 +161,30 @@ class _ProfilePageState extends State<ProfilePage> {
       return Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.error_outline, color: Colors.redAccent),
+          Icon(
+            _requireLogin ? Icons.lock_outline : Icons.error_outline,
+            color: _requireLogin ? const Color(0xFF9C9C9C) : Colors.redAccent,
+          ),
           const SizedBox(height: 8),
           Text(
             _error!,
             textAlign: TextAlign.center,
-            style: const TextStyle(color: Colors.redAccent, fontSize: 12),
+            style: TextStyle(
+              color: _requireLogin ? const Color(0xFF666666) : Colors.redAccent,
+              fontSize: 12,
+            ),
           ),
           const SizedBox(height: 8),
-          ElevatedButton(
-            onPressed: _loadProfile,
-            child: const Text('Coba lagi'),
-          ),
+          if (_requireLogin)
+            ElevatedButton(
+              onPressed: () => Navigator.pushNamed(context, AppRoutes.login),
+              child: const Text('Login'),
+            )
+          else
+            ElevatedButton(
+              onPressed: _loadProfile,
+              child: const Text('Coba lagi'),
+            ),
         ],
       );
     }
@@ -216,10 +243,19 @@ class _ProfilePageState extends State<ProfilePage> {
         const Divider(thickness: 1, color: Color(0xFFEEEEEE)),
         _buildMenuTile(
           context,
-          icon: Icons.assignment_outlined,
-          title: 'Pesanan saya',
+          icon: Icons.receipt_long_outlined,
+          title: 'Riwayat Pembayaran',
           destination: null,
           namedRoute: AppRoutes.orderHistory,
+          routeArguments: const {'tab': 'payment'},
+        ),
+        _buildMenuTile(
+          context,
+          icon: Icons.assignment_outlined,
+          title: 'Riwayat Pesanan',
+          destination: null,
+          namedRoute: AppRoutes.orderHistory,
+          routeArguments: const {'tab': 'order'},
         ),
         _buildMenuTile(
           context,
@@ -229,25 +265,28 @@ class _ProfilePageState extends State<ProfilePage> {
         ),
         _buildMenuTile(
           context,
-          icon: Icons.receipt_long_outlined,
-          title: 'Struk',
-          destination: const StrukPage(),
-        ),
-        _buildMenuTile(
-          context,
           icon: Icons.info_outline,
           title: 'Tentang',
           destination: const TentangPage(),
         ),
         _buildMenuTile(
           context,
-          icon: Icons.exit_to_app,
-          title: 'Keluar',
+          icon: Icons.smart_toy_outlined,
+          title: 'KedaiBot',
           destination: null,
+          namedRoute: AppRoutes.chat,
           isLast: true,
         ),
       ],
     );
+  }
+
+  bool _isUnauthorizedMessage(String message) {
+    final raw = message.toLowerCase();
+    return raw.contains('401') ||
+        raw.contains('unauthorized') ||
+        raw.contains('unauth') ||
+        raw.contains('belum login');
   }
 
   Widget _buildMenuTile(
@@ -256,6 +295,7 @@ class _ProfilePageState extends State<ProfilePage> {
     required String title,
     required Widget? destination,
     String? namedRoute,
+    Object? routeArguments,
     bool isLast = false,
   }) {
     return Column(
@@ -281,17 +321,21 @@ class _ProfilePageState extends State<ProfilePage> {
           onTap: () async {
             if (title == 'Keluar') {
               await AuthSession.clear();
+              await OrderTypeSession.clear();
               if (!context.mounted) return;
-              Navigator.pushNamedAndRemoveUntil(
+              Navigator.pushReplacementNamed(
                 context,
                 AppRoutes.login,
-                (route) => false,
               );
               return;
             }
 
             if (namedRoute != null) {
-              Navigator.pushNamed(context, namedRoute);
+              Navigator.pushNamed(
+                context,
+                namedRoute,
+                arguments: routeArguments,
+              );
             } else if (destination != null) {
               Navigator.push(
                 context,

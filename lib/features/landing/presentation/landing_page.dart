@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
+import 'package:dio/dio.dart';
 
 import '../../../app/app_routes.dart';
+import '../../auth/data/auth_session.dart';
+import '../../cart/data/cart_api_service.dart';
 import 'order_type_picker_page.dart';
-import 'landing_top_menu_service.dart';
+import '../data/order_type_session.dart';
+import '../data/landing_top_menu_service.dart';
 import '../../../shared/widgets/app_bottom_nav_bar.dart';
+import '../../../shared/widgets/app_notice.dart';
 
 class LandingPage extends StatefulWidget {
   const LandingPage({super.key});
@@ -14,42 +19,62 @@ class LandingPage extends StatefulWidget {
   State<LandingPage> createState() => _LandingPageState();
 }
 
-class _LandingPageState extends State<LandingPage> {
+class _LandingPageState extends State<LandingPage>
+    with WidgetsBindingObserver {
   final LandingTopMenuService _topMenuService = LandingTopMenuService();
+  final CartApiService _cartApiService = CartApiService();
   late List<_LandingMenuCardData> _menuCards;
   bool _isFromBackend = false;
   String? _loadError;
+  bool _isLoggedIn = false;
+  String _username = 'Pengguna';
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _menuCards = _fallbackMenus;
     _loadTopMenus();
+    _loadAuthState();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _loadAuthState();
+    }
   }
 
   static const Color _bg = Color(0xFFF2F2F2);
   static const Color _textDark = Color(0xFF343434);
   static const Color _accent = Color(0xFFD45A00);
   static const Color _accentDark = Color(0xFF7E3511);
-  static const bool _isLoggedIn = bool.fromEnvironment(
-    'IS_LOGGED_IN',
-    defaultValue: false,
-  );
-
   static const List<_LandingMenuCardData> _fallbackMenus = [
     _LandingMenuCardData(
+      id: '',
+      stock: 0,
       name: 'Gudeg Juara',
       imageUrl: '',
       description:
           'Manis-gurih autentik, dimasak perlahan dengan santan kental dan rempah pilihan.',
     ),
     _LandingMenuCardData(
+      id: '',
+      stock: 0,
       name: 'Ayam Bakar',
       imageUrl: '',
       description:
           'Ayam ungkep bumbu tradisional, dibakar sempurna dengan aroma smokey menggugah selera',
     ),
     _LandingMenuCardData(
+      id: '',
+      stock: 0,
       name: 'Ayam Geprek',
       imageUrl: '',
       description:
@@ -67,6 +92,8 @@ class _LandingPageState extends State<LandingPage> {
       final mapped = topMenus
           .map(
             (item) => _LandingMenuCardData(
+              id: item.id,
+              stock: item.stock,
               name: item.name,
               description: item.description,
               imageUrl: item.imageUrl,
@@ -94,6 +121,47 @@ class _LandingPageState extends State<LandingPage> {
     }
   }
 
+  Future<void> _loadAuthState() async {
+    final token = await AuthSession.getToken();
+    if (!mounted) return;
+
+    if (token == null || token.isEmpty) {
+      setState(() {
+        _isLoggedIn = false;
+        _username = 'Pengguna';
+      });
+      return;
+    }
+
+    setState(() => _isLoggedIn = true);
+
+    try {
+      const apiFromEnv = String.fromEnvironment('API_BASE_URL', defaultValue: '');
+      final baseUrl = apiFromEnv.isNotEmpty
+          ? apiFromEnv
+          : (kIsWeb ? 'http://127.0.0.1:8000/api' : 'http://192.168.1.5:8000/api');
+      final dio = Dio(
+        BaseOptions(
+          connectTimeout: const Duration(seconds: 10),
+          receiveTimeout: const Duration(seconds: 15),
+          headers: const {'Accept': 'application/json'},
+        ),
+      );
+      final response = await dio.get<Map<String, dynamic>>(
+        '$baseUrl/v1/auth/me',
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
+      );
+      if (!mounted) return;
+      final data = response.data?['data'] as Map<String, dynamic>? ?? const {};
+      final username = (data['username'] ?? data['name'] ?? 'Pengguna').toString();
+      setState(() {
+        _username = username;
+      });
+    } catch (_) {
+      // Keep landing usable even if profile fetch fails.
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -102,12 +170,7 @@ class _LandingPageState extends State<LandingPage> {
         activeItem: AppBottomNavItem.home,
         onHomeTap: () {},
         onMenuTap: () => Navigator.pushNamed(context, AppRoutes.menu),
-        onScanTap: () => ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Fitur scan akan segera tersedia.'),
-            duration: Duration(seconds: 1),
-          ),
-        ),
+        onScanTap: () => Navigator.pushNamed(context, AppRoutes.scan),
         onHistoryTap: () =>
             Navigator.pushNamed(context, AppRoutes.orderHistory),
         onAccountTap: () => Navigator.pushNamed(context, AppRoutes.profile),
@@ -121,12 +184,15 @@ class _LandingPageState extends State<LandingPage> {
               children: [
                 _buildHero(context),
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(22, 20, 22, 30),
+                  padding: const EdgeInsets.fromLTRB(22, 0, 22, 30),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _buildTopOptionRow(context),
-                      const SizedBox(height: 22),
+                    Transform.translate(
+                     offset: const Offset(0, -30), // coba -12, -16, atau -20
+                     child: _buildTopOptionRow(context),
+                      ),
+                      const SizedBox(height: 0),
                       _buildSectionTitle(),
                       const SizedBox(height: 18),
                       _buildMenuGrid(context),
@@ -146,15 +212,15 @@ class _LandingPageState extends State<LandingPage> {
 
   Widget _buildHero(BuildContext context) {
     return SizedBox(
-      height: 312,
+      height: 362,
       child: Stack(
         children: [
           Container(color: const Color(0xFFEAEAEA)),
           Positioned(
-            left: 24,
-            bottom: 132,
+            left: -10,
+            bottom: 165,
             child: SizedBox(
-              width: 175,
+              width: 240,
               child: Image.asset(
                 'assets/foto katalog/logobaru.png',
                 fit: BoxFit.contain,
@@ -163,7 +229,7 @@ class _LandingPageState extends State<LandingPage> {
           ),
           const Positioned(
             left: 24,
-            bottom: 92,
+            bottom: 140,
             child: Text(
               '100% Tasty',
               style: TextStyle(
@@ -176,7 +242,7 @@ class _LandingPageState extends State<LandingPage> {
           ),
           const Positioned(
             left: 24,
-            bottom: 72,
+            bottom: 120,
             child: Text(
               'Rasa Juara, Pesan Cuma Pakai Klik!',
               style: TextStyle(
@@ -188,7 +254,7 @@ class _LandingPageState extends State<LandingPage> {
           ),
           Positioned(
             right: -40,
-            bottom: -5,
+            bottom: 30,
             child: Transform.rotate(
               angle: -0.42,
               child: Image.asset(
@@ -201,43 +267,78 @@ class _LandingPageState extends State<LandingPage> {
           Positioned(
             left: 0,
             right: 0,
-            bottom: 0,
+            bottom: 50,
             child: CustomPaint(
               size: const Size(double.infinity, 64),
               painter: _HeroWavePainter(),
             ),
           ),
-          if (!_isLoggedIn)
-            Positioned(
-              top: 16,
-              right: 16,
-              child: Material(
-                elevation: 5,
-                borderRadius: BorderRadius.circular(10),
-                child: OutlinedButton(
-                  onPressed: () =>
-                      Navigator.pushNamed(context, AppRoutes.login),
-                  style: OutlinedButton.styleFrom(
-                    backgroundColor: _accent,
-                    foregroundColor: Colors.white,
-                    side: BorderSide.none,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 8,
-                    ),
-                    textStyle: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
+          Positioned(
+            top: 16,
+            left: 16,
+            child: _isLoggedIn
+                ? Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    decoration: BoxDecoration(
                       color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x22000000),
+                          blurRadius: 10,
+                          offset: Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const CircleAvatar(
+                          radius: 14,
+                          backgroundImage: AssetImage('assets/slices_ui/fotoprofile.jpg'),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Hai! $_username',
+                          style: const TextStyle(
+                            color: _textDark,
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                : Material(
+                    elevation: 5,
+                    borderRadius: BorderRadius.circular(10),
+                    child: OutlinedButton(
+                      onPressed: () async {
+                        await Navigator.pushNamed(context, AppRoutes.login);
+                        if (!mounted) return;
+                        await _loadAuthState();
+                      },
+                      style: OutlinedButton.styleFrom(
+                        backgroundColor: _accent,
+                        foregroundColor: Colors.white,
+                        side: BorderSide.none,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 8,
+                        ),
+                        textStyle: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
+                      ),
+                      child: const Text('Sign In'),
                     ),
                   ),
-                  child: const Text('Sign In'),
-                ),
-              ),
-            ),
+          ),
         ],
       ),
     );
@@ -292,24 +393,15 @@ class _LandingPageState extends State<LandingPage> {
       childAspectRatio: 0.64,
       children: [
         ..._menuCards.map(
-          (menu) => _menuCard(
-            context,
-            name: menu.name,
-            imageUrl: menu.imageUrl,
-            description: menu.description,
-          ),
+          (menu) => _menuCard(context, menu: menu),
         ),
         _othersCard(context),
       ],
     );
   }
 
-  Widget _menuCard(
-    BuildContext context, {
-    required String name,
-    required String imageUrl,
-    required String description,
-  }) {
+  Widget _menuCard(BuildContext context, {required _LandingMenuCardData menu}) {
+    final isOutOfStock = menu.stock < 1;
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
       decoration: BoxDecoration(
@@ -329,9 +421,9 @@ class _LandingPageState extends State<LandingPage> {
             borderRadius: BorderRadius.circular(12),
             child: AspectRatio(
               aspectRatio: 1.28,
-              child: imageUrl.isNotEmpty
+              child: menu.imageUrl.isNotEmpty
                   ? Image.network(
-                      imageUrl,
+                      menu.imageUrl,
                       fit: BoxFit.cover,
                       errorBuilder: (_, __, ___) => Image.asset(
                         'assets/foto katalog/Gudeg.jpg',
@@ -346,7 +438,7 @@ class _LandingPageState extends State<LandingPage> {
           ),
           const SizedBox(height: 12),
           Text(
-            name,
+            menu.name,
             style: const TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w800,
@@ -356,7 +448,7 @@ class _LandingPageState extends State<LandingPage> {
           const SizedBox(height: 10),
           Expanded(
             child: Text(
-              description,
+              menu.description,
               textAlign: TextAlign.center,
               style: const TextStyle(
                 color: Color(0xFF6C6C6C),
@@ -371,7 +463,7 @@ class _LandingPageState extends State<LandingPage> {
             width: 92,
             height: 34,
             child: OutlinedButton(
-              onPressed: () => _openOrderTypePicker(context),
+              onPressed: () => _handleTopMenuOrder(context, menu),
               style: OutlinedButton.styleFrom(
                 side: const BorderSide(color: Color(0xFF4D554D), width: 2),
                 shape: RoundedRectangleBorder(
@@ -379,10 +471,12 @@ class _LandingPageState extends State<LandingPage> {
                 ),
                 padding: EdgeInsets.zero,
               ),
-              child: const Text(
-                'Pesan',
+              child: Text(
+                isOutOfStock ? 'Habis' : 'Pesan',
                 style: TextStyle(
-                  color: Color(0xFF4D554D),
+                  color: isOutOfStock
+                      ? const Color(0xFF9CA3AF)
+                      : const Color(0xFF4D554D),
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
                 ),
@@ -467,6 +561,7 @@ class _LandingPageState extends State<LandingPage> {
             context,
             icon: Icons.restaurant,
             label: 'Makan\nditempat',
+            orderType: OrderType.dineIn,
           ),
         ),
         const SizedBox(width: 12),
@@ -475,6 +570,7 @@ class _LandingPageState extends State<LandingPage> {
             context,
             icon: Icons.storefront,
             label: 'Ambil ke\nresto',
+            orderType: OrderType.pickup,
           ),
         ),
       ],
@@ -485,10 +581,11 @@ class _LandingPageState extends State<LandingPage> {
     BuildContext context, {
     required IconData icon,
     required String label,
+    required OrderType orderType,
   }) {
     return InkWell(
       borderRadius: BorderRadius.circular(14),
-      onTap: () => Navigator.pushNamed(context, AppRoutes.menu),
+      onTap: () => _selectOrderTypeAndGo(context, orderType),
       child: Container(
         height: 86,
         padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -530,6 +627,139 @@ class _LandingPageState extends State<LandingPage> {
         ),
       ),
     );
+  }
+
+  Future<void> _selectOrderTypeAndGo(
+    BuildContext context,
+    OrderType orderType,
+  ) async {
+    await OrderTypeSession.set(orderType);
+    if (!context.mounted) return;
+    Navigator.pushNamed(context, AppRoutes.menu);
+  }
+
+  Future<OrderType?> _pickOrderType(BuildContext context) async {
+    return showModalBottomSheet<OrderType>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+      ),
+      builder: (sheetContext) {
+        return SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Pilih Tipe Pesanan',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    color: _textDark,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                ListTile(
+                  leading: const Icon(Icons.restaurant, color: _accent),
+                  title: const Text('Makan di tempat'),
+                  onTap: () => Navigator.pop(sheetContext, OrderType.dineIn),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.storefront, color: _accent),
+                  title: const Text('Ambil ke resto'),
+                  onTap: () => Navigator.pop(sheetContext, OrderType.pickup),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _handleTopMenuOrder(
+    BuildContext context,
+    _LandingMenuCardData menu,
+  ) async {
+    if (menu.stock < 1) {
+      AppNotice.show(
+        context,
+        'Stok ${menu.name} sedang habis.',
+        type: AppNoticeType.error,
+      );
+      return;
+    }
+    if (menu.id.trim().isEmpty) {
+      AppNotice.show(
+        context,
+        'Menu ini belum tersedia untuk pesan cepat.',
+        type: AppNoticeType.info,
+      );
+      return;
+    }
+
+    final token = await AuthSession.getToken();
+    if (token == null || token.isEmpty) {
+      if (!mounted) return;
+      final loginSuccess = await Navigator.pushNamed(
+        context,
+        AppRoutes.login,
+        arguments: const {'returnToPrevious': true},
+      );
+      if (!mounted || loginSuccess != true) return;
+    }
+
+    if (!mounted) return;
+    final orderType = await _pickOrderType(context);
+    if (orderType == null) return;
+    await OrderTypeSession.set(orderType);
+
+    try {
+      final currentItems = await _cartApiService.getCartItems();
+      final existingQty = currentItems
+          .where((e) => e.menuId == menu.id)
+          .fold<int>(0, (sum, e) => sum + e.quantity);
+      await _cartApiService.setItemQuantity(
+        menuItemId: menu.id,
+        quantity: existingQty + 1,
+      );
+      if (!mounted) return;
+      AppNotice.show(
+        context,
+        '${menu.name} masuk ke keranjang.',
+        type: AppNoticeType.success,
+      );
+      Navigator.pushNamed(context, AppRoutes.cart);
+    } catch (e) {
+      if (!mounted) return;
+      final raw = e.toString().toLowerCase();
+      final isUnauthorized = raw.contains('401') ||
+          raw.contains('unauth') ||
+          raw.contains('belum login') ||
+          raw.contains('unauthorized');
+      if (isUnauthorized) {
+        await _showLoginRequiredPopup(context);
+      } else {
+        AppNotice.show(context, '$e', type: AppNoticeType.error);
+      }
+    }
+  }
+
+  Future<void> _showLoginRequiredPopup(BuildContext context) async {
+    final shouldLogin = await AppNotice.confirm(
+      context,
+      type: AppNoticeType.info,
+      bodyTitle: 'Login Diperlukan',
+      message:
+          'Anda belum login. Silakan login terlebih dahulu untuk melanjutkan pesanan.',
+      confirmLabel: 'Login',
+    );
+
+    if (!mounted || shouldLogin != true) return;
+    Navigator.pushNamed(context, AppRoutes.login);
   }
 
   Widget _buildBottomInfo() {
@@ -578,11 +808,15 @@ class _LandingPageState extends State<LandingPage> {
 
 class _LandingMenuCardData {
   const _LandingMenuCardData({
+    required this.id,
+    required this.stock,
     required this.name,
     required this.imageUrl,
     required this.description,
   });
 
+  final String id;
+  final int stock;
   final String name;
   final String imageUrl;
   final String description;

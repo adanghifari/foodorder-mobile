@@ -1,7 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
-import '../../auth/presentation/auth_session.dart';
+import '../../auth/data/auth_session.dart';
 
 class CartItemDto {
   const CartItemDto({
@@ -45,6 +45,14 @@ class CartApiService {
     return kIsWeb ? 'http://127.0.0.1:8000/api' : 'http://192.168.1.5:8000/api';
   }
 
+  String get _assetBaseUrl {
+    final api = _apiBaseUrl;
+    if (api.endsWith('/api')) {
+      return api.substring(0, api.length - 4);
+    }
+    return api;
+  }
+
   Future<List<CartItemDto>> getCartItems() async {
     final token = await _requireToken();
     try {
@@ -56,6 +64,12 @@ class CartApiService {
       final rows = map['data'] as List<dynamic>? ?? const [];
       return rows.map((row) {
         final item = row as Map<String, dynamic>;
+        final rawImage = (item['imageUrl'] ??
+                item['image_url'] ??
+                item['image'] ??
+                item['photo'] ??
+                '')
+            .toString();
         return CartItemDto(
           menuId: (item['menuId'] ?? '').toString(),
           name: (item['name'] ?? '').toString(),
@@ -63,7 +77,7 @@ class CartApiService {
           price: _toInt(item['price']),
           quantity: _toInt(item['quantity']),
           subtotal: _toInt(item['subtotal']),
-          imageUrl: (item['imageUrl'] ?? '').toString(),
+          imageUrl: _normalizeImageUrl(rawImage),
         );
       }).toList();
     } on DioException catch (e) {
@@ -100,12 +114,16 @@ class CartApiService {
     }
   }
 
-  Future<String> checkout({required int tableNumber}) async {
+  Future<String> checkout({required String orderType, int? tableNumber}) async {
     final token = await _requireToken();
     try {
+      final payload = <String, dynamic>{'orderType': orderType};
+      if (tableNumber != null) {
+        payload['tableNumber'] = tableNumber;
+      }
       final response = await _dio.post<Map<String, dynamic>>(
         '$_apiBaseUrl/v1/cart/checkout',
-        data: {'tableNumber': tableNumber},
+        data: payload,
         options: Options(headers: {'Authorization': 'Bearer $token'}),
       );
       final map = response.data ?? const <String, dynamic>{};
@@ -116,12 +134,19 @@ class CartApiService {
     }
   }
 
-  Future<String?> createPayment({required String orderId}) async {
+  Future<String?> createPayment({
+    required String orderId,
+    String? finishRedirectUrl,
+  }) async {
     final token = await _requireToken();
     try {
+      final payload = <String, dynamic>{'order_id': orderId};
+      if (finishRedirectUrl != null && finishRedirectUrl.isNotEmpty) {
+        payload['finish_redirect_url'] = finishRedirectUrl;
+      }
       final response = await _dio.post<Map<String, dynamic>>(
         '$_apiBaseUrl/v1/payments/create',
-        data: {'order_id': orderId},
+        data: payload,
         options: Options(headers: {'Authorization': 'Bearer $token'}),
       );
       final map = response.data ?? const <String, dynamic>{};
@@ -160,5 +185,15 @@ class CartApiService {
       return 'HTTP $statusCode: ${e.message ?? 'Request gagal'}';
     }
     return e.message ?? 'Tidak bisa terhubung ke server';
+  }
+
+  String _normalizeImageUrl(String raw) {
+    final value = raw.trim();
+    if (value.isEmpty) return '';
+    final uri = Uri.tryParse(value);
+    if (uri != null && uri.hasScheme) return value;
+
+    final normalized = value.startsWith('/') ? value : '/$value';
+    return '$_assetBaseUrl$normalized';
   }
 }

@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../../../app/app_routes.dart';
-import 'cart_api_service.dart';
+import '../../../shared/widgets/app_notice.dart';
+import '../../landing/data/order_type_session.dart';
+import '../../payment/presentation/midtrans_webview_page.dart';
+import '../data/cart_api_service.dart';
 
 class CartPage extends StatefulWidget {
   const CartPage({super.key});
@@ -13,22 +16,32 @@ class CartPage extends StatefulWidget {
 class _CartPageState extends State<CartPage> {
   static const Color _lightBrownColor = Color(0xFFC7985F);
   static const Color _whiteColor = Color(0xFFFFFFFF);
+  static const int _serviceFee = 5000;
 
   final CartApiService _cartApiService = CartApiService();
   final TextEditingController _tableController = TextEditingController();
   final Set<String> _updatingMenuIds = <String>{};
+  static const String _mobileFinishRedirectUrl =
+      'https://mobile.kedaiklik.app/payment-finish';
 
   bool _isLoading = true;
   bool _isSubmitting = false;
   String? _error;
+  OrderType? _orderType;
   List<CartItemDto> _items = const [];
 
   int get _subtotal => _items.fold(0, (sum, e) => sum + e.subtotal);
+  int get _totalPayment => _subtotal + _serviceFee;
 
   @override
   void initState() {
     super.initState();
-    _loadCart();
+    _initPage();
+  }
+
+  Future<void> _initPage() async {
+    _orderType = await OrderTypeSession.get();
+    await _loadCart();
   }
 
   @override
@@ -76,7 +89,7 @@ class _CartPageState extends State<CartPage> {
       await _loadCart();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+      AppNotice.show(context, '$e', type: AppNoticeType.error);
     } finally {
       if (mounted) {
         setState(() => _updatingMenuIds.remove(item.menuId));
@@ -85,42 +98,67 @@ class _CartPageState extends State<CartPage> {
   }
 
   Future<void> _payNow() async {
-    final tableNumber = int.tryParse(_tableController.text.trim());
-    if (tableNumber == null || tableNumber < 1) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Nomor meja wajib diisi dengan benar.')),
+    final orderType = _orderType;
+    if (orderType == null) {
+      AppNotice.show(
+        context,
+        'Pilih tipe pesanan terlebih dahulu.',
+        type: AppNoticeType.error,
       );
       return;
     }
+
+    int? tableNumber;
+    if (orderType == OrderType.dineIn) {
+      tableNumber = int.tryParse(_tableController.text.trim());
+      if (tableNumber == null || tableNumber < 1) {
+        AppNotice.show(
+          context,
+          'Nomor meja wajib diisi dengan benar.',
+          type: AppNoticeType.error,
+        );
+        return;
+      }
+    }
     if (_items.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Keranjang masih kosong.')));
+      AppNotice.show(context, 'Keranjang masih kosong.', type: AppNoticeType.error);
       return;
     }
 
     setState(() => _isSubmitting = true);
     try {
-      final orderId = await _cartApiService.checkout(tableNumber: tableNumber);
-      final redirectUrl = await _cartApiService.createPayment(orderId: orderId);
+      final orderId = await _cartApiService.checkout(
+        orderType: OrderTypeSession.toApiValue(orderType),
+        tableNumber: tableNumber,
+      );
+      final redirectUrl = await _cartApiService.createPayment(
+        orderId: orderId,
+        finishRedirectUrl: _mobileFinishRedirectUrl,
+      );
       if (!mounted) return;
-      await showDialog<void>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Pembayaran Dibuat'),
-          content: Text(
-            redirectUrl == null || redirectUrl.isEmpty
-                ? 'Transaksi berhasil dibuat.'
-                : 'Transaksi berhasil dibuat.\n\nLanjutkan pembayaran di URL ini:\n$redirectUrl',
+      if (redirectUrl == null || redirectUrl.isEmpty) {
+        throw Exception('URL pembayaran Midtrans tidak tersedia.');
+      }
+
+      if (Uri.tryParse(redirectUrl) == null) {
+        throw Exception('URL pembayaran Midtrans tidak valid.');
+      }
+
+      final finished = await Navigator.push<bool>(
+        context,
+        MaterialPageRoute<bool>(
+          builder: (_) => MidtransWebViewPage(
+            url: redirectUrl,
+            finishRedirectUrl: _mobileFinishRedirectUrl,
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Tutup'),
-            ),
-          ],
         ),
       );
+
+      if (finished != true) {
+        return;
+      }
+
+      await OrderTypeSession.clear();
       await _loadCart();
       if (!mounted) return;
       Navigator.pushNamedAndRemoveUntil(
@@ -130,14 +168,23 @@ class _CartPageState extends State<CartPage> {
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$e'), backgroundColor: Colors.redAccent),
-      );
+      AppNotice.show(context, '$e', type: AppNoticeType.error);
     } finally {
       if (mounted) {
         setState(() => _isSubmitting = false);
       }
     }
+  }
+
+  Future<void> _onOrderTypeChanged(OrderType? value) async {
+    if (value == null) return;
+    setState(() {
+      _orderType = value;
+      if (value != OrderType.dineIn) {
+        _tableController.clear();
+      }
+    });
+    await OrderTypeSession.set(value);
   }
 
   @override
@@ -223,8 +270,102 @@ class _CartPageState extends State<CartPage> {
             ),
           ),
           const SizedBox(height: 15),
-          _buildLabel('Nomor Meja'),
-          _buildTextField(controller: _tableController, hintText: 'Contoh: 7'),
+          _buildLabel('Tipe Pesanan'),
+          Container(
+            height: 52,
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey.shade300),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.03),
+                  blurRadius: 8,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<OrderType>(
+                value: _orderType,
+                isExpanded: true,
+                itemHeight: 56,
+                menuMaxHeight: 220,
+                borderRadius: BorderRadius.circular(12),
+                icon: const Icon(
+                  Icons.keyboard_arrow_down_rounded,
+                  color: Color(0xFF6B7280),
+                ),
+                hint: const Text(
+                  'Pilih tipe pesanan',
+                  style: TextStyle(
+                    color: Color(0xFF9CA3AF),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                style: const TextStyle(
+                  color: Color(0xFF1F2937),
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+                selectedItemBuilder: (context) => const [
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text('Makan di tempat'),
+                  ),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text('Ambil ke resto'),
+                  ),
+                ],
+                items: [
+                  DropdownMenuItem<OrderType>(
+                    value: OrderType.dineIn,
+                    child: Container(
+                      height: 56,
+                      alignment: Alignment.centerLeft,
+                      decoration: const BoxDecoration(
+                        border: Border(
+                          bottom: BorderSide(
+                            color: Color(0xFFD1D5DB),
+                            width: 1.6,
+                          ),
+                        ),
+                      ),
+                      child: const Row(
+                        children: [
+                          Icon(Icons.restaurant, size: 18, color: Color(0xFFC7985F)),
+                          SizedBox(width: 10),
+                          Text('Makan di tempat'),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const DropdownMenuItem<OrderType>(
+                    value: OrderType.pickup,
+                    child: Row(
+                      children: [
+                        Icon(Icons.storefront, size: 18, color: Color(0xFFC7985F)),
+                        SizedBox(width: 10),
+                        Text('Ambil ke resto'),
+                      ],
+                    ),
+                  ),
+                ],
+                onChanged: (value) => _onOrderTypeChanged(value),
+              ),
+            ),
+          ),
+          if (_orderType == OrderType.dineIn) ...[
+            const SizedBox(height: 14),
+            _buildLabel('Nomor Meja'),
+            _buildTextField(
+              controller: _tableController,
+              hintText: 'Contoh: 7',
+            ),
+          ],
           const SizedBox(height: 30),
           const Text(
             'Detail Pembayaran',
@@ -232,12 +373,12 @@ class _CartPageState extends State<CartPage> {
           ),
           const SizedBox(height: 15),
           _buildPaymentRow('Subtotal', _subtotal),
-          _buildPaymentRow('Biaya Layanan', 0),
+          _buildPaymentRow('Biaya Layanan', _serviceFee),
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 8),
             child: Divider(thickness: 1),
           ),
-          _buildPaymentRow('Total Pembayaran', _subtotal, isTotal: true),
+          _buildPaymentRow('Total Pembayaran', _totalPayment, isTotal: true),
           const SizedBox(height: 30),
           Row(
             children: [

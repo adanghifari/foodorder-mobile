@@ -15,7 +15,7 @@ class AppBottomNavBar extends StatelessWidget {
 
   static const Color _accent = Color(0xFFD45A00);
   static const Color _navText = Color(0xFF6A6A6A);
-  static const double _scanButtonSize = 92;
+  static const double _scanButtonSize = 82;
 
   final AppBottomNavItem activeItem;
   final VoidCallback onHomeTap;
@@ -90,7 +90,7 @@ class AppBottomNavBar extends StatelessWidget {
           Positioned(
             left: 0,
             right: 0,
-            top: -30,
+            top: -24,
             child: Center(
               child: GestureDetector(
                 onTap: onScanTap,
@@ -114,7 +114,7 @@ class AppBottomNavBar extends StatelessWidget {
                       Icon(
                         Icons.qr_code_scanner_rounded,
                         color: Colors.white,
-                        size: 34,
+                        size: 30,
                       ),
                     ],
                   ),
@@ -160,7 +160,7 @@ class AppBottomNavBar extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       child: const Padding(
-        padding: EdgeInsets.only(top: 56),
+        padding: EdgeInsets.only(top: 52),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [

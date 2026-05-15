@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 
 import '../../../app/app_routes.dart';
-import '../../auth/presentation/auth_session.dart';
-import '../../cart/presentation/cart_api_service.dart';
+import '../../auth/data/auth_session.dart';
+import '../../cart/data/cart_api_service.dart';
+import '../../landing/presentation/order_type_picker_page.dart';
+import '../../landing/data/order_type_session.dart';
 import '../../../shared/widgets/app_back_button.dart';
-import 'menu_api_service.dart';
+import '../../../shared/widgets/app_bottom_nav_bar.dart';
+import '../../../shared/widgets/app_notice.dart';
+import '../data/menu_api_service.dart';
 
 class MenuPage extends StatefulWidget {
   const MenuPage({super.key});
@@ -18,6 +22,7 @@ class _MenuPageState extends State<MenuPage> {
   final CartApiService _cartApiService = CartApiService();
 
   int cartCount = 0;
+  int _cartTotal = 0;
   String activeTab = 'Semua';
   String _query = '';
   bool _isLoading = true;
@@ -49,6 +54,12 @@ class _MenuPageState extends State<MenuPage> {
   void initState() {
     super.initState();
     _loadMenus();
+  }
+
+  @override
+  void dispose() {
+    OrderTypeSession.clear();
+    super.dispose();
   }
 
   Future<void> _loadMenus() async {
@@ -93,9 +104,7 @@ class _MenuPageState extends State<MenuPage> {
     if (!mounted) return;
     final menuId = menu.id.trim();
     if (menuId.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Menu tidak valid. Silakan refresh.')),
-      );
+      AppNotice.show(context, 'Menu tidak valid. Silakan refresh.', type: AppNoticeType.error);
       return;
     }
 
@@ -110,17 +119,19 @@ class _MenuPageState extends State<MenuPage> {
       setState(() {
         _itemQty[key] = next;
         cartCount += 1;
+        _cartTotal += menu.price;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Berhasil ditambah!'),
-          duration: Duration(seconds: 1),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      AppNotice.show(context, 'Berhasil ditambah!', type: AppNoticeType.success);
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+      final isUnauthorized = _isUnauthorizedError(e);
+      if (isUnauthorized) {
+        final shouldLogin = await _showLoginRequiredDialog();
+        if (!mounted || !shouldLogin) return;
+        await Navigator.pushNamed(context, AppRoutes.login);
+        return;
+      }
+      AppNotice.show(context, '$e', type: AppNoticeType.error);
     } finally {
       if (mounted) {
         setState(() => _updatingMenuKeys.remove(key));
@@ -154,10 +165,18 @@ class _MenuPageState extends State<MenuPage> {
           _itemQty[key] = prev - 1;
         }
         cartCount = (cartCount - 1).clamp(0, 1 << 31);
+        _cartTotal = (_cartTotal - menu.price).clamp(0, 1 << 31);
       });
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+      final isUnauthorized = _isUnauthorizedError(e);
+      if (isUnauthorized) {
+        final shouldLogin = await _showLoginRequiredDialog();
+        if (!mounted || !shouldLogin) return;
+        await Navigator.pushNamed(context, AppRoutes.login);
+        return;
+      }
+      AppNotice.show(context, '$e', type: AppNoticeType.error);
     } finally {
       if (mounted) {
         setState(() => _updatingMenuKeys.remove(key));
@@ -166,28 +185,22 @@ class _MenuPageState extends State<MenuPage> {
   }
 
   Future<bool> _showLoginRequiredDialog() async {
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Login Diperlukan'),
-          content: const Text(
-            'Untuk menambahkan menu ke keranjang, silakan login dulu.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Batal'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Oke'),
-            ),
-          ],
-        );
-      },
+    final result = await AppNotice.confirm(
+      context,
+      type: AppNoticeType.info,
+      bodyTitle: 'Login Diperlukan',
+      message: 'Anda belum login. Silakan login terlebih dahulu untuk melanjutkan.',
+      confirmLabel: 'Login',
     );
-    return result ?? false;
+    return result;
+  }
+
+  bool _isUnauthorizedError(Object e) {
+    final raw = e.toString().toLowerCase();
+    return raw.contains('401') ||
+        raw.contains('unauthorized') ||
+        raw.contains('unauth') ||
+        raw.contains('belum login');
   }
 
   Future<void> _syncCartFromServer() async {
@@ -202,6 +215,7 @@ class _MenuPageState extends State<MenuPage> {
 
       final nextQty = <String, int>{};
       var total = 0;
+      var totalPrice = 0;
       for (final item in cartItems) {
         if (item.menuId.trim().isEmpty) continue;
         final matchedMenu = _allMenus.cast<MenuItemDto?>().firstWhere(
@@ -211,6 +225,7 @@ class _MenuPageState extends State<MenuPage> {
         if (matchedMenu != null) {
           nextQty[_menuKey(matchedMenu)] = item.quantity;
           total += item.quantity;
+          totalPrice += item.subtotal;
         }
       }
       setState(() {
@@ -218,6 +233,7 @@ class _MenuPageState extends State<MenuPage> {
           ..clear()
           ..addAll(nextQty);
         cartCount = total;
+        _cartTotal = totalPrice;
       });
     } catch (_) {
       // Keep UI usable even when cart sync fails.
@@ -228,8 +244,19 @@ class _MenuPageState extends State<MenuPage> {
 
   @override
   Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.of(context).padding.bottom;
+    final cartBottomOffset =  bottomInset;
+
     return Scaffold(
       backgroundColor: Colors.grey[100],
+      bottomNavigationBar: AppBottomNavBar(
+        activeItem: AppBottomNavItem.menu,
+        onHomeTap: () => Navigator.pushNamed(context, AppRoutes.landing),
+        onMenuTap: () {},
+        onScanTap: () => Navigator.pushNamed(context, AppRoutes.scan),
+        onHistoryTap: () => Navigator.pushNamed(context, AppRoutes.orderHistory),
+        onAccountTap: () => Navigator.pushNamed(context, AppRoutes.profile),
+      ),
       body: SafeArea(
         child: Stack(
           children: [
@@ -241,10 +268,12 @@ class _MenuPageState extends State<MenuPage> {
               ],
             ),
             Positioned(
-              bottom: 30,
+              bottom: cartBottomOffset,
               left: 24,
               right: 24,
-              child: _buildCartButton(),
+              child: cartCount > 0
+                  ? _buildCartButton()
+                  : const SizedBox.shrink(),
             ),
           ],
         ),
@@ -296,7 +325,12 @@ class _MenuPageState extends State<MenuPage> {
     }
 
     return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(24, 0, 24, 120),
+      padding: EdgeInsets.fromLTRB(
+        24,
+        0,
+        24,
+        cartCount > 0 ? (96 + MediaQuery.of(context).padding.bottom) : 24,
+      ),
       itemCount: filteredMenus.length,
       itemBuilder: (context, index) => _buildMenuCard(filteredMenus[index]),
     );
@@ -418,18 +452,57 @@ class _MenuPageState extends State<MenuPage> {
       ),
       child: Row(
         children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(15),
-            child: menu.imageUrl.isNotEmpty
-                ? Image.network(
-                    menu.imageUrl,
-                    width: 90,
-                    height: 90,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) =>
-                        _imageFallback(),
-                  )
-                : _imageFallback(),
+          SizedBox(
+            width: 90,
+            height: 90,
+            child: Stack(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(15),
+                  child: menu.imageUrl.isNotEmpty
+                      ? Image.network(
+                          menu.imageUrl,
+                          width: 90,
+                          height: 90,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) =>
+                              _imageFallback(),
+                        )
+                      : _imageFallback(),
+                ),
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: InkWell(
+                    onTap: () => _showMenuDetailPopup(menu),
+                    borderRadius: const BorderRadius.only(
+                      bottomLeft: Radius.circular(15),
+                      bottomRight: Radius.circular(15),
+                    ),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 5),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.56),
+                        borderRadius: const BorderRadius.only(
+                          bottomLeft: Radius.circular(15),
+                          bottomRight: Radius.circular(15),
+                        ),
+                      ),
+                      child: const Text(
+                        'Lihat Detail',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
           const SizedBox(width: 15),
           Expanded(
@@ -561,7 +634,7 @@ class _MenuPageState extends State<MenuPage> {
 
   Widget _buildCartButton() {
     return InkWell(
-      onTap: () => Navigator.pushNamed(context, AppRoutes.cart),
+      onTap: _onCartTap,
       borderRadius: BorderRadius.circular(20),
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
@@ -579,17 +652,30 @@ class _MenuPageState extends State<MenuPage> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Row(
+            Row(
               children: [
-                Icon(Icons.shopping_bag_outlined, color: Colors.white),
-                SizedBox(width: 10),
-                Text(
-                  'Lihat Keranjang',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
+                const Icon(Icons.shopping_cart_outlined, color: Colors.white),
+                const SizedBox(width: 10),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Ke Keranjang',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                    Text(
+                      'Rp ${_idr(_cartTotal)}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -617,4 +703,175 @@ class _MenuPageState extends State<MenuPage> {
     RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
     (m) => '${m[1]}.',
   );
+
+  Future<void> _onCartTap() async {
+    final orderType = await OrderTypeSession.get();
+    if (!mounted) return;
+
+    if (orderType == null) {
+      await Navigator.push(
+        context,
+        MaterialPageRoute<void>(
+          builder: (_) => const OrderTypePickerPage(redirectToCart: true),
+        ),
+      );
+      if (!mounted) return;
+      final selected = await OrderTypeSession.get();
+      if (selected == null) return;
+    }
+
+    if (!mounted) return;
+    Navigator.pushNamed(context, AppRoutes.cart);
+  }
+
+  Future<void> _showMenuDetailPopup(MenuItemDto menu) async {
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      builder: (dialogContext) {
+        return Dialog(
+          insetPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 24),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(0, 10, 0, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Row(
+                    children: [
+                      const Expanded(
+                        child: Text(
+                          'Detail Menu',
+                          style: TextStyle(
+                            fontSize: 30,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFF1F2937),
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.pop(dialogContext),
+                        icon: const Icon(Icons.close),
+                      ),
+                    ],
+                  ),
+                ),
+                const Divider(height: 1),
+                const SizedBox(height: 12),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(14),
+                    child: menu.imageUrl.isNotEmpty
+                        ? Image.network(
+                            menu.imageUrl,
+                            height: 190,
+                            width: double.infinity,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) =>
+                                SizedBox(
+                                  height: 190,
+                                  child: _imageFallback(),
+                                ),
+                          )
+                        : SizedBox(height: 190, child: _imageFallback()),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        menu.name,
+                        style: const TextStyle(
+                          fontSize: 34,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF1F2937),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        menu.categoryUi.toUpperCase(),
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF607087),
+                          letterSpacing: 0.4,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        menu.description,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          color: Color(0xFF344054),
+                          height: 1.45,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _detailBadge(
+                              label: 'HARGA',
+                              value: 'Rp ${_idr(menu.price)}',
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: _detailBadge(
+                              label: 'STOK',
+                              value: '${menu.stock}',
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _detailBadge({required String label, required String value}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF3F4F6),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              color: Color(0xFF6B7280),
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            value,
+            style: const TextStyle(
+              color: Color(0xFF1F2937),
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }

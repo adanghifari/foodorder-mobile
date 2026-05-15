@@ -3,12 +3,16 @@ import 'package:flutter/foundation.dart';
 
 class LandingTopMenuItem {
   const LandingTopMenuItem({
+    required this.id,
+    required this.stock,
     required this.category,
     required this.name,
     required this.description,
     required this.imageUrl,
   });
 
+  final String id;
+  final int stock;
   final String category;
   final String name;
   final String description;
@@ -48,6 +52,8 @@ class LandingTopMenuService {
           .map((row) {
             final item = (row['item'] as Map<String, dynamic>? ?? const {});
             return LandingTopMenuItem(
+              id: (item['_id'] ?? item['id'] ?? '').toString(),
+              stock: _toInt(item['stock']),
               category: (row['category'] ?? '').toString(),
               name: (item['name'] ?? '').toString(),
               description: (item['description'] ?? '').toString(),
@@ -95,6 +101,13 @@ class LandingTopMenuService {
       return 'HTTP $statusCode: ${e.message ?? 'Request gagal'}';
     }
     return e.message ?? 'Tidak bisa terhubung ke server';
+  }
+
+  int _toInt(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    if (value is String) return int.tryParse(value) ?? 0;
+    return 0;
   }
 }
 

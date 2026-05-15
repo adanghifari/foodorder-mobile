@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 
-class ChatScreen extends StatefulWidget {
-  const ChatScreen({super.key});
+class ChatPage extends StatefulWidget {
+  const ChatPage({super.key});
 
   @override
-  State<ChatScreen> createState() => _ChatScreenState();
+  State<ChatPage> createState() => _ChatPageState();
 }
 
-class _ChatScreenState extends State<ChatScreen> {
+class _ChatPageState extends State<ChatPage> {
   final Color backgroundColor = const Color(0xFFFFFFFF);
   final Color chatBubbleColor = const Color(0xFFF3F3F3);
   final Color quickReplyBgColor = const Color(0xFFFFEEE1);

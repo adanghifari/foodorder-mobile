@@ -1,9 +1,15 @@
 import 'package:flutter/material.dart';
 
 import '../../../app/app_routes.dart';
+import '../data/order_type_session.dart';
 
 class OrderTypePickerPage extends StatelessWidget {
-  const OrderTypePickerPage({super.key});
+  const OrderTypePickerPage({
+    super.key,
+    this.redirectToCart = false,
+  });
+
+  final bool redirectToCart;
 
   static const Color _bg = Color(0xFFF2F2F2);
   static const Color _accent = Color(0xFFD45A00);
@@ -34,12 +40,14 @@ class OrderTypePickerPage extends StatelessWidget {
               context,
               icon: Icons.restaurant,
               label: 'Makan\nditempat',
+              orderType: OrderType.dineIn,
             ),
             const SizedBox(height: 16),
             _orderTypeCard(
               context,
               icon: Icons.storefront,
               label: 'Ambil ke\nresto',
+              orderType: OrderType.pickup,
             ),
           ],
         ),
@@ -51,10 +59,16 @@ class OrderTypePickerPage extends StatelessWidget {
     BuildContext context, {
     required IconData icon,
     required String label,
+    required OrderType orderType,
   }) {
     return InkWell(
       borderRadius: BorderRadius.circular(24),
-      onTap: () => Navigator.pushNamed(context, AppRoutes.menu),
+      onTap: () async {
+        await OrderTypeSession.set(orderType);
+        if (!context.mounted) return;
+        final targetRoute = redirectToCart ? AppRoutes.cart : AppRoutes.menu;
+        Navigator.pushNamed(context, targetRoute);
+      },
       child: Container(
         width: double.infinity,
         height: 170,

@@ -1,7 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
-import '../../../auth/presentation/auth_session.dart';
+import '../../auth/data/auth_session.dart';
 
 class ProfileUserDto {
   const ProfileUserDto({
