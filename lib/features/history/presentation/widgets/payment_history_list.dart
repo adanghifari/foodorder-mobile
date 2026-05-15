@@ -3,8 +3,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../../auth/presentation/auth_session.dart';
+import '../../../auth/data/auth_session.dart';
 import '../../../payment/presentation/midtrans_webview_page.dart';
+import '../../../../shared/widgets/app_notice.dart';
 import '../../domain/history_models.dart';
 import 'payment_receipt_page.dart';
 
@@ -370,9 +371,7 @@ class _PaymentHistoryCard extends StatelessWidget {
       await onRefreshRequested?.call();
     } catch (e) {
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$e')),
-      );
+      AppNotice.show(context, '$e', type: AppNoticeType.error);
     }
   }
 
@@ -488,9 +487,7 @@ class _PaymentHistoryCard extends StatelessWidget {
       await onRefreshRequested?.call();
     } catch (e) {
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$e')),
-      );
+      AppNotice.show(context, '$e', type: AppNoticeType.error);
     }
   }
 
@@ -499,15 +496,15 @@ class _PaymentHistoryCard extends StatelessWidget {
     try {
       await api.cancel(orderId: order.orderId);
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Pembayaran berhasil dibatalkan.')),
+      AppNotice.show(
+        context,
+        'Pembayaran berhasil dibatalkan.',
+        type: AppNoticeType.success,
       );
       await onRefreshRequested?.call();
     } catch (e) {
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$e')),
-      );
+      AppNotice.show(context, '$e', type: AppNoticeType.error);
     }
   }
 

@@ -3,11 +3,12 @@ import 'package:flutter/material.dart';
 import '../../../../app/app_routes.dart';
 import '../../../../shared/widgets/app_back_button.dart';
 import '../../../../shared/widgets/app_bottom_nav_bar.dart';
-import '../../../auth/presentation/auth_session.dart';
-import '../../../landing/presentation/order_type_session.dart';
+import '../../../../shared/widgets/app_notice.dart';
+import '../../auth/data/auth_session.dart';
+import '../../landing/data/order_type_session.dart';
 import 'favorit_page.dart';
 import 'pengaturan_page.dart';
-import 'profile_api_service.dart';
+import '../data/profile_api_service.dart';
 import 'struk_page.dart';
 import 'tentang_page.dart';
 
@@ -61,11 +62,9 @@ class _ProfilePageState extends State<ProfilePage> {
         activeItem: AppBottomNavItem.account,
         onHomeTap: () => Navigator.pushNamed(context, AppRoutes.landing),
         onMenuTap: () => Navigator.pushNamed(context, AppRoutes.menu),
-        onScanTap: () => ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Fitur scan akan segera tersedia.'),
-            duration: Duration(seconds: 1),
-          ),
+        onScanTap: () => AppNotice.show(
+          context,
+          'Fitur scan akan segera tersedia.',
         ),
         onHistoryTap: () => Navigator.pushNamed(context, AppRoutes.orderHistory),
         onAccountTap: () {},
@@ -298,10 +297,9 @@ class _ProfilePageState extends State<ProfilePage> {
               await AuthSession.clear();
               await OrderTypeSession.clear();
               if (!context.mounted) return;
-              Navigator.pushNamedAndRemoveUntil(
+              Navigator.pushReplacementNamed(
                 context,
                 AppRoutes.login,
-                (route) => false,
               );
               return;
             }

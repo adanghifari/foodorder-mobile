@@ -1,18 +1,19 @@
 import 'package:flutter/material.dart';
 
 import '../../../app/app_routes.dart';
+import '../../../shared/widgets/app_notice.dart';
 import '../../../shared/widgets/app_back_button.dart';
-import 'auth_api_service.dart';
-import 'auth_session.dart';
+import '../data/auth_api_service.dart';
+import '../data/auth_session.dart';
 
-class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+class LoginPage extends StatefulWidget {
+  const LoginPage({super.key});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  State<LoginPage> createState() => _LoginPageState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _LoginPageState extends State<LoginPage> {
   bool isObscure = true;
   bool remember = false;
   bool _isSubmitting = false;
@@ -140,25 +141,24 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Widget _buildRegisterPrompt(BuildContext context) {
-    return SizedBox(
-      width: double.infinity,
-      height: 52,
-      child: ElevatedButton(
-        onPressed: () => Navigator.pushNamed(context, AppRoutes.register),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFFD97A45),
-          foregroundColor: Colors.white,
-          elevation: 1,
-          shadowColor: const Color(0xFFD97A45).withOpacity(0.3),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        const Text(
+          'Belum punya akun? ',
+          style: TextStyle(color: Colors.grey),
+        ),
+        GestureDetector(
+          onTap: () => Navigator.pushNamed(context, AppRoutes.register),
+          child: const Text(
+            'Daftar',
+            style: TextStyle(
+              color: primaryBrown,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ),
-        child: const Text(
-          'Belum punya akun? Segera daftar disini!',
-          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-        ),
-      ),
+      ],
     );
   }
 
@@ -267,8 +267,10 @@ class _LoginScreenState extends State<LoginScreen> {
     final password = _passwordController.text;
 
     if (username.isEmpty || password.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Username dan password wajib diisi.')),
+      AppNotice.show(
+        context,
+        'Username dan password wajib diisi.',
+        type: AppNoticeType.error,
       );
       return;
     }
@@ -291,9 +293,7 @@ class _LoginScreenState extends State<LoginScreen> {
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Login gagal: $e')));
+      AppNotice.show(context, 'Login gagal: $e', type: AppNoticeType.error);
     } finally {
       if (mounted) {
         setState(() => _isSubmitting = false);

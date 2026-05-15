@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../app/app_routes.dart';
-import 'order_type_session.dart';
+import '../data/order_type_session.dart';
 
 class OrderTypePickerPage extends StatelessWidget {
   const OrderTypePickerPage({

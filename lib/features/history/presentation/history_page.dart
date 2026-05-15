@@ -5,7 +5,8 @@ import 'package:flutter/material.dart';
 import '../../../app/app_routes.dart';
 import '../../../shared/widgets/app_back_button.dart';
 import '../../../shared/widgets/app_bottom_nav_bar.dart';
-import '../../auth/presentation/auth_session.dart';
+import '../../../shared/widgets/app_notice.dart';
+import '../../auth/data/auth_session.dart';
 import '../domain/history_models.dart';
 import 'widgets/order_history_list.dart';
 import 'widgets/payment_history_list.dart';
@@ -193,11 +194,9 @@ class _HistoryPageState extends State<HistoryPage> {
         activeItem: AppBottomNavItem.history,
         onHomeTap: () => Navigator.pushNamed(context, AppRoutes.landing),
         onMenuTap: () => Navigator.pushNamed(context, AppRoutes.menu),
-        onScanTap: () => ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Fitur scan akan segera tersedia.'),
-            duration: Duration(seconds: 1),
-          ),
+        onScanTap: () => AppNotice.show(
+          context,
+          'Fitur scan akan segera tersedia.',
         ),
         onHistoryTap: () {},
         onAccountTap: () => Navigator.pushNamed(context, AppRoutes.profile),

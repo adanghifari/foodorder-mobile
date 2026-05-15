@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 
 import '../../../app/app_routes.dart';
-import '../../auth/presentation/auth_session.dart';
-import '../../cart/presentation/cart_api_service.dart';
+import '../../auth/data/auth_session.dart';
+import '../../cart/data/cart_api_service.dart';
 import '../../landing/presentation/order_type_picker_page.dart';
-import '../../landing/presentation/order_type_session.dart';
+import '../../landing/data/order_type_session.dart';
 import '../../../shared/widgets/app_back_button.dart';
 import '../../../shared/widgets/app_bottom_nav_bar.dart';
-import 'menu_api_service.dart';
+import '../../../shared/widgets/app_notice.dart';
+import '../data/menu_api_service.dart';
 
 class MenuPage extends StatefulWidget {
   const MenuPage({super.key});
@@ -103,9 +104,7 @@ class _MenuPageState extends State<MenuPage> {
     if (!mounted) return;
     final menuId = menu.id.trim();
     if (menuId.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Menu tidak valid. Silakan refresh.')),
-      );
+      AppNotice.show(context, 'Menu tidak valid. Silakan refresh.', type: AppNoticeType.error);
       return;
     }
 
@@ -122,16 +121,10 @@ class _MenuPageState extends State<MenuPage> {
         cartCount += 1;
         _cartTotal += menu.price;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Berhasil ditambah!'),
-          duration: Duration(seconds: 1),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      AppNotice.show(context, 'Berhasil ditambah!', type: AppNoticeType.success);
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+      AppNotice.show(context, '$e', type: AppNoticeType.error);
     } finally {
       if (mounted) {
         setState(() => _updatingMenuKeys.remove(key));
@@ -169,7 +162,7 @@ class _MenuPageState extends State<MenuPage> {
       });
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+      AppNotice.show(context, '$e', type: AppNoticeType.error);
     } finally {
       if (mounted) {
         setState(() => _updatingMenuKeys.remove(key));
@@ -249,11 +242,9 @@ class _MenuPageState extends State<MenuPage> {
         activeItem: AppBottomNavItem.menu,
         onHomeTap: () => Navigator.pushNamed(context, AppRoutes.landing),
         onMenuTap: () {},
-        onScanTap: () => ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Fitur scan akan segera tersedia.'),
-            duration: Duration(seconds: 1),
-          ),
+        onScanTap: () => AppNotice.show(
+          context,
+          'Fitur scan akan segera tersedia.',
         ),
         onHistoryTap: () => Navigator.pushNamed(context, AppRoutes.orderHistory),
         onAccountTap: () => Navigator.pushNamed(context, AppRoutes.profile),

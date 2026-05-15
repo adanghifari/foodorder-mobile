@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../../../app/app_routes.dart';
-import '../../landing/presentation/order_type_session.dart';
+import '../../../shared/widgets/app_notice.dart';
+import '../../landing/data/order_type_session.dart';
 import '../../payment/presentation/midtrans_webview_page.dart';
-import 'cart_api_service.dart';
+import '../data/cart_api_service.dart';
 
 class CartPage extends StatefulWidget {
   const CartPage({super.key});
@@ -86,7 +87,7 @@ class _CartPageState extends State<CartPage> {
       await _loadCart();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+      AppNotice.show(context, '$e', type: AppNoticeType.error);
     } finally {
       if (mounted) {
         setState(() => _updatingMenuIds.remove(item.menuId));
@@ -97,8 +98,10 @@ class _CartPageState extends State<CartPage> {
   Future<void> _payNow() async {
     final orderType = _orderType;
     if (orderType == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Pilih tipe pesanan terlebih dahulu.')),
+      AppNotice.show(
+        context,
+        'Pilih tipe pesanan terlebih dahulu.',
+        type: AppNoticeType.error,
       );
       return;
     }
@@ -107,16 +110,16 @@ class _CartPageState extends State<CartPage> {
     if (orderType == OrderType.dineIn) {
       tableNumber = int.tryParse(_tableController.text.trim());
       if (tableNumber == null || tableNumber < 1) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Nomor meja wajib diisi dengan benar.')),
+        AppNotice.show(
+          context,
+          'Nomor meja wajib diisi dengan benar.',
+          type: AppNoticeType.error,
         );
         return;
       }
     }
     if (_items.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Keranjang masih kosong.')));
+      AppNotice.show(context, 'Keranjang masih kosong.', type: AppNoticeType.error);
       return;
     }
 
@@ -163,9 +166,7 @@ class _CartPageState extends State<CartPage> {
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$e'), backgroundColor: Colors.redAccent),
-      );
+      AppNotice.show(context, '$e', type: AppNoticeType.error);
     } finally {
       if (mounted) {
         setState(() => _isSubmitting = false);

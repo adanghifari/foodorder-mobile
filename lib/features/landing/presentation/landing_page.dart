@@ -4,11 +4,12 @@ import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
 
 import '../../../app/app_routes.dart';
-import '../../auth/presentation/auth_session.dart';
+import '../../auth/data/auth_session.dart';
 import 'order_type_picker_page.dart';
-import 'order_type_session.dart';
-import 'landing_top_menu_service.dart';
+import '../data/order_type_session.dart';
+import '../data/landing_top_menu_service.dart';
 import '../../../shared/widgets/app_bottom_nav_bar.dart';
+import '../../../shared/widgets/app_notice.dart';
 
 class LandingPage extends StatefulWidget {
   const LandingPage({super.key});
@@ -159,11 +160,9 @@ class _LandingPageState extends State<LandingPage>
         activeItem: AppBottomNavItem.home,
         onHomeTap: () {},
         onMenuTap: () => Navigator.pushNamed(context, AppRoutes.menu),
-        onScanTap: () => ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Fitur scan akan segera tersedia.'),
-            duration: Duration(seconds: 1),
-          ),
+        onScanTap: () => AppNotice.show(
+          context,
+          'Fitur scan akan segera tersedia.',
         ),
         onHistoryTap: () =>
             Navigator.pushNamed(context, AppRoutes.orderHistory),
@@ -178,12 +177,15 @@ class _LandingPageState extends State<LandingPage>
               children: [
                 _buildHero(context),
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(22, 20, 22, 30),
+                  padding: const EdgeInsets.fromLTRB(22, 0, 22, 30),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _buildTopOptionRow(context),
-                      const SizedBox(height: 22),
+                    Transform.translate(
+                     offset: const Offset(0, -30), // coba -12, -16, atau -20
+                     child: _buildTopOptionRow(context),
+                      ),
+                      const SizedBox(height: 0),
                       _buildSectionTitle(),
                       const SizedBox(height: 18),
                       _buildMenuGrid(context),
@@ -203,15 +205,15 @@ class _LandingPageState extends State<LandingPage>
 
   Widget _buildHero(BuildContext context) {
     return SizedBox(
-      height: 312,
+      height: 362,
       child: Stack(
         children: [
           Container(color: const Color(0xFFEAEAEA)),
           Positioned(
-            left: 24,
-            bottom: 132,
+            left: -1,
+            bottom: 180,
             child: SizedBox(
-              width: 175,
+              width: 240,
               child: Image.asset(
                 'assets/foto katalog/logobaru.png',
                 fit: BoxFit.contain,
@@ -220,7 +222,7 @@ class _LandingPageState extends State<LandingPage>
           ),
           const Positioned(
             left: 24,
-            bottom: 92,
+            bottom: 140,
             child: Text(
               '100% Tasty',
               style: TextStyle(
@@ -233,7 +235,7 @@ class _LandingPageState extends State<LandingPage>
           ),
           const Positioned(
             left: 24,
-            bottom: 72,
+            bottom: 120,
             child: Text(
               'Rasa Juara, Pesan Cuma Pakai Klik!',
               style: TextStyle(
@@ -245,7 +247,7 @@ class _LandingPageState extends State<LandingPage>
           ),
           Positioned(
             right: -40,
-            bottom: -5,
+            bottom: 30,
             child: Transform.rotate(
               angle: -0.42,
               child: Image.asset(
@@ -258,7 +260,7 @@ class _LandingPageState extends State<LandingPage>
           Positioned(
             left: 0,
             right: 0,
-            bottom: 0,
+            bottom: 50,
             child: CustomPaint(
               size: const Size(double.infinity, 64),
               painter: _HeroWavePainter(),
