@@ -5,6 +5,7 @@ import 'package:dio/dio.dart';
 
 import '../../../app/app_routes.dart';
 import '../../auth/data/auth_session.dart';
+import '../../cart/data/cart_api_service.dart';
 import 'order_type_picker_page.dart';
 import '../data/order_type_session.dart';
 import '../data/landing_top_menu_service.dart';
@@ -21,6 +22,7 @@ class LandingPage extends StatefulWidget {
 class _LandingPageState extends State<LandingPage>
     with WidgetsBindingObserver {
   final LandingTopMenuService _topMenuService = LandingTopMenuService();
+  final CartApiService _cartApiService = CartApiService();
   late List<_LandingMenuCardData> _menuCards;
   bool _isFromBackend = false;
   String? _loadError;
@@ -55,18 +57,24 @@ class _LandingPageState extends State<LandingPage>
   static const Color _accentDark = Color(0xFF7E3511);
   static const List<_LandingMenuCardData> _fallbackMenus = [
     _LandingMenuCardData(
+      id: '',
+      stock: 0,
       name: 'Gudeg Juara',
       imageUrl: '',
       description:
           'Manis-gurih autentik, dimasak perlahan dengan santan kental dan rempah pilihan.',
     ),
     _LandingMenuCardData(
+      id: '',
+      stock: 0,
       name: 'Ayam Bakar',
       imageUrl: '',
       description:
           'Ayam ungkep bumbu tradisional, dibakar sempurna dengan aroma smokey menggugah selera',
     ),
     _LandingMenuCardData(
+      id: '',
+      stock: 0,
       name: 'Ayam Geprek',
       imageUrl: '',
       description:
@@ -84,6 +92,8 @@ class _LandingPageState extends State<LandingPage>
       final mapped = topMenus
           .map(
             (item) => _LandingMenuCardData(
+              id: item.id,
+              stock: item.stock,
               name: item.name,
               description: item.description,
               imageUrl: item.imageUrl,
@@ -160,10 +170,7 @@ class _LandingPageState extends State<LandingPage>
         activeItem: AppBottomNavItem.home,
         onHomeTap: () {},
         onMenuTap: () => Navigator.pushNamed(context, AppRoutes.menu),
-        onScanTap: () => AppNotice.show(
-          context,
-          'Fitur scan akan segera tersedia.',
-        ),
+        onScanTap: () => Navigator.pushNamed(context, AppRoutes.scan),
         onHistoryTap: () =>
             Navigator.pushNamed(context, AppRoutes.orderHistory),
         onAccountTap: () => Navigator.pushNamed(context, AppRoutes.profile),
@@ -210,8 +217,8 @@ class _LandingPageState extends State<LandingPage>
         children: [
           Container(color: const Color(0xFFEAEAEA)),
           Positioned(
-            left: -1,
-            bottom: 180,
+            left: -10,
+            bottom: 165,
             child: SizedBox(
               width: 240,
               child: Image.asset(
@@ -386,24 +393,15 @@ class _LandingPageState extends State<LandingPage>
       childAspectRatio: 0.64,
       children: [
         ..._menuCards.map(
-          (menu) => _menuCard(
-            context,
-            name: menu.name,
-            imageUrl: menu.imageUrl,
-            description: menu.description,
-          ),
+          (menu) => _menuCard(context, menu: menu),
         ),
         _othersCard(context),
       ],
     );
   }
 
-  Widget _menuCard(
-    BuildContext context, {
-    required String name,
-    required String imageUrl,
-    required String description,
-  }) {
+  Widget _menuCard(BuildContext context, {required _LandingMenuCardData menu}) {
+    final isOutOfStock = menu.stock < 1;
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
       decoration: BoxDecoration(
@@ -423,9 +421,9 @@ class _LandingPageState extends State<LandingPage>
             borderRadius: BorderRadius.circular(12),
             child: AspectRatio(
               aspectRatio: 1.28,
-              child: imageUrl.isNotEmpty
+              child: menu.imageUrl.isNotEmpty
                   ? Image.network(
-                      imageUrl,
+                      menu.imageUrl,
                       fit: BoxFit.cover,
                       errorBuilder: (_, __, ___) => Image.asset(
                         'assets/foto katalog/Gudeg.jpg',
@@ -440,7 +438,7 @@ class _LandingPageState extends State<LandingPage>
           ),
           const SizedBox(height: 12),
           Text(
-            name,
+            menu.name,
             style: const TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w800,
@@ -450,7 +448,7 @@ class _LandingPageState extends State<LandingPage>
           const SizedBox(height: 10),
           Expanded(
             child: Text(
-              description,
+              menu.description,
               textAlign: TextAlign.center,
               style: const TextStyle(
                 color: Color(0xFF6C6C6C),
@@ -465,7 +463,7 @@ class _LandingPageState extends State<LandingPage>
             width: 92,
             height: 34,
             child: OutlinedButton(
-              onPressed: () => _openOrderTypePicker(context),
+              onPressed: () => _handleTopMenuOrder(context, menu),
               style: OutlinedButton.styleFrom(
                 side: const BorderSide(color: Color(0xFF4D554D), width: 2),
                 shape: RoundedRectangleBorder(
@@ -473,10 +471,12 @@ class _LandingPageState extends State<LandingPage>
                 ),
                 padding: EdgeInsets.zero,
               ),
-              child: const Text(
-                'Pesan',
+              child: Text(
+                isOutOfStock ? 'Habis' : 'Pesan',
                 style: TextStyle(
-                  color: Color(0xFF4D554D),
+                  color: isOutOfStock
+                      ? const Color(0xFF9CA3AF)
+                      : const Color(0xFF4D554D),
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
                 ),
@@ -638,6 +638,130 @@ class _LandingPageState extends State<LandingPage>
     Navigator.pushNamed(context, AppRoutes.menu);
   }
 
+  Future<OrderType?> _pickOrderType(BuildContext context) async {
+    return showModalBottomSheet<OrderType>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+      ),
+      builder: (sheetContext) {
+        return SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Pilih Tipe Pesanan',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    color: _textDark,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                ListTile(
+                  leading: const Icon(Icons.restaurant, color: _accent),
+                  title: const Text('Makan di tempat'),
+                  onTap: () => Navigator.pop(sheetContext, OrderType.dineIn),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.storefront, color: _accent),
+                  title: const Text('Ambil ke resto'),
+                  onTap: () => Navigator.pop(sheetContext, OrderType.pickup),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _handleTopMenuOrder(
+    BuildContext context,
+    _LandingMenuCardData menu,
+  ) async {
+    if (menu.stock < 1) {
+      AppNotice.show(
+        context,
+        'Stok ${menu.name} sedang habis.',
+        type: AppNoticeType.error,
+      );
+      return;
+    }
+    if (menu.id.trim().isEmpty) {
+      AppNotice.show(
+        context,
+        'Menu ini belum tersedia untuk pesan cepat.',
+        type: AppNoticeType.info,
+      );
+      return;
+    }
+
+    final token = await AuthSession.getToken();
+    if (token == null || token.isEmpty) {
+      if (!mounted) return;
+      final loginSuccess = await Navigator.pushNamed(
+        context,
+        AppRoutes.login,
+        arguments: const {'returnToPrevious': true},
+      );
+      if (!mounted || loginSuccess != true) return;
+    }
+
+    if (!mounted) return;
+    final orderType = await _pickOrderType(context);
+    if (orderType == null) return;
+    await OrderTypeSession.set(orderType);
+
+    try {
+      final currentItems = await _cartApiService.getCartItems();
+      final existingQty = currentItems
+          .where((e) => e.menuId == menu.id)
+          .fold<int>(0, (sum, e) => sum + e.quantity);
+      await _cartApiService.setItemQuantity(
+        menuItemId: menu.id,
+        quantity: existingQty + 1,
+      );
+      if (!mounted) return;
+      AppNotice.show(
+        context,
+        '${menu.name} masuk ke keranjang.',
+        type: AppNoticeType.success,
+      );
+      Navigator.pushNamed(context, AppRoutes.cart);
+    } catch (e) {
+      if (!mounted) return;
+      final raw = e.toString().toLowerCase();
+      final isUnauthorized = raw.contains('401') ||
+          raw.contains('unauth') ||
+          raw.contains('belum login') ||
+          raw.contains('unauthorized');
+      if (isUnauthorized) {
+        await _showLoginRequiredPopup(context);
+      } else {
+        AppNotice.show(context, '$e', type: AppNoticeType.error);
+      }
+    }
+  }
+
+  Future<void> _showLoginRequiredPopup(BuildContext context) async {
+    final shouldLogin = await AppNotice.confirm(
+      context,
+      type: AppNoticeType.info,
+      bodyTitle: 'Login Diperlukan',
+      message:
+          'Anda belum login. Silakan login terlebih dahulu untuk melanjutkan pesanan.',
+      confirmLabel: 'Login',
+    );
+
+    if (!mounted || shouldLogin != true) return;
+    Navigator.pushNamed(context, AppRoutes.login);
+  }
+
   Widget _buildBottomInfo() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -684,11 +808,15 @@ class _LandingPageState extends State<LandingPage>
 
 class _LandingMenuCardData {
   const _LandingMenuCardData({
+    required this.id,
+    required this.stock,
     required this.name,
     required this.imageUrl,
     required this.description,
   });
 
+  final String id;
+  final int stock;
   final String name;
   final String imageUrl;
   final String description;

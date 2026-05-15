@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import '../../../app/app_routes.dart';
 import '../../../shared/widgets/app_back_button.dart';
 import '../../../shared/widgets/app_bottom_nav_bar.dart';
-import '../../../shared/widgets/app_notice.dart';
 import '../../auth/data/auth_session.dart';
 import '../domain/history_models.dart';
 import 'widgets/order_history_list.dart';
@@ -32,6 +31,7 @@ class _HistoryPageState extends State<HistoryPage> {
 
   bool _isLoading = true;
   String? _error;
+  bool _requireLogin = false;
   List<HistoryOrderItem> _orders = const [];
   _HistoryTab _activeTab = _HistoryTab.payment;
   bool _isInitialTabApplied = false;
@@ -68,6 +68,7 @@ class _HistoryPageState extends State<HistoryPage> {
     setState(() {
       _isLoading = true;
       _error = null;
+      _requireLogin = false;
     });
 
     final token = await AuthSession.getToken();
@@ -76,6 +77,7 @@ class _HistoryPageState extends State<HistoryPage> {
       setState(() {
         _orders = const [];
         _isLoading = false;
+        _requireLogin = true;
       });
       return;
     }
@@ -190,14 +192,22 @@ class _HistoryPageState extends State<HistoryPage> {
       });
     } on DioException catch (e) {
       if (!mounted) return;
+      final message = _extractDioMessage(e);
       setState(() {
-        _error = _extractDioMessage(e);
+        _error = _isUnauthorizedMessage(message)
+            ? 'Anda belum login. Silakan login terlebih dahulu untuk melihat riwayat.'
+            : message;
+        _requireLogin = _isUnauthorizedMessage(message);
         _isLoading = false;
       });
     } catch (e) {
       if (!mounted) return;
+      final message = '$e';
       setState(() {
-        _error = '$e';
+        _error = _isUnauthorizedMessage(message)
+            ? 'Anda belum login. Silakan login terlebih dahulu untuk melihat riwayat.'
+            : message;
+        _requireLogin = _isUnauthorizedMessage(message);
         _isLoading = false;
       });
     }
@@ -211,10 +221,7 @@ class _HistoryPageState extends State<HistoryPage> {
         activeItem: AppBottomNavItem.history,
         onHomeTap: () => Navigator.pushNamed(context, AppRoutes.landing),
         onMenuTap: () => Navigator.pushNamed(context, AppRoutes.menu),
-        onScanTap: () => AppNotice.show(
-          context,
-          'Fitur scan akan segera tersedia.',
-        ),
+        onScanTap: () => Navigator.pushNamed(context, AppRoutes.scan),
         onHistoryTap: () {},
         onAccountTap: () => Navigator.pushNamed(context, AppRoutes.profile),
       ),
@@ -247,18 +254,24 @@ class _HistoryPageState extends State<HistoryPage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(
-                Icons.error_outline,
-                color: Colors.redAccent,
+              Icon(
+                _requireLogin ? Icons.lock_outline : Icons.error_outline,
+                color: _requireLogin ? const Color(0xFF9C9C9C) : Colors.redAccent,
                 size: 40,
               ),
               const SizedBox(height: 10),
               Text(_error!, textAlign: TextAlign.center),
               const SizedBox(height: 12),
-              ElevatedButton(
-                onPressed: _loadOrders,
-                child: const Text('Coba lagi'),
-              ),
+              if (_requireLogin)
+                ElevatedButton(
+                  onPressed: () => Navigator.pushNamed(context, AppRoutes.login),
+                  child: const Text('Login'),
+                )
+              else
+                ElevatedButton(
+                  onPressed: _loadOrders,
+                  child: const Text('Coba lagi'),
+                ),
             ],
           ),
         ),
@@ -266,6 +279,38 @@ class _HistoryPageState extends State<HistoryPage> {
     }
 
     if (_orders.isEmpty) {
+      if (_requireLogin) {
+        return Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.lock_outline,
+                  color: Color(0xFF9C9C9C),
+                  size: 44,
+                ),
+                const SizedBox(height: 10),
+                const Text(
+                  'Anda belum login. Silakan login terlebih dahulu untuk melihat riwayat.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Color(0xFF666666),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                ElevatedButton(
+                  onPressed: () => Navigator.pushNamed(context, AppRoutes.login),
+                  child: const Text('Login'),
+                ),
+              ],
+            ),
+          ),
+        );
+      }
       return Column(
         children: [
           _buildCategoryTabs(),
@@ -369,6 +414,14 @@ class _HistoryPageState extends State<HistoryPage> {
       }
     }
     return e.message ?? 'Gagal memuat riwayat pesanan';
+  }
+
+  bool _isUnauthorizedMessage(String message) {
+    final raw = message.toLowerCase();
+    return raw.contains('401') ||
+        raw.contains('unauthorized') ||
+        raw.contains('unauth') ||
+        raw.contains('belum login');
   }
 }
 

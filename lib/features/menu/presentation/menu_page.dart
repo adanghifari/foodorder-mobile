@@ -124,6 +124,13 @@ class _MenuPageState extends State<MenuPage> {
       AppNotice.show(context, 'Berhasil ditambah!', type: AppNoticeType.success);
     } catch (e) {
       if (!mounted) return;
+      final isUnauthorized = _isUnauthorizedError(e);
+      if (isUnauthorized) {
+        final shouldLogin = await _showLoginRequiredDialog();
+        if (!mounted || !shouldLogin) return;
+        await Navigator.pushNamed(context, AppRoutes.login);
+        return;
+      }
       AppNotice.show(context, '$e', type: AppNoticeType.error);
     } finally {
       if (mounted) {
@@ -162,6 +169,13 @@ class _MenuPageState extends State<MenuPage> {
       });
     } catch (e) {
       if (!mounted) return;
+      final isUnauthorized = _isUnauthorizedError(e);
+      if (isUnauthorized) {
+        final shouldLogin = await _showLoginRequiredDialog();
+        if (!mounted || !shouldLogin) return;
+        await Navigator.pushNamed(context, AppRoutes.login);
+        return;
+      }
       AppNotice.show(context, '$e', type: AppNoticeType.error);
     } finally {
       if (mounted) {
@@ -171,28 +185,22 @@ class _MenuPageState extends State<MenuPage> {
   }
 
   Future<bool> _showLoginRequiredDialog() async {
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Login Diperlukan'),
-          content: const Text(
-            'Untuk menambahkan menu ke keranjang, silakan login dulu.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Batal'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Oke'),
-            ),
-          ],
-        );
-      },
+    final result = await AppNotice.confirm(
+      context,
+      type: AppNoticeType.info,
+      bodyTitle: 'Login Diperlukan',
+      message: 'Anda belum login. Silakan login terlebih dahulu untuk melanjutkan.',
+      confirmLabel: 'Login',
     );
-    return result ?? false;
+    return result;
+  }
+
+  bool _isUnauthorizedError(Object e) {
+    final raw = e.toString().toLowerCase();
+    return raw.contains('401') ||
+        raw.contains('unauthorized') ||
+        raw.contains('unauth') ||
+        raw.contains('belum login');
   }
 
   Future<void> _syncCartFromServer() async {
@@ -245,10 +253,7 @@ class _MenuPageState extends State<MenuPage> {
         activeItem: AppBottomNavItem.menu,
         onHomeTap: () => Navigator.pushNamed(context, AppRoutes.landing),
         onMenuTap: () {},
-        onScanTap: () => AppNotice.show(
-          context,
-          'Fitur scan akan segera tersedia.',
-        ),
+        onScanTap: () => Navigator.pushNamed(context, AppRoutes.scan),
         onHistoryTap: () => Navigator.pushNamed(context, AppRoutes.orderHistory),
         onAccountTap: () => Navigator.pushNamed(context, AppRoutes.profile),
       ),

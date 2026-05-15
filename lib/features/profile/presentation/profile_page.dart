@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../../../../app/app_routes.dart';
 import '../../../../shared/widgets/app_back_button.dart';
 import '../../../../shared/widgets/app_bottom_nav_bar.dart';
-import '../../../../shared/widgets/app_notice.dart';
 import '../../auth/data/auth_session.dart';
 import '../../landing/data/order_type_session.dart';
 import 'favorit_page.dart';
@@ -23,6 +22,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
   bool _isLoading = true;
   String? _error;
+  bool _requireLogin = false;
   ProfileUserDto? _user;
 
   @override
@@ -35,6 +35,7 @@ class _ProfilePageState extends State<ProfilePage> {
     setState(() {
       _isLoading = true;
       _error = null;
+      _requireLogin = false;
     });
 
     try {
@@ -46,8 +47,12 @@ class _ProfilePageState extends State<ProfilePage> {
       });
     } catch (e) {
       if (!mounted) return;
+      final message = e.toString();
       setState(() {
-        _error = e.toString();
+        _error = _isUnauthorizedMessage(message)
+            ? 'Anda belum login. Silakan login terlebih dahulu untuk melihat profil.'
+            : message;
+        _requireLogin = _isUnauthorizedMessage(message);
         _isLoading = false;
       });
     }
@@ -61,10 +66,7 @@ class _ProfilePageState extends State<ProfilePage> {
         activeItem: AppBottomNavItem.account,
         onHomeTap: () => Navigator.pushNamed(context, AppRoutes.landing),
         onMenuTap: () => Navigator.pushNamed(context, AppRoutes.menu),
-        onScanTap: () => AppNotice.show(
-          context,
-          'Fitur scan akan segera tersedia.',
-        ),
+        onScanTap: () => Navigator.pushNamed(context, AppRoutes.scan),
         onHistoryTap: () => Navigator.pushNamed(context, AppRoutes.orderHistory),
         onAccountTap: () {},
       ),
@@ -159,18 +161,30 @@ class _ProfilePageState extends State<ProfilePage> {
       return Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.error_outline, color: Colors.redAccent),
+          Icon(
+            _requireLogin ? Icons.lock_outline : Icons.error_outline,
+            color: _requireLogin ? const Color(0xFF9C9C9C) : Colors.redAccent,
+          ),
           const SizedBox(height: 8),
           Text(
             _error!,
             textAlign: TextAlign.center,
-            style: const TextStyle(color: Colors.redAccent, fontSize: 12),
+            style: TextStyle(
+              color: _requireLogin ? const Color(0xFF666666) : Colors.redAccent,
+              fontSize: 12,
+            ),
           ),
           const SizedBox(height: 8),
-          ElevatedButton(
-            onPressed: _loadProfile,
-            child: const Text('Coba lagi'),
-          ),
+          if (_requireLogin)
+            ElevatedButton(
+              onPressed: () => Navigator.pushNamed(context, AppRoutes.login),
+              child: const Text('Login'),
+            )
+          else
+            ElevatedButton(
+              onPressed: _loadProfile,
+              child: const Text('Coba lagi'),
+            ),
         ],
       );
     }
@@ -265,6 +279,14 @@ class _ProfilePageState extends State<ProfilePage> {
         ),
       ],
     );
+  }
+
+  bool _isUnauthorizedMessage(String message) {
+    final raw = message.toLowerCase();
+    return raw.contains('401') ||
+        raw.contains('unauthorized') ||
+        raw.contains('unauth') ||
+        raw.contains('belum login');
   }
 
   Widget _buildMenuTile(
