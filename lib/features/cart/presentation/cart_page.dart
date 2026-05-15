@@ -16,6 +16,7 @@ class CartPage extends StatefulWidget {
 class _CartPageState extends State<CartPage> {
   static const Color _lightBrownColor = Color(0xFFC7985F);
   static const Color _whiteColor = Color(0xFFFFFFFF);
+  static const int _serviceFee = 5000;
 
   final CartApiService _cartApiService = CartApiService();
   final TextEditingController _tableController = TextEditingController();
@@ -30,6 +31,7 @@ class _CartPageState extends State<CartPage> {
   List<CartItemDto> _items = const [];
 
   int get _subtotal => _items.fold(0, (sum, e) => sum + e.subtotal);
+  int get _totalPayment => _subtotal + _serviceFee;
 
   @override
   void initState() {
@@ -174,6 +176,17 @@ class _CartPageState extends State<CartPage> {
     }
   }
 
+  Future<void> _onOrderTypeChanged(OrderType? value) async {
+    if (value == null) return;
+    setState(() {
+      _orderType = value;
+      if (value != OrderType.dineIn) {
+        _tableController.clear();
+      }
+    });
+    await OrderTypeSession.set(value);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -258,11 +271,92 @@ class _CartPageState extends State<CartPage> {
           ),
           const SizedBox(height: 15),
           _buildLabel('Tipe Pesanan'),
-          Text(
-            _orderType == null
-                ? 'Belum dipilih'
-                : OrderTypeSession.toLabel(_orderType!),
-            style: const TextStyle(fontWeight: FontWeight.w700),
+          Container(
+            height: 52,
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey.shade300),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.03),
+                  blurRadius: 8,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<OrderType>(
+                value: _orderType,
+                isExpanded: true,
+                itemHeight: 56,
+                menuMaxHeight: 220,
+                borderRadius: BorderRadius.circular(12),
+                icon: const Icon(
+                  Icons.keyboard_arrow_down_rounded,
+                  color: Color(0xFF6B7280),
+                ),
+                hint: const Text(
+                  'Pilih tipe pesanan',
+                  style: TextStyle(
+                    color: Color(0xFF9CA3AF),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                style: const TextStyle(
+                  color: Color(0xFF1F2937),
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+                selectedItemBuilder: (context) => const [
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text('Makan di tempat'),
+                  ),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text('Ambil ke resto'),
+                  ),
+                ],
+                items: [
+                  DropdownMenuItem<OrderType>(
+                    value: OrderType.dineIn,
+                    child: Container(
+                      height: 56,
+                      alignment: Alignment.centerLeft,
+                      decoration: const BoxDecoration(
+                        border: Border(
+                          bottom: BorderSide(
+                            color: Color(0xFFD1D5DB),
+                            width: 1.6,
+                          ),
+                        ),
+                      ),
+                      child: const Row(
+                        children: [
+                          Icon(Icons.restaurant, size: 18, color: Color(0xFFC7985F)),
+                          SizedBox(width: 10),
+                          Text('Makan di tempat'),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const DropdownMenuItem<OrderType>(
+                    value: OrderType.pickup,
+                    child: Row(
+                      children: [
+                        Icon(Icons.storefront, size: 18, color: Color(0xFFC7985F)),
+                        SizedBox(width: 10),
+                        Text('Ambil ke resto'),
+                      ],
+                    ),
+                  ),
+                ],
+                onChanged: (value) => _onOrderTypeChanged(value),
+              ),
+            ),
           ),
           if (_orderType == OrderType.dineIn) ...[
             const SizedBox(height: 14),
@@ -279,12 +373,12 @@ class _CartPageState extends State<CartPage> {
           ),
           const SizedBox(height: 15),
           _buildPaymentRow('Subtotal', _subtotal),
-          _buildPaymentRow('Biaya Layanan', 0),
+          _buildPaymentRow('Biaya Layanan', _serviceFee),
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 8),
             child: Divider(thickness: 1),
           ),
-          _buildPaymentRow('Total Pembayaran', _subtotal, isTotal: true),
+          _buildPaymentRow('Total Pembayaran', _totalPayment, isTotal: true),
           const SizedBox(height: 30),
           Row(
             children: [

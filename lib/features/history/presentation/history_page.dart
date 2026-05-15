@@ -34,6 +34,7 @@ class _HistoryPageState extends State<HistoryPage> {
   String? _error;
   List<HistoryOrderItem> _orders = const [];
   _HistoryTab _activeTab = _HistoryTab.payment;
+  bool _isInitialTabApplied = false;
 
   String get _apiBaseUrl {
     const fromEnv = String.fromEnvironment('API_BASE_URL', defaultValue: '');
@@ -45,6 +46,22 @@ class _HistoryPageState extends State<HistoryPage> {
   void initState() {
     super.initState();
     _loadOrders();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_isInitialTabApplied) return;
+    _isInitialTabApplied = true;
+
+    final args = ModalRoute.of(context)?.settings.arguments;
+    if (args is! Map) return;
+    final tab = (args['tab'] ?? '').toString().toLowerCase();
+    if (tab == 'order') {
+      _activeTab = _HistoryTab.order;
+    } else if (tab == 'payment') {
+      _activeTab = _HistoryTab.payment;
+    }
   }
 
   Future<void> _loadOrders() async {

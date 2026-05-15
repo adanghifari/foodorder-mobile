@@ -236,6 +236,9 @@ class _MenuPageState extends State<MenuPage> {
 
   @override
   Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.of(context).padding.bottom;
+    final cartBottomOffset =  bottomInset;
+
     return Scaffold(
       backgroundColor: Colors.grey[100],
       bottomNavigationBar: AppBottomNavBar(
@@ -260,7 +263,7 @@ class _MenuPageState extends State<MenuPage> {
               ],
             ),
             Positioned(
-              bottom: 96,
+              bottom: cartBottomOffset,
               left: 24,
               right: 24,
               child: cartCount > 0
@@ -317,7 +320,12 @@ class _MenuPageState extends State<MenuPage> {
     }
 
     return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(24, 0, 24, 120),
+      padding: EdgeInsets.fromLTRB(
+        24,
+        0,
+        24,
+        cartCount > 0 ? (96 + MediaQuery.of(context).padding.bottom) : 24,
+      ),
       itemCount: filteredMenus.length,
       itemBuilder: (context, index) => _buildMenuCard(filteredMenus[index]),
     );

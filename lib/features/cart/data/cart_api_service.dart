@@ -45,6 +45,14 @@ class CartApiService {
     return kIsWeb ? 'http://127.0.0.1:8000/api' : 'http://192.168.1.5:8000/api';
   }
 
+  String get _assetBaseUrl {
+    final api = _apiBaseUrl;
+    if (api.endsWith('/api')) {
+      return api.substring(0, api.length - 4);
+    }
+    return api;
+  }
+
   Future<List<CartItemDto>> getCartItems() async {
     final token = await _requireToken();
     try {
@@ -56,6 +64,12 @@ class CartApiService {
       final rows = map['data'] as List<dynamic>? ?? const [];
       return rows.map((row) {
         final item = row as Map<String, dynamic>;
+        final rawImage = (item['imageUrl'] ??
+                item['image_url'] ??
+                item['image'] ??
+                item['photo'] ??
+                '')
+            .toString();
         return CartItemDto(
           menuId: (item['menuId'] ?? '').toString(),
           name: (item['name'] ?? '').toString(),
@@ -63,7 +77,7 @@ class CartApiService {
           price: _toInt(item['price']),
           quantity: _toInt(item['quantity']),
           subtotal: _toInt(item['subtotal']),
-          imageUrl: (item['imageUrl'] ?? '').toString(),
+          imageUrl: _normalizeImageUrl(rawImage),
         );
       }).toList();
     } on DioException catch (e) {
@@ -171,5 +185,15 @@ class CartApiService {
       return 'HTTP $statusCode: ${e.message ?? 'Request gagal'}';
     }
     return e.message ?? 'Tidak bisa terhubung ke server';
+  }
+
+  String _normalizeImageUrl(String raw) {
+    final value = raw.trim();
+    if (value.isEmpty) return '';
+    final uri = Uri.tryParse(value);
+    if (uri != null && uri.hasScheme) return value;
+
+    final normalized = value.startsWith('/') ? value : '/$value';
+    return '$_assetBaseUrl$normalized';
   }
 }

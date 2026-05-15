@@ -9,7 +9,6 @@ import '../../landing/data/order_type_session.dart';
 import 'favorit_page.dart';
 import 'pengaturan_page.dart';
 import '../data/profile_api_service.dart';
-import 'struk_page.dart';
 import 'tentang_page.dart';
 
 class ProfilePage extends StatefulWidget {
@@ -230,10 +229,19 @@ class _ProfilePageState extends State<ProfilePage> {
         const Divider(thickness: 1, color: Color(0xFFEEEEEE)),
         _buildMenuTile(
           context,
-          icon: Icons.assignment_outlined,
-          title: 'Pesanan saya',
+          icon: Icons.receipt_long_outlined,
+          title: 'Riwayat Pembayaran',
           destination: null,
           namedRoute: AppRoutes.orderHistory,
+          routeArguments: const {'tab': 'payment'},
+        ),
+        _buildMenuTile(
+          context,
+          icon: Icons.assignment_outlined,
+          title: 'Riwayat Pesanan',
+          destination: null,
+          namedRoute: AppRoutes.orderHistory,
+          routeArguments: const {'tab': 'order'},
         ),
         _buildMenuTile(
           context,
@@ -243,21 +251,16 @@ class _ProfilePageState extends State<ProfilePage> {
         ),
         _buildMenuTile(
           context,
-          icon: Icons.receipt_long_outlined,
-          title: 'Struk',
-          destination: const StrukPage(),
-        ),
-        _buildMenuTile(
-          context,
           icon: Icons.info_outline,
           title: 'Tentang',
           destination: const TentangPage(),
         ),
         _buildMenuTile(
           context,
-          icon: Icons.exit_to_app,
-          title: 'Keluar',
+          icon: Icons.smart_toy_outlined,
+          title: 'KedaiBot',
           destination: null,
+          namedRoute: AppRoutes.chat,
           isLast: true,
         ),
       ],
@@ -270,6 +273,7 @@ class _ProfilePageState extends State<ProfilePage> {
     required String title,
     required Widget? destination,
     String? namedRoute,
+    Object? routeArguments,
     bool isLast = false,
   }) {
     return Column(
@@ -305,7 +309,11 @@ class _ProfilePageState extends State<ProfilePage> {
             }
 
             if (namedRoute != null) {
-              Navigator.pushNamed(context, namedRoute);
+              Navigator.pushNamed(
+                context,
+                namedRoute,
+                arguments: routeArguments,
+              );
             } else if (destination != null) {
               Navigator.push(
                 context,
