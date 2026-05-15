@@ -1,17 +1,29 @@
 # foodorder_mobile
 
-A new Flutter project.
+Flutter app for KedaiKlik mobile experience.
 
-## Getting Started
+## Development mode (Web-first)
 
-This project is a starting point for a Flutter application.
+This project is configured to make daily development easier on web (Chrome).
 
-A few resources to get you started if this is your first Flutter project:
+1. Install dependencies:
+```bash
+flutter pub get
+```
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+2. Run on Chrome:
+```bash
+flutter run -d chrome --dart-define=INITIAL_ROUTE=/landing
+```
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+3. Analyze and test:
+```bash
+flutter analyze
+flutter test
+```
+
+## Notes
+
+- Default startup route can be controlled with `INITIAL_ROUTE`.
+- Current default (when no define is passed) is `/landing`.
+- For iOS validation near release, run periodically with `flutter run -d ios`.
