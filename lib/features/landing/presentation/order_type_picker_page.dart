@@ -4,7 +4,12 @@ import '../../../app/app_routes.dart';
 import 'order_type_session.dart';
 
 class OrderTypePickerPage extends StatelessWidget {
-  const OrderTypePickerPage({super.key});
+  const OrderTypePickerPage({
+    super.key,
+    this.redirectToCart = false,
+  });
+
+  final bool redirectToCart;
 
   static const Color _bg = Color(0xFFF2F2F2);
   static const Color _accent = Color(0xFFD45A00);
@@ -61,7 +66,8 @@ class OrderTypePickerPage extends StatelessWidget {
       onTap: () async {
         await OrderTypeSession.set(orderType);
         if (!context.mounted) return;
-        Navigator.pushNamed(context, AppRoutes.menu);
+        final targetRoute = redirectToCart ? AppRoutes.cart : AppRoutes.menu;
+        Navigator.pushNamed(context, targetRoute);
       },
       child: Container(
         width: double.infinity,

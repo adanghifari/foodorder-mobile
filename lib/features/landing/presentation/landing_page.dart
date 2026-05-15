@@ -102,7 +102,7 @@ class _LandingPageState extends State<LandingPage> {
       bottomNavigationBar: AppBottomNavBar(
         activeItem: AppBottomNavItem.home,
         onHomeTap: () {},
-        onMenuTap: () => _openOrderTypePicker(context),
+        onMenuTap: () => Navigator.pushNamed(context, AppRoutes.menu),
         onScanTap: () => ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Fitur scan akan segera tersedia.'),

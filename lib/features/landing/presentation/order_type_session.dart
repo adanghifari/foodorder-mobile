@@ -28,6 +28,12 @@ class OrderTypeSession {
     return _cached;
   }
 
+  static Future<void> clear() async {
+    _cached = null;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_key);
+  }
+
   static OrderType? _fromApiValue(String? raw) {
     if (raw == 'dine_in') return OrderType.dineIn;
     if (raw == 'pickup') return OrderType.pickup;

@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../../../app/app_routes.dart';
 import '../../auth/presentation/auth_session.dart';
 import '../../cart/presentation/cart_api_service.dart';
+import '../../landing/presentation/order_type_picker_page.dart';
+import '../../landing/presentation/order_type_session.dart';
 import '../../../shared/widgets/app_back_button.dart';
 import 'menu_api_service.dart';
 
@@ -49,6 +51,12 @@ class _MenuPageState extends State<MenuPage> {
   void initState() {
     super.initState();
     _loadMenus();
+  }
+
+  @override
+  void dispose() {
+    OrderTypeSession.clear();
+    super.dispose();
   }
 
   Future<void> _loadMenus() async {
@@ -561,7 +569,7 @@ class _MenuPageState extends State<MenuPage> {
 
   Widget _buildCartButton() {
     return InkWell(
-      onTap: () => Navigator.pushNamed(context, AppRoutes.cart),
+      onTap: _onCartTap,
       borderRadius: BorderRadius.circular(20),
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
@@ -617,4 +625,24 @@ class _MenuPageState extends State<MenuPage> {
     RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
     (m) => '${m[1]}.',
   );
+
+  Future<void> _onCartTap() async {
+    final orderType = await OrderTypeSession.get();
+    if (!mounted) return;
+
+    if (orderType == null) {
+      await Navigator.push(
+        context,
+        MaterialPageRoute<void>(
+          builder: (_) => const OrderTypePickerPage(redirectToCart: true),
+        ),
+      );
+      if (!mounted) return;
+      final selected = await OrderTypeSession.get();
+      if (selected == null) return;
+    }
+
+    if (!mounted) return;
+    Navigator.pushNamed(context, AppRoutes.cart);
+  }
 }

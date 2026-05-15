@@ -120,12 +120,19 @@ class CartApiService {
     }
   }
 
-  Future<String?> createPayment({required String orderId}) async {
+  Future<String?> createPayment({
+    required String orderId,
+    String? finishRedirectUrl,
+  }) async {
     final token = await _requireToken();
     try {
+      final payload = <String, dynamic>{'order_id': orderId};
+      if (finishRedirectUrl != null && finishRedirectUrl.isNotEmpty) {
+        payload['finish_redirect_url'] = finishRedirectUrl;
+      }
       final response = await _dio.post<Map<String, dynamic>>(
         '$_apiBaseUrl/v1/payments/create',
-        data: {'order_id': orderId},
+        data: payload,
         options: Options(headers: {'Authorization': 'Bearer $token'}),
       );
       final map = response.data ?? const <String, dynamic>{};

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../app/app_routes.dart';
 import '../../landing/presentation/order_type_session.dart';
+import '../../payment/presentation/midtrans_webview_page.dart';
 import 'cart_api_service.dart';
 
 class CartPage extends StatefulWidget {
@@ -18,6 +19,8 @@ class _CartPageState extends State<CartPage> {
   final CartApiService _cartApiService = CartApiService();
   final TextEditingController _tableController = TextEditingController();
   final Set<String> _updatingMenuIds = <String>{};
+  static const String _mobileFinishRedirectUrl =
+      'https://mobile.kedaiklik.app/payment-finish';
 
   bool _isLoading = true;
   bool _isSubmitting = false;
@@ -123,25 +126,34 @@ class _CartPageState extends State<CartPage> {
         orderType: OrderTypeSession.toApiValue(orderType),
         tableNumber: tableNumber,
       );
-      final redirectUrl = await _cartApiService.createPayment(orderId: orderId);
+      final redirectUrl = await _cartApiService.createPayment(
+        orderId: orderId,
+        finishRedirectUrl: _mobileFinishRedirectUrl,
+      );
       if (!mounted) return;
-      await showDialog<void>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Pembayaran Dibuat'),
-          content: Text(
-            redirectUrl == null || redirectUrl.isEmpty
-                ? 'Transaksi berhasil dibuat.'
-                : 'Transaksi berhasil dibuat.\n\nLanjutkan pembayaran di URL ini:\n$redirectUrl',
+      if (redirectUrl == null || redirectUrl.isEmpty) {
+        throw Exception('URL pembayaran Midtrans tidak tersedia.');
+      }
+
+      if (Uri.tryParse(redirectUrl) == null) {
+        throw Exception('URL pembayaran Midtrans tidak valid.');
+      }
+
+      final finished = await Navigator.push<bool>(
+        context,
+        MaterialPageRoute<bool>(
+          builder: (_) => MidtransWebViewPage(
+            url: redirectUrl,
+            finishRedirectUrl: _mobileFinishRedirectUrl,
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Tutup'),
-            ),
-          ],
         ),
       );
+
+      if (finished != true) {
+        return;
+      }
+
+      await OrderTypeSession.clear();
       await _loadCart();
       if (!mounted) return;
       Navigator.pushNamedAndRemoveUntil(

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../app/app_routes.dart';
 import '../../../../shared/widgets/app_back_button.dart';
 import '../../../auth/presentation/auth_session.dart';
+import '../../../landing/presentation/order_type_session.dart';
 import 'favorit_page.dart';
 import 'pengaturan_page.dart';
 import 'profile_api_service.dart';
@@ -281,6 +282,7 @@ class _ProfilePageState extends State<ProfilePage> {
           onTap: () async {
             if (title == 'Keluar') {
               await AuthSession.clear();
+              await OrderTypeSession.clear();
               if (!context.mounted) return;
               Navigator.pushNamedAndRemoveUntil(
                 context,
