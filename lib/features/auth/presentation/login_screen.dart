@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../../../app/app_routes.dart';
+import '../../../shared/widgets/app_back_button.dart';
+import 'auth_api_service.dart';
+import 'auth_session.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -12,8 +15,19 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   bool isObscure = true;
   bool remember = false;
+  bool _isSubmitting = false;
+  final _usernameController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final AuthApiService _authApiService = AuthApiService();
 
   static const Color primaryBrown = Color(0xFFA0522D);
+
+  @override
+  void dispose() {
+    _usernameController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -26,22 +40,20 @@ class _LoginScreenState extends State<LoginScreen> {
             _buildHeader(context),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Column(
+                child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const SizedBox(height: 24),
-                  _buildTab(context),
-                  const SizedBox(height: 28),
-                  _buildLabel('Email'),
+                  _buildLabel('Username'),
                   const SizedBox(height: 6),
                   _buildInput(
-                    hint: 'adann@gmail.com',
-                    keyboardType: TextInputType.emailAddress,
+                    hint: 'username',
+                    controller: _usernameController,
                   ),
                   const SizedBox(height: 18),
                   _buildLabel('Password'),
                   const SizedBox(height: 6),
-                  _buildPasswordInput(),
+                  _buildPasswordInput(controller: _passwordController),
                   const SizedBox(height: 12),
                   Row(
                     children: [
@@ -76,6 +88,8 @@ class _LoginScreenState extends State<LoginScreen> {
                     ],
                   ),
                   const SizedBox(height: 28),
+                  _buildRegisterPrompt(context),
+                  const SizedBox(height: 12),
                   _buildButton(context),
                   const SizedBox(height: 40),
                 ],
@@ -92,68 +106,58 @@ class _LoginScreenState extends State<LoginScreen> {
     return SizedBox(
       height: 220,
       width: double.infinity,
-      child: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Color(0xFFD9A066), Color(0xFFF4F4F4)],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
+      child: Stack(
+        children: [
+          Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Color(0xFFD9A066), Color(0xFFF4F4F4)],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+              ),
+            ),
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Image.asset('assets/logo.png', width: screenWidth * 0.80),
+              ),
+            ),
           ),
-        ),
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.only(bottom: 10),
-            child: Image.asset('assets/logo.png', width: screenWidth * 0.80),
+          Positioned(
+            top: 36,
+            left: 12,
+            child: const AppBackButton(
+              icon: Icons.arrow_back,
+              color: Colors.black87,
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
 
-  Widget _buildTab(BuildContext context) {
-    return Container(
-      height: 48,
-      decoration: BoxDecoration(
-        color: Colors.grey.shade100,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.grey.shade300),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Container(
-              margin: const EdgeInsets.all(4),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(8),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.06),
-                    blurRadius: 6,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: const Center(
-                child: Text(
-                  'Masuk',
-                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-                ),
-              ),
-            ),
+  Widget _buildRegisterPrompt(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      height: 52,
+      child: ElevatedButton(
+        onPressed: () => Navigator.pushNamed(context, AppRoutes.register),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFFD97A45),
+          foregroundColor: Colors.white,
+          elevation: 1,
+          shadowColor: const Color(0xFFD97A45).withOpacity(0.3),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
           ),
-          Expanded(
-            child: GestureDetector(
-              onTap: () => Navigator.pushNamed(context, AppRoutes.register),
-              child: const Center(
-                child: Text(
-                  'Daftar',
-                  style: TextStyle(fontSize: 14, color: Colors.grey),
-                ),
-              ),
-            ),
+        ),
+        child: const Text(
+          'Belum punya akun? Segera daftar disini!',
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
           ),
-        ],
+        ),
       ),
     );
   }
@@ -171,6 +175,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Widget _buildInput({
     required String hint,
+    required TextEditingController controller,
     TextInputType keyboardType = TextInputType.text,
   }) {
     return Container(
@@ -180,6 +185,7 @@ class _LoginScreenState extends State<LoginScreen> {
         border: Border.all(color: Colors.grey.shade400),
       ),
       child: TextField(
+        controller: controller,
         keyboardType: keyboardType,
         style: const TextStyle(fontSize: 14),
         decoration: InputDecoration(
@@ -195,7 +201,7 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  Widget _buildPasswordInput() {
+  Widget _buildPasswordInput({required TextEditingController controller}) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -203,6 +209,7 @@ class _LoginScreenState extends State<LoginScreen> {
         border: Border.all(color: Colors.grey.shade400),
       ),
       child: TextField(
+        controller: controller,
         obscureText: isObscure,
         style: const TextStyle(fontSize: 14),
         decoration: InputDecoration(
@@ -233,8 +240,7 @@ class _LoginScreenState extends State<LoginScreen> {
       width: double.infinity,
       height: 52,
       child: ElevatedButton(
-        onPressed: () =>
-            Navigator.pushReplacementNamed(context, AppRoutes.landing),
+        onPressed: _isSubmitting ? null : _submitLogin,
         style: ElevatedButton.styleFrom(
           backgroundColor: primaryBrown,
           foregroundColor: Colors.white,
@@ -244,8 +250,8 @@ class _LoginScreenState extends State<LoginScreen> {
             borderRadius: BorderRadius.circular(10),
           ),
         ),
-        child: const Text(
-          'Log In',
+        child: Text(
+          _isSubmitting ? 'Loading...' : 'Log In',
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w600,
@@ -254,5 +260,37 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _submitLogin() async {
+    final username = _usernameController.text.trim();
+    final password = _passwordController.text;
+
+    if (username.isEmpty || password.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Username dan password wajib diisi.')),
+      );
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+    try {
+      final token = await _authApiService.login(
+        username: username,
+        password: password,
+      );
+      await AuthSession.setToken(token);
+      if (!mounted) return;
+      Navigator.pushReplacementNamed(context, AppRoutes.landing);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Login gagal: $e')));
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
+    }
   }
 }

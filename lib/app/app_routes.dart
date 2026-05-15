@@ -7,4 +7,5 @@ abstract final class AppRoutes {
   static const payment = '/payment';
   static const profile = '/profile';
   static const chat = '/chat';
+  static const orderHistory = '/order-history';
 }
