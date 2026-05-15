@@ -1,7 +1,5 @@
-import 'dart:convert';
-
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
 
 class MenuItemDto {
   const MenuItemDto({
@@ -41,7 +39,7 @@ class MenuApiService {
     if (_apiBaseUrlFromEnv.isNotEmpty) {
       return _apiBaseUrlFromEnv;
     }
-    return kIsWeb ? 'http://127.0.0.1:8000/api' : 'http://10.0.2.2:8000/api';
+    return kIsWeb ? 'http://127.0.0.1:8000/api' : 'http://192.168.1.5:8000/api';
   }
 
   String get _serverBaseUrl {
@@ -52,33 +50,32 @@ class MenuApiService {
   }
 
   Future<List<MenuItemDto>> fetchMenus({int perPage = 100}) async {
-    final uri = Uri.parse('$_apiBaseUrl/v1/menus?per_page=$perPage');
-
-    final response = await http.get(
-      uri,
-      headers: const {'Accept': 'application/json'},
-    );
-
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw Exception('HTTP ${response.statusCode}: ${response.body}');
-    }
-
-    final jsonMap = jsonDecode(response.body) as Map<String, dynamic>;
-    final data = jsonMap['data'] as Map<String, dynamic>? ?? const {};
-    final rows = data['data'] as List<dynamic>? ?? const [];
-
-    return rows.map((row) {
-      final map = row as Map<String, dynamic>;
-      return MenuItemDto(
-        id: (map['_id'] ?? '').toString(),
-        name: (map['name'] ?? '').toString(),
-        description: (map['description'] ?? '').toString(),
-        price: _toInt(map['price']),
-        stock: _toInt(map['stock']),
-        categoryBackend: (map['category'] ?? '').toString(),
-        imageUrl: _normalizeImageUrl((map['image_url'] ?? '').toString()),
+    try {
+      final response = await _dio.get<Map<String, dynamic>>(
+        '$_apiBaseUrl/v1/menus',
+        queryParameters: {'per_page': perPage},
       );
-    }).toList();
+      final jsonMap = response.data ?? const <String, dynamic>{};
+      final data = jsonMap['data'] as Map<String, dynamic>? ?? const {};
+      final rows = data['data'] as List<dynamic>? ?? const [];
+
+      return rows.map((row) {
+        final map = row as Map<String, dynamic>;
+        return MenuItemDto(
+          id: (map['_id'] ?? map['id'] ?? '').toString(),
+          name: (map['name'] ?? '').toString(),
+          description: (map['description'] ?? '').toString(),
+          price: _toInt(map['price']),
+          stock: _toInt(map['stock']),
+          categoryBackend: (map['category'] ?? '').toString(),
+          imageUrl: _normalizeImageUrl((map['image_url'] ?? '').toString()),
+        );
+      }).toList();
+    } on DioException catch (e) {
+      throw Exception(_extractDioMessage(e));
+    } catch (e) {
+      throw Exception('Gagal mengambil menu: $e');
+    }
   }
 
   int _toInt(dynamic value) {
@@ -104,4 +101,27 @@ class MenuApiService {
     }
     return '$_serverBaseUrl/$raw';
   }
+
+  String _extractDioMessage(DioException e) {
+    final statusCode = e.response?.statusCode;
+    final data = e.response?.data;
+    if (data is Map<String, dynamic>) {
+      final message = data['message']?.toString();
+      if (message != null && message.isNotEmpty) {
+        return statusCode == null ? message : 'HTTP $statusCode: $message';
+      }
+    }
+    if (statusCode != null) {
+      return 'HTTP $statusCode: ${e.message ?? 'Request gagal'}';
+    }
+    return e.message ?? 'Tidak bisa terhubung ke server';
+  }
 }
+
+final Dio _dio = Dio(
+  BaseOptions(
+    connectTimeout: const Duration(seconds: 10),
+    receiveTimeout: const Duration(seconds: 15),
+    headers: const {'Accept': 'application/json'},
+  ),
+);

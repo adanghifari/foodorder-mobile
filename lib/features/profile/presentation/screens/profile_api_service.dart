@@ -1,7 +1,5 @@
-import 'dart:convert';
-
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
 
 import '../../../auth/presentation/auth_session.dart';
 
@@ -31,7 +29,7 @@ class ProfileApiService {
     if (_apiBaseUrlFromEnv.isNotEmpty) {
       return _apiBaseUrlFromEnv;
     }
-    return kIsWeb ? 'http://127.0.0.1:8000/api' : 'http://10.0.2.2:8000/api';
+    return kIsWeb ? 'http://127.0.0.1:8000/api' : 'http://192.168.1.5:8000/api';
   }
 
   Future<ProfileUserDto> fetchMe() async {
@@ -40,36 +38,48 @@ class ProfileApiService {
       throw Exception('Belum login. Silakan login terlebih dahulu.');
     }
 
-    final response = await http.get(
-      Uri.parse('$_apiBaseUrl/v1/auth/me'),
-      headers: {
-        'Accept': 'application/json',
-        'Authorization': 'Bearer $token',
-      },
-    );
+    try {
+      final response = await _dio.get<Map<String, dynamic>>(
+        '$_apiBaseUrl/v1/auth/me',
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
+      );
+      final map = response.data ?? const <String, dynamic>{};
+      final data = map['data'] as Map<String, dynamic>? ?? const {};
 
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw Exception(_extractMessage(response.body));
+      return ProfileUserDto(
+        name: (data['name'] ?? '-').toString(),
+        username: (data['username'] ?? '-').toString(),
+        email: (data['email'] ?? '-').toString(),
+        phone: (data['no_telp'] ?? '-').toString(),
+        role: (data['role'] ?? '-').toString(),
+      );
+    } on DioException catch (e) {
+      throw Exception(_extractDioMessage(e));
+    } catch (e) {
+      throw Exception('Gagal mengambil profil: $e');
     }
-
-    final map = jsonDecode(response.body) as Map<String, dynamic>;
-    final data = map['data'] as Map<String, dynamic>? ?? const {};
-
-    return ProfileUserDto(
-      name: (data['name'] ?? '-').toString(),
-      username: (data['username'] ?? '-').toString(),
-      email: (data['email'] ?? '-').toString(),
-      phone: (data['no_telp'] ?? '-').toString(),
-      role: (data['role'] ?? '-').toString(),
-    );
   }
 
-  String _extractMessage(String body) {
-    try {
-      final map = jsonDecode(body) as Map<String, dynamic>;
-      return (map['message'] ?? 'Request failed').toString();
-    } catch (_) {
-      return 'Request failed';
+  String _extractDioMessage(DioException e) {
+    final statusCode = e.response?.statusCode;
+    final data = e.response?.data;
+    if (data is Map<String, dynamic>) {
+      final message = data['message']?.toString();
+      if (message != null && message.isNotEmpty) {
+        return statusCode == null ? message : 'HTTP $statusCode: $message';
+      }
     }
+    if (statusCode != null) {
+      return 'HTTP $statusCode: ${e.message ?? 'Request gagal'}';
+    }
+    return e.message ?? 'Tidak bisa terhubung ke server';
   }
 }
+
+final Dio _dio = Dio(
+  BaseOptions(
+    connectTimeout: const Duration(seconds: 10),
+    receiveTimeout: const Duration(seconds: 15),
+    headers: const {'Accept': 'application/json'},
+  ),
+);

@@ -1,11 +1,6 @@
 import 'package:flutter/material.dart';
 
-enum AppBottomNavItem {
-  home,
-  menu,
-  history,
-  account,
-}
+enum AppBottomNavItem { home, menu, history, account }
 
 class AppBottomNavBar extends StatelessWidget {
   const AppBottomNavBar({
@@ -20,6 +15,7 @@ class AppBottomNavBar extends StatelessWidget {
 
   static const Color _accent = Color(0xFFD45A00);
   static const Color _navText = Color(0xFF6A6A6A);
+  static const double _scanButtonSize = 92;
 
   final AppBottomNavItem activeItem;
   final VoidCallback onHomeTap;
@@ -30,19 +26,20 @@ class AppBottomNavBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      top: false,
-      child: SizedBox(
-        height: 98,
-        child: Stack(
-          clipBehavior: Clip.none,
-          children: [
-            Container(
+    final bottomInset = MediaQuery.of(context).padding.bottom;
+    const navHeight =65.0;
+
+    return SizedBox(
+      height: navHeight + bottomInset,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Positioned.fill(
+            child: Container(
+              padding: EdgeInsets.only(bottom: bottomInset - 30),
               decoration: const BoxDecoration(
                 color: Colors.white,
-                border: Border(
-                  top: BorderSide(color: Color(0xFFE8E8E8)),
-                ),
+                border: Border(top: BorderSide(color: Color(0xFFE8E8E8))),
                 boxShadow: [
                   BoxShadow(
                     color: Color(0x14000000),
@@ -69,7 +66,7 @@ class AppBottomNavBar extends StatelessWidget {
                       onTap: onMenuTap,
                     ),
                   ),
-                  const SizedBox(width: 92),
+                  Expanded(child: _scanLabel(onTap: onScanTap)),
                   Expanded(
                     child: _navItem(
                       label: 'Riwayat',
@@ -89,49 +86,43 @@ class AppBottomNavBar extends StatelessWidget {
                 ],
               ),
             ),
-            Positioned(
-              left: 0,
-              right: 0,
-              top: -28,
-              child: Center(
-                child: GestureDetector(
-                  onTap: onScanTap,
-                  child: Container(
-                    width: 84,
-                    height: 84,
-                    decoration: const BoxDecoration(
-                      color: _accent,
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: Color(0x30000000),
-                          blurRadius: 16,
-                          offset: Offset(0, 8),
-                        ),
-                      ],
-                    ),
-                    child: const Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.qr_code_scanner_rounded,
-                            color: Colors.white, size: 28),
-                        SizedBox(height: 2),
-                        Text(
-                          'Scan',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ],
-                    ),
+          ),
+          Positioned(
+            left: 0,
+            right: 0,
+            top: -30,
+            child: Center(
+              child: GestureDetector(
+                onTap: onScanTap,
+                child: Container(
+                  width: _scanButtonSize,
+                  height: _scanButtonSize,
+                  decoration: const BoxDecoration(
+                    color: _accent,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Color(0x30000000),
+                        blurRadius: 16,
+                        offset: Offset(0, 8),
+                      ),
+                    ],
+                  ),
+                  child: const Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.qr_code_scanner_rounded,
+                        color: Colors.white,
+                        size: 34,
+                      ),
+                    ],
                   ),
                 ),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -145,15 +136,11 @@ class AppBottomNavBar extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.only(top: 14),
+        padding: const EdgeInsets.only(top: 8),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              icon,
-              color: active ? _accent : _navText,
-              size: 24,
-            ),
+            Icon(icon, color: active ? _accent : _navText, size: 24),
             const SizedBox(height: 5),
             Text(
               label,
@@ -161,6 +148,28 @@ class AppBottomNavBar extends StatelessWidget {
                 color: active ? _accent : _navText,
                 fontSize: 12,
                 fontWeight: active ? FontWeight.w700 : FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _scanLabel({required VoidCallback onTap}) {
+    return InkWell(
+      onTap: onTap,
+      child: const Padding(
+        padding: EdgeInsets.only(top: 56),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Scan',
+              style: TextStyle(
+                color: _navText,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ],
