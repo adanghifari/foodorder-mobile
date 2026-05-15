@@ -6,6 +6,7 @@ import '../../cart/presentation/cart_api_service.dart';
 import '../../landing/presentation/order_type_picker_page.dart';
 import '../../landing/presentation/order_type_session.dart';
 import '../../../shared/widgets/app_back_button.dart';
+import '../../../shared/widgets/app_bottom_nav_bar.dart';
 import 'menu_api_service.dart';
 
 class MenuPage extends StatefulWidget {
@@ -20,6 +21,7 @@ class _MenuPageState extends State<MenuPage> {
   final CartApiService _cartApiService = CartApiService();
 
   int cartCount = 0;
+  int _cartTotal = 0;
   String activeTab = 'Semua';
   String _query = '';
   bool _isLoading = true;
@@ -118,6 +120,7 @@ class _MenuPageState extends State<MenuPage> {
       setState(() {
         _itemQty[key] = next;
         cartCount += 1;
+        _cartTotal += menu.price;
       });
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -162,6 +165,7 @@ class _MenuPageState extends State<MenuPage> {
           _itemQty[key] = prev - 1;
         }
         cartCount = (cartCount - 1).clamp(0, 1 << 31);
+        _cartTotal = (_cartTotal - menu.price).clamp(0, 1 << 31);
       });
     } catch (e) {
       if (!mounted) return;
@@ -210,6 +214,7 @@ class _MenuPageState extends State<MenuPage> {
 
       final nextQty = <String, int>{};
       var total = 0;
+      var totalPrice = 0;
       for (final item in cartItems) {
         if (item.menuId.trim().isEmpty) continue;
         final matchedMenu = _allMenus.cast<MenuItemDto?>().firstWhere(
@@ -219,6 +224,7 @@ class _MenuPageState extends State<MenuPage> {
         if (matchedMenu != null) {
           nextQty[_menuKey(matchedMenu)] = item.quantity;
           total += item.quantity;
+          totalPrice += item.subtotal;
         }
       }
       setState(() {
@@ -226,6 +232,7 @@ class _MenuPageState extends State<MenuPage> {
           ..clear()
           ..addAll(nextQty);
         cartCount = total;
+        _cartTotal = totalPrice;
       });
     } catch (_) {
       // Keep UI usable even when cart sync fails.
@@ -238,6 +245,19 @@ class _MenuPageState extends State<MenuPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey[100],
+      bottomNavigationBar: AppBottomNavBar(
+        activeItem: AppBottomNavItem.menu,
+        onHomeTap: () => Navigator.pushNamed(context, AppRoutes.landing),
+        onMenuTap: () {},
+        onScanTap: () => ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Fitur scan akan segera tersedia.'),
+            duration: Duration(seconds: 1),
+          ),
+        ),
+        onHistoryTap: () => Navigator.pushNamed(context, AppRoutes.orderHistory),
+        onAccountTap: () => Navigator.pushNamed(context, AppRoutes.profile),
+      ),
       body: SafeArea(
         child: Stack(
           children: [
@@ -249,10 +269,12 @@ class _MenuPageState extends State<MenuPage> {
               ],
             ),
             Positioned(
-              bottom: 30,
+              bottom: 96,
               left: 24,
               right: 24,
-              child: _buildCartButton(),
+              child: cartCount > 0
+                  ? _buildCartButton()
+                  : const SizedBox.shrink(),
             ),
           ],
         ),
@@ -587,17 +609,30 @@ class _MenuPageState extends State<MenuPage> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Row(
+            Row(
               children: [
-                Icon(Icons.shopping_bag_outlined, color: Colors.white),
-                SizedBox(width: 10),
-                Text(
-                  'Lihat Keranjang',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
+                const Icon(Icons.shopping_cart_outlined, color: Colors.white),
+                const SizedBox(width: 10),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Ke Keranjang',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                    Text(
+                      'Rp ${_idr(_cartTotal)}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),

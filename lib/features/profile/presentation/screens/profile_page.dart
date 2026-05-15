@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../app/app_routes.dart';
 import '../../../../shared/widgets/app_back_button.dart';
+import '../../../../shared/widgets/app_bottom_nav_bar.dart';
 import '../../../auth/presentation/auth_session.dart';
 import '../../../landing/presentation/order_type_session.dart';
 import 'favorit_page.dart';
@@ -56,6 +57,19 @@ class _ProfilePageState extends State<ProfilePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFFFFFFF),
+      bottomNavigationBar: AppBottomNavBar(
+        activeItem: AppBottomNavItem.account,
+        onHomeTap: () => Navigator.pushNamed(context, AppRoutes.landing),
+        onMenuTap: () => Navigator.pushNamed(context, AppRoutes.menu),
+        onScanTap: () => ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Fitur scan akan segera tersedia.'),
+            duration: Duration(seconds: 1),
+          ),
+        ),
+        onHistoryTap: () => Navigator.pushNamed(context, AppRoutes.orderHistory),
+        onAccountTap: () {},
+      ),
       body: Stack(
         children: [
           Container(

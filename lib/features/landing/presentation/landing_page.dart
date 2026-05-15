@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
+import 'package:dio/dio.dart';
 
 import '../../../app/app_routes.dart';
+import '../../auth/presentation/auth_session.dart';
 import 'order_type_picker_page.dart';
 import 'order_type_session.dart';
 import 'landing_top_menu_service.dart';
@@ -15,28 +17,41 @@ class LandingPage extends StatefulWidget {
   State<LandingPage> createState() => _LandingPageState();
 }
 
-class _LandingPageState extends State<LandingPage> {
+class _LandingPageState extends State<LandingPage>
+    with WidgetsBindingObserver {
   final LandingTopMenuService _topMenuService = LandingTopMenuService();
   late List<_LandingMenuCardData> _menuCards;
   bool _isFromBackend = false;
   String? _loadError;
+  bool _isLoggedIn = false;
+  String _username = 'Pengguna';
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _menuCards = _fallbackMenus;
     _loadTopMenus();
+    _loadAuthState();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _loadAuthState();
+    }
   }
 
   static const Color _bg = Color(0xFFF2F2F2);
   static const Color _textDark = Color(0xFF343434);
   static const Color _accent = Color(0xFFD45A00);
   static const Color _accentDark = Color(0xFF7E3511);
-  static const bool _isLoggedIn = bool.fromEnvironment(
-    'IS_LOGGED_IN',
-    defaultValue: false,
-  );
-
   static const List<_LandingMenuCardData> _fallbackMenus = [
     _LandingMenuCardData(
       name: 'Gudeg Juara',
@@ -92,6 +107,47 @@ class _LandingPageState extends State<LandingPage> {
         });
       }
       // Keep fallback static menus if API is unavailable.
+    }
+  }
+
+  Future<void> _loadAuthState() async {
+    final token = await AuthSession.getToken();
+    if (!mounted) return;
+
+    if (token == null || token.isEmpty) {
+      setState(() {
+        _isLoggedIn = false;
+        _username = 'Pengguna';
+      });
+      return;
+    }
+
+    setState(() => _isLoggedIn = true);
+
+    try {
+      const apiFromEnv = String.fromEnvironment('API_BASE_URL', defaultValue: '');
+      final baseUrl = apiFromEnv.isNotEmpty
+          ? apiFromEnv
+          : (kIsWeb ? 'http://127.0.0.1:8000/api' : 'http://192.168.1.5:8000/api');
+      final dio = Dio(
+        BaseOptions(
+          connectTimeout: const Duration(seconds: 10),
+          receiveTimeout: const Duration(seconds: 15),
+          headers: const {'Accept': 'application/json'},
+        ),
+      );
+      final response = await dio.get<Map<String, dynamic>>(
+        '$baseUrl/v1/auth/me',
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
+      );
+      if (!mounted) return;
+      final data = response.data?['data'] as Map<String, dynamic>? ?? const {};
+      final username = (data['username'] ?? data['name'] ?? 'Pengguna').toString();
+      setState(() {
+        _username = username;
+      });
+    } catch (_) {
+      // Keep landing usable even if profile fetch fails.
     }
   }
 
@@ -208,37 +264,72 @@ class _LandingPageState extends State<LandingPage> {
               painter: _HeroWavePainter(),
             ),
           ),
-          if (!_isLoggedIn)
-            Positioned(
-              top: 16,
-              right: 16,
-              child: Material(
-                elevation: 5,
-                borderRadius: BorderRadius.circular(10),
-                child: OutlinedButton(
-                  onPressed: () =>
-                      Navigator.pushNamed(context, AppRoutes.login),
-                  style: OutlinedButton.styleFrom(
-                    backgroundColor: _accent,
-                    foregroundColor: Colors.white,
-                    side: BorderSide.none,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 8,
-                    ),
-                    textStyle: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
+          Positioned(
+            top: 16,
+            left: 16,
+            child: _isLoggedIn
+                ? Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    decoration: BoxDecoration(
                       color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x22000000),
+                          blurRadius: 10,
+                          offset: Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const CircleAvatar(
+                          radius: 14,
+                          backgroundImage: AssetImage('assets/slices_ui/fotoprofile.jpg'),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Hai! $_username',
+                          style: const TextStyle(
+                            color: _textDark,
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                : Material(
+                    elevation: 5,
+                    borderRadius: BorderRadius.circular(10),
+                    child: OutlinedButton(
+                      onPressed: () async {
+                        await Navigator.pushNamed(context, AppRoutes.login);
+                        if (!mounted) return;
+                        await _loadAuthState();
+                      },
+                      style: OutlinedButton.styleFrom(
+                        backgroundColor: _accent,
+                        foregroundColor: Colors.white,
+                        side: BorderSide.none,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 8,
+                        ),
+                        textStyle: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
+                      ),
+                      child: const Text('Sign In'),
                     ),
                   ),
-                  child: const Text('Sign In'),
-                ),
-              ),
-            ),
+          ),
         ],
       ),
     );
