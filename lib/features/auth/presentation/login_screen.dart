@@ -40,7 +40,7 @@ class _LoginScreenState extends State<LoginScreen> {
             _buildHeader(context),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: Column(
+              child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const SizedBox(height: 24),
@@ -119,7 +119,10 @@ class _LoginScreenState extends State<LoginScreen> {
             child: Center(
               child: Padding(
                 padding: const EdgeInsets.only(bottom: 10),
-                child: Image.asset('assets/logo.png', width: screenWidth * 0.80),
+                child: Image.asset(
+                  'assets/logo.png',
+                  width: screenWidth * 0.80,
+                ),
               ),
             ),
           ),
@@ -153,10 +156,7 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
         child: const Text(
           'Belum punya akun? Segera daftar disini!',
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-          ),
+          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
         ),
       ),
     );
@@ -281,7 +281,14 @@ class _LoginScreenState extends State<LoginScreen> {
       );
       await AuthSession.setToken(token);
       if (!mounted) return;
-      Navigator.pushReplacementNamed(context, AppRoutes.landing);
+      final args = ModalRoute.of(context)?.settings.arguments;
+      final fromGuardedFlow = args is Map && (args['returnToPrevious'] == true);
+
+      if (fromGuardedFlow && Navigator.canPop(context)) {
+        Navigator.pop(context, true);
+      } else {
+        Navigator.pushReplacementNamed(context, AppRoutes.landing);
+      }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(

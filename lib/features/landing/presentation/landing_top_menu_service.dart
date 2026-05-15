@@ -1,6 +1,5 @@
-import 'dart:convert';
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
 
 class LandingTopMenuItem {
   const LandingTopMenuItem({
@@ -26,7 +25,7 @@ class LandingTopMenuService {
     if (_apiBaseUrlFromEnv.isNotEmpty) {
       return _apiBaseUrlFromEnv;
     }
-    return kIsWeb ? 'http://127.0.0.1:8000/api' : 'http://10.0.2.2:8000/api';
+    return kIsWeb ? 'http://127.0.0.1:8000/api' : 'http://192.168.1.5:8000/api';
   }
 
   String get _serverBaseUrl {
@@ -37,34 +36,33 @@ class LandingTopMenuService {
   }
 
   Future<List<LandingTopMenuItem>> fetchTopMenusByCategory() async {
-    final uri = Uri.parse('$_apiBaseUrl/v1/menus/top-by-category');
-    debugPrint('Fetching landing top menu from: $uri');
+    final url = '$_apiBaseUrl/v1/menus/top-by-category';
+    debugPrint('Fetching landing top menu from: $url');
+    try {
+      final response = await _dio.get<Map<String, dynamic>>(url);
+      final jsonMap = response.data ?? const <String, dynamic>{};
+      final data = (jsonMap['data'] as List<dynamic>? ?? const []);
 
-    final response = await http.get(
-      uri,
-      headers: const {'Accept': 'application/json'},
-    );
-
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw Exception('HTTP ${response.statusCode}: ${response.body}');
+      return data
+          .map((row) => row as Map<String, dynamic>)
+          .map((row) {
+            final item = (row['item'] as Map<String, dynamic>? ?? const {});
+            return LandingTopMenuItem(
+              category: (row['category'] ?? '').toString(),
+              name: (item['name'] ?? '').toString(),
+              description: (item['description'] ?? '').toString(),
+              imageUrl: _normalizeImageUrl(
+                (item['image_url'] ?? '').toString(),
+              ),
+            );
+          })
+          .where((item) => item.name.isNotEmpty)
+          .toList();
+    } on DioException catch (e) {
+      throw Exception(_extractDioMessage(e));
+    } catch (e) {
+      throw Exception('Gagal mengambil menu landing: $e');
     }
-
-    final jsonMap = jsonDecode(response.body) as Map<String, dynamic>;
-    final data = (jsonMap['data'] as List<dynamic>? ?? const []);
-
-    return data
-        .map((row) => row as Map<String, dynamic>)
-        .map((row) {
-          final item = (row['item'] as Map<String, dynamic>? ?? const {});
-          return LandingTopMenuItem(
-            category: (row['category'] ?? '').toString(),
-            name: (item['name'] ?? '').toString(),
-            description: (item['description'] ?? '').toString(),
-            imageUrl: _normalizeImageUrl((item['image_url'] ?? '').toString()),
-          );
-        })
-        .where((item) => item.name.isNotEmpty)
-        .toList();
   }
 
   String _normalizeImageUrl(String raw) {
@@ -83,4 +81,27 @@ class LandingTopMenuService {
     }
     return '$_serverBaseUrl/$raw';
   }
+
+  String _extractDioMessage(DioException e) {
+    final statusCode = e.response?.statusCode;
+    final data = e.response?.data;
+    if (data is Map<String, dynamic>) {
+      final message = data['message']?.toString();
+      if (message != null && message.isNotEmpty) {
+        return statusCode == null ? message : 'HTTP $statusCode: $message';
+      }
+    }
+    if (statusCode != null) {
+      return 'HTTP $statusCode: ${e.message ?? 'Request gagal'}';
+    }
+    return e.message ?? 'Tidak bisa terhubung ke server';
+  }
 }
+
+final Dio _dio = Dio(
+  BaseOptions(
+    connectTimeout: const Duration(seconds: 10),
+    receiveTimeout: const Duration(seconds: 15),
+    headers: const {'Accept': 'application/json'},
+  ),
+);

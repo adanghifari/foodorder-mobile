@@ -1,7 +1,5 @@
-import 'dart:convert';
-
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
 
 class AuthApiService {
   static const String _apiBaseUrlFromEnv = String.fromEnvironment(
@@ -13,7 +11,7 @@ class AuthApiService {
     if (_apiBaseUrlFromEnv.isNotEmpty) {
       return _apiBaseUrlFromEnv;
     }
-    return kIsWeb ? 'http://127.0.0.1:8000/api' : 'http://10.0.2.2:8000/api';
+    return kIsWeb ? 'http://127.0.0.1:8000/api' : 'http://192.168.1.5:8000/api';
   }
 
   Future<void> register({
@@ -23,24 +21,21 @@ class AuthApiService {
     required String phone,
     required String password,
   }) async {
-    final uri = Uri.parse('$_apiBaseUrl/v1/auth/register');
-    final response = await http.post(
-      uri,
-      headers: const {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-      },
-      body: jsonEncode({
-        'name': name,
-        'username': username,
-        'email': email,
-        'no_telp': phone,
-        'password': password,
-      }),
-    );
-
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw Exception(_extractMessage(response.body));
+    try {
+      await _dio.post<Map<String, dynamic>>(
+        '$_apiBaseUrl/v1/auth/register',
+        data: {
+          'name': name,
+          'username': username,
+          'email': email,
+          'no_telp': phone,
+          'password': password,
+        },
+      );
+    } on DioException catch (e) {
+      throw Exception(_extractDioMessage(e));
+    } catch (e) {
+      throw Exception('Register gagal: $e');
     }
   }
 
@@ -48,41 +43,53 @@ class AuthApiService {
     required String username,
     required String password,
   }) async {
-    final uri = Uri.parse('$_apiBaseUrl/v1/auth/login');
-    final response = await http.post(
-      uri,
-      headers: const {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-      },
-      body: jsonEncode({
-        'username': username,
-        'password': password,
-      }),
-    );
+    try {
+      final response = await _dio.post<Map<String, dynamic>>(
+        '$_apiBaseUrl/v1/auth/login',
+        data: {'username': username, 'password': password},
+      );
+      final map = response.data ?? const <String, dynamic>{};
+      final data = map['data'] as Map<String, dynamic>? ?? const {};
+      final user = data['user'] as Map<String, dynamic>? ?? const {};
+      final role = (user['role'] ?? '').toString().toUpperCase();
 
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw Exception(_extractMessage(response.body));
+      if (role != 'CUSTOMER') {
+        throw Exception(
+          'Akun ini bukan customer dan tidak bisa login di mobile.',
+        );
+      }
+
+      return (data['token'] ?? '').toString();
+    } on DioException catch (e) {
+      throw Exception(_extractDioMessage(e));
+    } catch (e) {
+      throw Exception('Login gagal: $e');
     }
-
-    final map = jsonDecode(response.body) as Map<String, dynamic>;
-    final data = map['data'] as Map<String, dynamic>? ?? const {};
-    final user = data['user'] as Map<String, dynamic>? ?? const {};
-    final role = (user['role'] ?? '').toString().toUpperCase();
-
-    if (role != 'CUSTOMER') {
-      throw Exception('Akun ini bukan customer dan tidak bisa login di mobile.');
-    }
-
-    return (data['token'] ?? '').toString();
   }
 
-  String _extractMessage(String body) {
-    try {
-      final map = jsonDecode(body) as Map<String, dynamic>;
-      return (map['message'] ?? 'Request failed').toString();
-    } catch (_) {
-      return 'Request failed';
+  String _extractDioMessage(DioException e) {
+    final statusCode = e.response?.statusCode;
+    final data = e.response?.data;
+    if (data is Map<String, dynamic>) {
+      final message = data['message']?.toString();
+      if (message != null && message.isNotEmpty) {
+        return statusCode == null ? message : 'HTTP $statusCode: $message';
+      }
     }
+    if (statusCode != null) {
+      return 'HTTP $statusCode: ${e.message ?? 'Request gagal'}';
+    }
+    return e.message ?? 'Tidak bisa terhubung ke server';
   }
 }
+
+final Dio _dio = Dio(
+  BaseOptions(
+    connectTimeout: const Duration(seconds: 10),
+    receiveTimeout: const Duration(seconds: 15),
+    headers: const {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json',
+    },
+  ),
+);

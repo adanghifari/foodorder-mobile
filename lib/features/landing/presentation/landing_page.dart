@@ -114,27 +114,30 @@ class _LandingPageState extends State<LandingPage> {
       ),
       body: AnnotatedRegion<SystemUiOverlayStyle>(
         value: SystemUiOverlayStyle.dark,
-        child: SingleChildScrollView(
-          child: Column(
-            children: [
-              _buildHero(context),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(22, 20, 22, 30),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildTopOptionRow(context),
-                    const SizedBox(height: 22),
-                    _buildSectionTitle(),
-                    const SizedBox(height: 18),
-                    _buildMenuGrid(context),
-                    const SizedBox(height: 26),
-                    _buildBottomInfo(),
-                    const SizedBox(height: 22),
-                  ],
+        child: SafeArea(
+          bottom: false,
+          child: SingleChildScrollView(
+            child: Column(
+              children: [
+                _buildHero(context),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(22, 20, 22, 30),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildTopOptionRow(context),
+                      const SizedBox(height: 22),
+                      _buildSectionTitle(),
+                      const SizedBox(height: 18),
+                      _buildMenuGrid(context),
+                      const SizedBox(height: 26),
+                      _buildBottomInfo(),
+                      const SizedBox(height: 22),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -254,11 +257,7 @@ class _LandingPageState extends State<LandingPage> {
             ),
           ),
           const SizedBox(height: 8),
-          Container(
-            width: 126,
-            height: 5,
-            color: _accentDark,
-          ),
+          Container(width: 126, height: 5, color: _accentDark),
           const SizedBox(height: 8),
           Text(
             _isFromBackend ? 'Sumber: Backend' : 'Sumber: Fallback',
@@ -275,10 +274,7 @@ class _LandingPageState extends State<LandingPage> {
               textAlign: TextAlign.center,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontSize: 10,
-                color: Colors.redAccent,
-              ),
+              style: const TextStyle(fontSize: 10, color: Colors.redAccent),
             ),
           ],
         ],
@@ -346,7 +342,7 @@ class _LandingPageState extends State<LandingPage> {
                       'assets/foto katalog/Gudeg.jpg',
                       fit: BoxFit.cover,
                     ),
-              ),
+            ),
           ),
           const SizedBox(height: 12),
           Text(
@@ -377,10 +373,7 @@ class _LandingPageState extends State<LandingPage> {
             child: OutlinedButton(
               onPressed: () => _openOrderTypePicker(context),
               style: OutlinedButton.styleFrom(
-                side: const BorderSide(
-                  color: Color(0xFF4D554D),
-                  width: 2,
-                ),
+                side: const BorderSide(color: Color(0xFF4D554D), width: 2),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10),
                 ),
@@ -458,9 +451,7 @@ class _LandingPageState extends State<LandingPage> {
           ),
           Positioned.fill(
             child: IgnorePointer(
-              child: CustomPaint(
-                painter: _OthersPatternPainter(),
-              ),
+              child: CustomPaint(painter: _OthersPatternPainter()),
             ),
           ),
         ],
@@ -580,9 +571,7 @@ class _LandingPageState extends State<LandingPage> {
   void _openOrderTypePicker(BuildContext context) {
     Navigator.push(
       context,
-      MaterialPageRoute<void>(
-        builder: (_) => const OrderTypePickerPage(),
-      ),
+      MaterialPageRoute<void>(builder: (_) => const OrderTypePickerPage()),
     );
   }
 }
@@ -600,10 +589,7 @@ class _LandingMenuCardData {
 }
 
 class _SocialChip extends StatelessWidget {
-  const _SocialChip({
-    required this.icon,
-    required this.label,
-  });
+  const _SocialChip({required this.icon, required this.label});
 
   static const Color _accent = Color(0xFFD45A00);
   static const Color _textDark = Color(0xFF343434);

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../app/app_routes.dart';
+import 'cart_api_service.dart';
 
 class CartPage extends StatefulWidget {
   const CartPage({super.key});
@@ -12,6 +13,132 @@ class CartPage extends StatefulWidget {
 class _CartPageState extends State<CartPage> {
   static const Color _lightBrownColor = Color(0xFFC7985F);
   static const Color _whiteColor = Color(0xFFFFFFFF);
+
+  final CartApiService _cartApiService = CartApiService();
+  final TextEditingController _tableController = TextEditingController();
+  final Set<String> _updatingMenuIds = <String>{};
+
+  bool _isLoading = true;
+  bool _isSubmitting = false;
+  String? _error;
+  List<CartItemDto> _items = const [];
+
+  int get _subtotal => _items.fold(0, (sum, e) => sum + e.subtotal);
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCart();
+  }
+
+  @override
+  void dispose() {
+    _tableController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadCart() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+    try {
+      final items = await _cartApiService.getCartItems();
+      if (!mounted) return;
+      setState(() {
+        _items = items;
+        _isLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = '$e';
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _changeQty(CartItemDto item, int delta) async {
+    if (_updatingMenuIds.contains(item.menuId)) return;
+    final nextQty = item.quantity + delta;
+    if (nextQty < 0) return;
+
+    setState(() => _updatingMenuIds.add(item.menuId));
+    try {
+      if (nextQty == 0) {
+        await _cartApiService.removeItem(menuItemId: item.menuId);
+      } else {
+        await _cartApiService.setItemQuantity(
+          menuItemId: item.menuId,
+          quantity: nextQty,
+        );
+      }
+      await _loadCart();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+    } finally {
+      if (mounted) {
+        setState(() => _updatingMenuIds.remove(item.menuId));
+      }
+    }
+  }
+
+  Future<void> _payNow() async {
+    final tableNumber = int.tryParse(_tableController.text.trim());
+    if (tableNumber == null || tableNumber < 1) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Nomor meja wajib diisi dengan benar.')),
+      );
+      return;
+    }
+    if (_items.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Keranjang masih kosong.')));
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+    try {
+      final orderId = await _cartApiService.checkout(tableNumber: tableNumber);
+      final redirectUrl = await _cartApiService.createPayment(orderId: orderId);
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Pembayaran Dibuat'),
+          content: Text(
+            redirectUrl == null || redirectUrl.isEmpty
+                ? 'Transaksi berhasil dibuat.'
+                : 'Transaksi berhasil dibuat.\n\nLanjutkan pembayaran di URL ini:\n$redirectUrl',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Tutup'),
+            ),
+          ],
+        ),
+      );
+      await _loadCart();
+      if (!mounted) return;
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        AppRoutes.landing,
+        (route) => route.isFirst,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('$e'), backgroundColor: Colors.redAccent),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -38,96 +165,125 @@ class _CartPageState extends State<CartPage> {
         backgroundColor: _whiteColor,
         elevation: 0,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      body: _buildBody(),
+    );
+  }
+
+  Widget _buildBody() {
+    if (_isLoading) return const Center(child: CircularProgressIndicator());
+    if (_error != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.error_outline,
+                color: Colors.redAccent,
+                size: 40,
+              ),
+              const SizedBox(height: 10),
+              Text(_error!, textAlign: TextAlign.center),
+              const SizedBox(height: 12),
+              ElevatedButton(
+                onPressed: _loadCart,
+                child: const Text('Coba lagi'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    if (_items.isEmpty) {
+      return Center(
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            _buildOrderItem(
-              imagePath: 'assets/slices_ui/nasigoreng.jpg',
-              name: 'Nasi Goreng',
-              description:
-                  'Nasi Goreng dengan sayur, telur mata sapi dan kerupuk',
-              price: 25000,
-              quantity: 2,
+            const Text('Keranjang kosong'),
+            const SizedBox(height: 12),
+            ElevatedButton(
+              onPressed: () => Navigator.pushNamed(context, AppRoutes.menu),
+              child: const Text('Pilih Menu'),
             ),
-            const SizedBox(height: 16),
-            _buildOrderItem(
-              imagePath: 'assets/slices_ui/matchalatte.jpg',
-              name: 'Matcha Latte',
-              description:
-                  'Minuman matcha creamy dengan rasa khas teh hijau yang lembut',
-              price: 18000,
-              quantity: 2,
-            ),
-            const SizedBox(height: 25),
-            _buildLabel('Email'),
-            _buildTextField(hintText: 'Email'),
-            const SizedBox(height: 15),
-            _buildLabel('Nama Pemesan'),
-            _buildTextField(hintText: 'Nama Pemesan'),
-            const SizedBox(height: 30),
-            const Text(
-              'Detail Pembayaran',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 15),
-            _buildPaymentRow('Subtotal', 86000),
-            _buildPaymentRow('Biaya Layanan', 5000),
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 8),
-              child: Divider(thickness: 1),
-            ),
-            _buildPaymentRow('Total Pembayaran', 91000, isTotal: true),
-            const SizedBox(height: 40),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () =>
-                        Navigator.pushNamed(context, AppRoutes.menu),
-                    style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: _lightBrownColor),
-                      padding: const EdgeInsets.symmetric(vertical: 15),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: const Text(
-                      'Tambah Item',
-                      style: TextStyle(
-                        color: _lightBrownColor,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 15),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () =>
-                        Navigator.pushNamed(context, AppRoutes.payment),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: _lightBrownColor,
-                      padding: const EdgeInsets.symmetric(vertical: 15),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: const Text(
-                      'Bayar',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
           ],
         ),
+      );
+    }
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ..._items.map(
+            (item) => Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: _buildOrderItem(item),
+            ),
+          ),
+          const SizedBox(height: 15),
+          _buildLabel('Nomor Meja'),
+          _buildTextField(controller: _tableController, hintText: 'Contoh: 7'),
+          const SizedBox(height: 30),
+          const Text(
+            'Detail Pembayaran',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 15),
+          _buildPaymentRow('Subtotal', _subtotal),
+          _buildPaymentRow('Biaya Layanan', 0),
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 8),
+            child: Divider(thickness: 1),
+          ),
+          _buildPaymentRow('Total Pembayaran', _subtotal, isTotal: true),
+          const SizedBox(height: 30),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => Navigator.pushNamed(context, AppRoutes.menu),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: _lightBrownColor),
+                    padding: const EdgeInsets.symmetric(vertical: 15),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text(
+                    'Tambah Item',
+                    style: TextStyle(
+                      color: _lightBrownColor,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 15),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: _isSubmitting ? null : _payNow,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _lightBrownColor,
+                    padding: const EdgeInsets.symmetric(vertical: 15),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: Text(
+                    _isSubmitting ? 'Memproses...' : 'Bayar',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+        ],
       ),
     );
   }
@@ -142,7 +298,10 @@ class _CartPageState extends State<CartPage> {
     );
   }
 
-  Widget _buildTextField({required String hintText}) {
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String hintText,
+  }) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -150,6 +309,8 @@ class _CartPageState extends State<CartPage> {
         border: Border.all(color: Colors.grey.shade200),
       ),
       child: TextField(
+        controller: controller,
+        keyboardType: TextInputType.number,
         decoration: InputDecoration(
           hintText: hintText,
           hintStyle: TextStyle(color: Colors.grey.shade400),
@@ -163,13 +324,8 @@ class _CartPageState extends State<CartPage> {
     );
   }
 
-  Widget _buildOrderItem({
-    required String imagePath,
-    required String name,
-    required String description,
-    required int price,
-    required int quantity,
-  }) {
+  Widget _buildOrderItem(CartItemDto item) {
+    final isUpdating = _updatingMenuIds.contains(item.menuId);
     return Container(
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
@@ -177,7 +333,7 @@ class _CartPageState extends State<CartPage> {
         borderRadius: BorderRadius.circular(15),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 5),
           ),
@@ -187,12 +343,16 @@ class _CartPageState extends State<CartPage> {
         children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(10),
-            child: Image.asset(
-              imagePath,
-              width: 80,
-              height: 80,
-              fit: BoxFit.cover,
-            ),
+            child: item.imageUrl.isNotEmpty
+                ? Image.network(
+                    item.imageUrl,
+                    width: 80,
+                    height: 80,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) =>
+                        _imgFallback(),
+                  )
+                : _imgFallback(),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -200,14 +360,14 @@ class _CartPageState extends State<CartPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  name,
+                  item.name,
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 16,
                   ),
                 ),
                 Text(
-                  description,
+                  item.description,
                   style: const TextStyle(fontSize: 11, color: Colors.grey),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
@@ -217,20 +377,26 @@ class _CartPageState extends State<CartPage> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      'Rp ${_idr(price)}',
+                      'Rp ${_idr(item.subtotal)}',
                       style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                     Row(
                       children: [
-                        _qtyBtn(Icons.remove),
+                        _qtyBtn(
+                          Icons.remove,
+                          onTap: isUpdating ? null : () => _changeQty(item, -1),
+                        ),
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 10),
                           child: Text(
-                            '$quantity',
+                            '${item.quantity}',
                             style: const TextStyle(fontWeight: FontWeight.bold),
                           ),
                         ),
-                        _qtyBtn(Icons.add),
+                        _qtyBtn(
+                          Icons.add,
+                          onTap: isUpdating ? null : () => _changeQty(item, 1),
+                        ),
                       ],
                     ),
                   ],
@@ -243,14 +409,28 @@ class _CartPageState extends State<CartPage> {
     );
   }
 
-  Widget _qtyBtn(IconData icon) {
+  Widget _imgFallback() {
     return Container(
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: _lightBrownColor,
-        borderRadius: BorderRadius.circular(6),
+      width: 80,
+      height: 80,
+      color: Colors.grey[300],
+      child: const Icon(Icons.fastfood, color: Colors.grey),
+    );
+  }
+
+  Widget _qtyBtn(IconData icon, {required VoidCallback? onTap}) {
+    final disabled = onTap == null;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(6),
+      child: Container(
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          color: disabled ? Colors.grey[300] : _lightBrownColor,
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Icon(icon, color: Colors.white, size: 16),
       ),
-      child: Icon(icon, color: Colors.white, size: 16),
     );
   }
 

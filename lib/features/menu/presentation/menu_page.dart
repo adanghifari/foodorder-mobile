@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../../app/app_routes.dart';
+import '../../auth/presentation/auth_session.dart';
+import '../../cart/presentation/cart_api_service.dart';
 import '../../../shared/widgets/app_back_button.dart';
 import 'menu_api_service.dart';
 
@@ -13,13 +15,22 @@ class MenuPage extends StatefulWidget {
 
 class _MenuPageState extends State<MenuPage> {
   final MenuApiService _menuApiService = MenuApiService();
+  final CartApiService _cartApiService = CartApiService();
 
   int cartCount = 0;
   String activeTab = 'Semua';
   String _query = '';
   bool _isLoading = true;
   String? _error;
+  bool _isSyncingCart = false;
   List<MenuItemDto> _allMenus = const [];
+  final Map<String, int> _itemQty = {};
+  final Set<String> _updatingMenuKeys = <String>{};
+
+  String _menuKey(MenuItemDto menu) {
+    if (menu.id.trim().isNotEmpty) return menu.id;
+    return '${menu.name}|${menu.categoryBackend}|${menu.price}|${menu.imageUrl}';
+  }
 
   List<MenuItemDto> get filteredMenus {
     return _allMenus.where((menu) {
@@ -49,8 +60,10 @@ class _MenuPageState extends State<MenuPage> {
     try {
       final menus = await _menuApiService.fetchMenus();
       if (!mounted) return;
+      _allMenus = menus;
+      await _syncCartFromServer();
+      if (!mounted) return;
       setState(() {
-        _allMenus = menus;
         _isLoading = false;
       });
     } catch (e) {
@@ -62,17 +75,155 @@ class _MenuPageState extends State<MenuPage> {
     }
   }
 
-  void _tambahKeKeranjang() {
-    setState(() {
-      cartCount++;
-    });
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Berhasil ditambah!'),
-        duration: Duration(seconds: 1),
-        behavior: SnackBarBehavior.floating,
-      ),
+  Future<void> _tambahKeKeranjang(MenuItemDto menu) async {
+    final token = await AuthSession.getToken();
+    if (token == null || token.isEmpty) {
+      if (!mounted) return;
+      final shouldLogin = await _showLoginRequiredDialog();
+      if (!mounted || !shouldLogin) return;
+
+      final loginSuccess = await Navigator.pushNamed(
+        context,
+        AppRoutes.login,
+        arguments: const {'returnToPrevious': true},
+      );
+      if (!mounted || loginSuccess != true) return;
+    }
+
+    if (!mounted) return;
+    final menuId = menu.id.trim();
+    if (menuId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Menu tidak valid. Silakan refresh.')),
+      );
+      return;
+    }
+
+    final key = _menuKey(menu);
+    if (_updatingMenuKeys.contains(key)) return;
+    final prev = _itemQty[key] ?? 0;
+    final next = prev + 1;
+    setState(() => _updatingMenuKeys.add(key));
+    try {
+      await _cartApiService.setItemQuantity(menuItemId: menuId, quantity: next);
+      if (!mounted) return;
+      setState(() {
+        _itemQty[key] = next;
+        cartCount += 1;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Berhasil ditambah!'),
+          duration: Duration(seconds: 1),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+    } finally {
+      if (mounted) {
+        setState(() => _updatingMenuKeys.remove(key));
+      }
+    }
+  }
+
+  Future<void> _kurangiDariKeranjang(MenuItemDto menu) async {
+    final menuId = menu.id.trim();
+    if (menuId.isEmpty) return;
+
+    final key = _menuKey(menu);
+    if (_updatingMenuKeys.contains(key)) return;
+    final prev = _itemQty[key] ?? 0;
+    if (prev <= 0) return;
+    setState(() => _updatingMenuKeys.add(key));
+    try {
+      if (prev == 1) {
+        await _cartApiService.removeItem(menuItemId: menuId);
+      } else {
+        await _cartApiService.setItemQuantity(
+          menuItemId: menuId,
+          quantity: prev - 1,
+        );
+      }
+      if (!mounted) return;
+      setState(() {
+        if (prev == 1) {
+          _itemQty.remove(key);
+        } else {
+          _itemQty[key] = prev - 1;
+        }
+        cartCount = (cartCount - 1).clamp(0, 1 << 31);
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+    } finally {
+      if (mounted) {
+        setState(() => _updatingMenuKeys.remove(key));
+      }
+    }
+  }
+
+  Future<bool> _showLoginRequiredDialog() async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Login Diperlukan'),
+          content: const Text(
+            'Untuk menambahkan menu ke keranjang, silakan login dulu.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Batal'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Oke'),
+            ),
+          ],
+        );
+      },
     );
+    return result ?? false;
+  }
+
+  Future<void> _syncCartFromServer() async {
+    final token = await AuthSession.getToken();
+    if (token == null || token.isEmpty) return;
+    if (_isSyncingCart) return;
+
+    _isSyncingCart = true;
+    try {
+      final cartItems = await _cartApiService.getCartItems();
+      if (!mounted) return;
+
+      final nextQty = <String, int>{};
+      var total = 0;
+      for (final item in cartItems) {
+        if (item.menuId.trim().isEmpty) continue;
+        final matchedMenu = _allMenus.cast<MenuItemDto?>().firstWhere(
+          (menu) => menu?.id == item.menuId,
+          orElse: () => null,
+        );
+        if (matchedMenu != null) {
+          nextQty[_menuKey(matchedMenu)] = item.quantity;
+          total += item.quantity;
+        }
+      }
+      setState(() {
+        _itemQty
+          ..clear()
+          ..addAll(nextQty);
+        cartCount = total;
+      });
+    } catch (_) {
+      // Keep UI usable even when cart sync fails.
+    } finally {
+      _isSyncingCart = false;
+    }
   }
 
   @override
@@ -86,9 +237,7 @@ class _MenuPageState extends State<MenuPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _buildHeader(),
-                Expanded(
-                  child: _buildBody(),
-                ),
+                Expanded(child: _buildBody()),
               ],
             ),
             Positioned(
@@ -115,7 +264,11 @@ class _MenuPageState extends State<MenuPage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.error_outline, color: Colors.redAccent, size: 40),
+              const Icon(
+                Icons.error_outline,
+                color: Colors.redAccent,
+                size: 40,
+              ),
               const SizedBox(height: 10),
               Text(
                 _error!,
@@ -177,7 +330,8 @@ class _MenuPageState extends State<MenuPage> {
               ),
               IconButton(
                 tooltip: 'Profil',
-                onPressed: () => Navigator.pushNamed(context, AppRoutes.profile),
+                onPressed: () =>
+                    Navigator.pushNamed(context, AppRoutes.profile),
                 icon: const Icon(Icons.person_outline),
               ),
             ],
@@ -244,6 +398,10 @@ class _MenuPageState extends State<MenuPage> {
   }
 
   Widget _buildMenuCard(MenuItemDto menu) {
+    final menuKey = _menuKey(menu);
+    final qty = _itemQty[menuKey] ?? 0;
+    final isUpdating = _updatingMenuKeys.contains(menuKey);
+
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(12),
@@ -268,7 +426,8 @@ class _MenuPageState extends State<MenuPage> {
                     width: 90,
                     height: 90,
                     fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) => _imageFallback(),
+                    errorBuilder: (context, error, stackTrace) =>
+                        _imageFallback(),
                   )
                 : _imageFallback(),
           ),
@@ -293,30 +452,100 @@ class _MenuPageState extends State<MenuPage> {
                 const SizedBox(height: 8),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    Text(
-                      'Rp ${_idr(menu.price)}',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w900,
-                        color: Color(0xFFC8641E),
-                      ),
-                    ),
-                    IconButton.filled(
-                      onPressed: menu.stock > 0 ? _tambahKeKeranjang : null,
-                      icon: const Icon(Icons.add),
-                      style: IconButton.styleFrom(
-                        backgroundColor: const Color(0xFFC8641E),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Rp ${_idr(menu.price)}',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w900,
+                            color: Color(0xFFC8641E),
+                          ),
                         ),
-                      ),
+                        const SizedBox(height: 2),
+                        Text(
+                          menu.stock > 0
+                              ? 'Stok tersedia: ${menu.stock}'
+                              : 'Stok habis',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: menu.stock > 0
+                                ? const Color(0xFF2E7D32)
+                                : Colors.redAccent,
+                          ),
+                        ),
+                      ],
                     ),
+                    qty == 0
+                        ? IconButton.filled(
+                            onPressed: menu.stock > 0 && !isUpdating
+                                ? () => _tambahKeKeranjang(menu)
+                                : null,
+                            icon: const Icon(Icons.add),
+                            style: IconButton.styleFrom(
+                              backgroundColor: const Color(0xFFC8641E),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                          )
+                        : Row(
+                            children: [
+                              _qtyButton(
+                                icon: Icons.remove,
+                                onTap: isUpdating
+                                    ? null
+                                    : () => _kurangiDariKeranjang(menu),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                ),
+                                child: Text(
+                                  '$qty',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                              _qtyButton(
+                                icon: Icons.add,
+                                onTap: menu.stock > qty && !isUpdating
+                                    ? () => _tambahKeKeranjang(menu)
+                                    : null,
+                              ),
+                            ],
+                          ),
                   ],
                 ),
               ],
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _qtyButton({required IconData icon, required VoidCallback? onTap}) {
+    final isDisabled = onTap == null;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        width: 28,
+        height: 28,
+        decoration: BoxDecoration(
+          color: isDisabled ? Colors.grey[300] : const Color(0xFFC8641E),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Icon(
+          icon,
+          size: 16,
+          color: isDisabled ? Colors.grey[500] : Colors.white,
+        ),
       ),
     );
   }
@@ -385,7 +614,7 @@ class _MenuPageState extends State<MenuPage> {
   }
 
   String _idr(int value) => value.toString().replaceAllMapped(
-        RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-        (m) => '${m[1]}.',
-      );
+    RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+    (m) => '${m[1]}.',
+  );
 }
