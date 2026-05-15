@@ -100,12 +100,16 @@ class CartApiService {
     }
   }
 
-  Future<String> checkout({required int tableNumber}) async {
+  Future<String> checkout({required String orderType, int? tableNumber}) async {
     final token = await _requireToken();
     try {
+      final payload = <String, dynamic>{'orderType': orderType};
+      if (tableNumber != null) {
+        payload['tableNumber'] = tableNumber;
+      }
       final response = await _dio.post<Map<String, dynamic>>(
         '$_apiBaseUrl/v1/cart/checkout',
-        data: {'tableNumber': tableNumber},
+        data: payload,
         options: Options(headers: {'Authorization': 'Bearer $token'}),
       );
       final map = response.data ?? const <String, dynamic>{};

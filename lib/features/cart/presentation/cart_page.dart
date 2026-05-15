@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../app/app_routes.dart';
+import '../../landing/presentation/order_type_session.dart';
 import 'cart_api_service.dart';
 
 class CartPage extends StatefulWidget {
@@ -21,6 +22,7 @@ class _CartPageState extends State<CartPage> {
   bool _isLoading = true;
   bool _isSubmitting = false;
   String? _error;
+  OrderType? _orderType;
   List<CartItemDto> _items = const [];
 
   int get _subtotal => _items.fold(0, (sum, e) => sum + e.subtotal);
@@ -28,7 +30,12 @@ class _CartPageState extends State<CartPage> {
   @override
   void initState() {
     super.initState();
-    _loadCart();
+    _initPage();
+  }
+
+  Future<void> _initPage() async {
+    _orderType = await OrderTypeSession.get();
+    await _loadCart();
   }
 
   @override
@@ -85,12 +92,23 @@ class _CartPageState extends State<CartPage> {
   }
 
   Future<void> _payNow() async {
-    final tableNumber = int.tryParse(_tableController.text.trim());
-    if (tableNumber == null || tableNumber < 1) {
+    final orderType = _orderType;
+    if (orderType == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Nomor meja wajib diisi dengan benar.')),
+        const SnackBar(content: Text('Pilih tipe pesanan terlebih dahulu.')),
       );
       return;
+    }
+
+    int? tableNumber;
+    if (orderType == OrderType.dineIn) {
+      tableNumber = int.tryParse(_tableController.text.trim());
+      if (tableNumber == null || tableNumber < 1) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Nomor meja wajib diisi dengan benar.')),
+        );
+        return;
+      }
     }
     if (_items.isEmpty) {
       ScaffoldMessenger.of(
@@ -101,7 +119,10 @@ class _CartPageState extends State<CartPage> {
 
     setState(() => _isSubmitting = true);
     try {
-      final orderId = await _cartApiService.checkout(tableNumber: tableNumber);
+      final orderId = await _cartApiService.checkout(
+        orderType: OrderTypeSession.toApiValue(orderType),
+        tableNumber: tableNumber,
+      );
       final redirectUrl = await _cartApiService.createPayment(orderId: orderId);
       if (!mounted) return;
       await showDialog<void>(
@@ -223,8 +244,21 @@ class _CartPageState extends State<CartPage> {
             ),
           ),
           const SizedBox(height: 15),
-          _buildLabel('Nomor Meja'),
-          _buildTextField(controller: _tableController, hintText: 'Contoh: 7'),
+          _buildLabel('Tipe Pesanan'),
+          Text(
+            _orderType == null
+                ? 'Belum dipilih'
+                : OrderTypeSession.toLabel(_orderType!),
+            style: const TextStyle(fontWeight: FontWeight.w700),
+          ),
+          if (_orderType == OrderType.dineIn) ...[
+            const SizedBox(height: 14),
+            _buildLabel('Nomor Meja'),
+            _buildTextField(
+              controller: _tableController,
+              hintText: 'Contoh: 7',
+            ),
+          ],
           const SizedBox(height: 30),
           const Text(
             'Detail Pembayaran',

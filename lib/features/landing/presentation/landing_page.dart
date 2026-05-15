@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../../app/app_routes.dart';
 import 'order_type_picker_page.dart';
+import 'order_type_session.dart';
 import 'landing_top_menu_service.dart';
 import '../../../shared/widgets/app_bottom_nav_bar.dart';
 
@@ -101,7 +102,7 @@ class _LandingPageState extends State<LandingPage> {
       bottomNavigationBar: AppBottomNavBar(
         activeItem: AppBottomNavItem.home,
         onHomeTap: () {},
-        onMenuTap: () => Navigator.pushNamed(context, AppRoutes.menu),
+        onMenuTap: () => _openOrderTypePicker(context),
         onScanTap: () => ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Fitur scan akan segera tersedia.'),
@@ -467,6 +468,7 @@ class _LandingPageState extends State<LandingPage> {
             context,
             icon: Icons.restaurant,
             label: 'Makan\nditempat',
+            orderType: OrderType.dineIn,
           ),
         ),
         const SizedBox(width: 12),
@@ -475,6 +477,7 @@ class _LandingPageState extends State<LandingPage> {
             context,
             icon: Icons.storefront,
             label: 'Ambil ke\nresto',
+            orderType: OrderType.pickup,
           ),
         ),
       ],
@@ -485,10 +488,11 @@ class _LandingPageState extends State<LandingPage> {
     BuildContext context, {
     required IconData icon,
     required String label,
+    required OrderType orderType,
   }) {
     return InkWell(
       borderRadius: BorderRadius.circular(14),
-      onTap: () => Navigator.pushNamed(context, AppRoutes.menu),
+      onTap: () => _selectOrderTypeAndGo(context, orderType),
       child: Container(
         height: 86,
         padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -530,6 +534,15 @@ class _LandingPageState extends State<LandingPage> {
         ),
       ),
     );
+  }
+
+  Future<void> _selectOrderTypeAndGo(
+    BuildContext context,
+    OrderType orderType,
+  ) async {
+    await OrderTypeSession.set(orderType);
+    if (!context.mounted) return;
+    Navigator.pushNamed(context, AppRoutes.menu);
   }
 
   Widget _buildBottomInfo() {

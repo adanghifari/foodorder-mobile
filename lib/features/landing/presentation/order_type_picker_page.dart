@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../app/app_routes.dart';
+import 'order_type_session.dart';
 
 class OrderTypePickerPage extends StatelessWidget {
   const OrderTypePickerPage({super.key});
@@ -34,12 +35,14 @@ class OrderTypePickerPage extends StatelessWidget {
               context,
               icon: Icons.restaurant,
               label: 'Makan\nditempat',
+              orderType: OrderType.dineIn,
             ),
             const SizedBox(height: 16),
             _orderTypeCard(
               context,
               icon: Icons.storefront,
               label: 'Ambil ke\nresto',
+              orderType: OrderType.pickup,
             ),
           ],
         ),
@@ -51,10 +54,15 @@ class OrderTypePickerPage extends StatelessWidget {
     BuildContext context, {
     required IconData icon,
     required String label,
+    required OrderType orderType,
   }) {
     return InkWell(
       borderRadius: BorderRadius.circular(24),
-      onTap: () => Navigator.pushNamed(context, AppRoutes.menu),
+      onTap: () async {
+        await OrderTypeSession.set(orderType);
+        if (!context.mounted) return;
+        Navigator.pushNamed(context, AppRoutes.menu);
+      },
       child: Container(
         width: double.infinity,
         height: 170,
