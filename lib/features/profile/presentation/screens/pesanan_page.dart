@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../../shared/widgets/app_back_button.dart';
+
 class PesananPage extends StatelessWidget {
   const PesananPage({super.key});
 
@@ -10,13 +12,9 @@ class PesananPage extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(
-            Icons.arrow_back_ios_new,
-            color: Colors.black,
-            size: 20,
-          ),
-          onPressed: () => Navigator.pop(context),
+        leading: const AppBackButton(
+          color: Colors.black,
+          size: 20,
         ),
         title: const Text(
           "Pesanan saya",

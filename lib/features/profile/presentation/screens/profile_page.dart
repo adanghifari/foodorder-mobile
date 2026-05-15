@@ -1,21 +1,62 @@
 import 'package:flutter/material.dart';
-// Import halaman tujuan navigasi
-import 'pesanan_page.dart';
+
+import '../../../../app/app_routes.dart';
+import '../../../../shared/widgets/app_back_button.dart';
+import '../../../auth/presentation/auth_session.dart';
 import 'favorit_page.dart';
 import 'pengaturan_page.dart';
-import 'bantuan_page.dart';
+import 'profile_api_service.dart';
+import 'struk_page.dart';
 import 'tentang_page.dart';
 
-class ProfilePage extends StatelessWidget {
+class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
+
+  @override
+  State<ProfilePage> createState() => _ProfilePageState();
+}
+
+class _ProfilePageState extends State<ProfilePage> {
+  final ProfileApiService _profileApiService = ProfileApiService();
+
+  bool _isLoading = true;
+  String? _error;
+  ProfileUserDto? _user;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProfile();
+  }
+
+  Future<void> _loadProfile() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    try {
+      final user = await _profileApiService.fetchMe();
+      if (!mounted) return;
+      setState(() {
+        _user = user;
+        _isLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = e.toString();
+        _isLoading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFFFF), // Latar belakang putih
+      backgroundColor: const Color(0xFFFFFFFF),
       body: Stack(
         children: [
-          // 1. Background Header dengan Gradasi Oranye #C6620C
           Container(
             height: MediaQuery.of(context).size.height * 0.45,
             decoration: const BoxDecoration(
@@ -23,17 +64,15 @@ class ProfilePage extends StatelessWidget {
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  Color(0xFFC6620C), // Oranye utama
-                  Color(0xFFFFFFFF), // Gradasi ke putih
+                  Color(0xFFC6620C),
+                  Color(0xFFFFFFFF),
                 ],
               ),
             ),
           ),
-
           SafeArea(
             child: Column(
               children: [
-                // 2. Custom Top Bar
                 Padding(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 10,
@@ -42,13 +81,9 @@ class ProfilePage extends StatelessWidget {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      IconButton(
-                        icon: const Icon(
-                          Icons.arrow_back_ios_new,
-                          color: Colors.white,
-                          size: 20,
-                        ),
-                        onPressed: () => Navigator.pop(context),
+                      const AppBackButton(
+                        color: Colors.white,
+                        size: 20,
                       ),
                       const Text(
                         'Profil',
@@ -75,10 +110,7 @@ class ProfilePage extends StatelessWidget {
                     ],
                   ),
                 ),
-
                 const SizedBox(height: 20),
-
-                // 3. Card Utama (Box Profil)
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 25),
                   child: Container(
@@ -94,97 +126,7 @@ class ProfilePage extends StatelessWidget {
                         ),
                       ],
                     ),
-                    child: Column(
-                      children: [
-                        // Bagian Header Profil (Foto & Nama)
-                        Row(
-                          children: [
-                            const CircleAvatar(
-                              radius: 45,
-                              backgroundImage: AssetImage(
-                                'assets/slices_ui/fotoprofile.jpg',
-                              ),
-                            ),
-                            const SizedBox(width: 15),
-                            const Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Muhammad Mingyu',
-                                    style: TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.black,
-                                    ),
-                                  ),
-                                  Text(
-                                    'mingyuucakepmaxximal@gmail.com',
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      color: Colors.grey,
-                                      decoration: TextDecoration.underline,
-                                    ),
-                                  ),
-                                  Text(
-                                    '08981235676',
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      color: Colors.grey,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            IconButton(
-                              icon: const Icon(
-                                Icons.edit,
-                                size: 20,
-                                color: Colors.black,
-                              ),
-                              onPressed:
-                                  () {}, // Tambahkan navigasi edit jika perlu
-                            ),
-                          ],
-                        ),
-
-                        const SizedBox(height: 25),
-                        const Divider(thickness: 1, color: Color(0xFFEEEEEE)),
-
-                        // 4. Daftar Menu Navigasi
-                        _buildMenuTile(
-                          context,
-                          icon: Icons.assignment_outlined,
-                          title: 'Pesanan saya',
-                          destination: const PesananPage(),
-                        ),
-                        _buildMenuTile(
-                          context,
-                          icon: Icons.bookmark_border,
-                          title: 'Favorit',
-                          destination: const FavoritPage(),
-                        ),
-                        _buildMenuTile(
-                          context,
-                          icon: Icons.help_outline,
-                          title: 'Dapatkan bantuan',
-                          destination: const BantuanPage(),
-                        ),
-                        _buildMenuTile(
-                          context,
-                          icon: Icons.info_outline,
-                          title: 'Tentang',
-                          destination: const TentangPage(),
-                        ),
-                        _buildMenuTile(
-                          context,
-                          icon: Icons.exit_to_app,
-                          title: 'Keluar',
-                          destination: null, // Logika logout biasanya berbeda
-                          isLast: true,
-                        ),
-                      ],
-                    ),
+                    child: _buildContent(context),
                   ),
                 ),
               ],
@@ -195,12 +137,125 @@ class ProfilePage extends StatelessWidget {
     );
   }
 
-  // Widget Helper untuk Baris Menu
+  Widget _buildContent(BuildContext context) {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_error != null) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.error_outline, color: Colors.redAccent),
+          const SizedBox(height: 8),
+          Text(
+            _error!,
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: Colors.redAccent, fontSize: 12),
+          ),
+          const SizedBox(height: 8),
+          ElevatedButton(
+            onPressed: _loadProfile,
+            child: const Text('Coba lagi'),
+          ),
+        ],
+      );
+    }
+
+    final user = _user;
+    if (user == null) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      children: [
+        Row(
+          children: [
+            const CircleAvatar(
+              radius: 45,
+              backgroundImage: AssetImage('assets/slices_ui/fotoprofile.jpg'),
+            ),
+            const SizedBox(width: 15),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    user.name,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black,
+                    ),
+                  ),
+                  Text(
+                    user.email,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: Colors.grey,
+                      decoration: TextDecoration.underline,
+                    ),
+                  ),
+                  Text(
+                    user.phone,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: Colors.grey,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.edit, size: 20, color: Colors.black),
+              onPressed: () {},
+            ),
+          ],
+        ),
+        const SizedBox(height: 25),
+        const Divider(thickness: 1, color: Color(0xFFEEEEEE)),
+        _buildMenuTile(
+          context,
+          icon: Icons.assignment_outlined,
+          title: 'Pesanan saya',
+          destination: null,
+          namedRoute: AppRoutes.orderHistory,
+        ),
+        _buildMenuTile(
+          context,
+          icon: Icons.bookmark_border,
+          title: 'Favorit',
+          destination: const FavoritPage(),
+        ),
+        _buildMenuTile(
+          context,
+          icon: Icons.receipt_long_outlined,
+          title: 'Struk',
+          destination: const StrukPage(),
+        ),
+        _buildMenuTile(
+          context,
+          icon: Icons.info_outline,
+          title: 'Tentang',
+          destination: const TentangPage(),
+        ),
+        _buildMenuTile(
+          context,
+          icon: Icons.exit_to_app,
+          title: 'Keluar',
+          destination: null,
+          isLast: true,
+        ),
+      ],
+    );
+  }
+
   Widget _buildMenuTile(
     BuildContext context, {
     required IconData icon,
     required String title,
     required Widget? destination,
+    String? namedRoute,
     bool isLast = false,
   }) {
     return Column(
@@ -210,9 +265,7 @@ class ProfilePage extends StatelessWidget {
           leading: Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: const Color(
-                0xFFC7985F,
-              ).withOpacity(0.1), // Menggunakan cokelat muda
+              color: const Color(0xFFC7985F).withOpacity(0.1),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(icon, color: const Color(0xFFC7985F), size: 22),
@@ -225,15 +278,25 @@ class ProfilePage extends StatelessWidget {
               color: Colors.black,
             ),
           ),
-          onTap: () {
-            if (destination != null) {
+          onTap: () async {
+            if (title == 'Keluar') {
+              await AuthSession.clear();
+              if (!context.mounted) return;
+              Navigator.pushNamedAndRemoveUntil(
+                context,
+                AppRoutes.login,
+                (route) => false,
+              );
+              return;
+            }
+
+            if (namedRoute != null) {
+              Navigator.pushNamed(context, namedRoute);
+            } else if (destination != null) {
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (context) => destination),
               );
-            } else {
-              // Contoh aksi Logout
-              print("User Logout");
             }
           },
         ),

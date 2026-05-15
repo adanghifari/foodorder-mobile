@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../../app/app_routes.dart';
+import '../../../shared/widgets/app_back_button.dart';
+import 'menu_api_service.dart';
 
 class MenuPage extends StatefulWidget {
   const MenuPage({super.key});
@@ -10,84 +12,54 @@ class MenuPage extends StatefulWidget {
 }
 
 class _MenuPageState extends State<MenuPage> {
-  final List<Map<String, dynamic>> allMenus = [
-    {
-      'category': 'Hidangan',
-      'name': 'Ayam Bakar',
-      'desc': 'Ayam bakar bumbu meresap khas KedaiKlik.',
-      'price': 25000,
-      'img': 'assets/foto katalog/ayam bakar.jpg',
-    },
-    {
-      'category': 'Hidangan',
-      'name': 'Ayam Geprek',
-      'desc': 'Ayam krispi dengan sambal korek pedas nampol.',
-      'price': 20000,
-      'img': 'assets/foto katalog/ayam geprek.jpg',
-    },
-    {
-      'category': 'Hidangan',
-      'name': 'Gudeg',
-      'desc': 'Nangka muda manis gurih khas Jogja.',
-      'price': 22000,
-      'img': 'assets/foto katalog/Gudeg.jpg',
-    },
-    {
-      'category': 'Cemilan',
-      'name': 'Pempek',
-      'desc': 'Ikan tenggiri asli dengan cuko yang pas.',
-      'price': 18000,
-      'img': 'assets/foto katalog/Pempek.jpg',
-    },
-    {
-      'category': 'Cemilan',
-      'name': 'Tahu Gejrot',
-      'desc': 'Tahu pong dengan kuah asam pedas segar.',
-      'price': 12000,
-      'img': 'assets/foto katalog/Tahu Gejrot.jpg',
-    },
-    {
-      'category': 'Cemilan',
-      'name': 'Martabak Telur Mini',
-      'desc': 'Cemilan renyah isi telur dan daun bawang.',
-      'price': 15000,
-      'img': 'assets/foto katalog/Martabak Telur Mini.jpg',
-    },
-    {
-      'category': 'Minuman',
-      'name': 'Es Teh',
-      'desc': 'Teh manis segar pelepas dahaga.',
-      'price': 5000,
-      'img': 'assets/foto katalog/esteh.jpg',
-    },
-    {
-      'category': 'Minuman',
-      'name': 'Lemon Tea',
-      'desc': 'Paduan teh dan jeruk lemon yang segar.',
-      'price': 8000,
-      'img': 'assets/foto katalog/lemon tea.jpg',
-    },
-    {
-      'category': 'Minuman',
-      'name': 'Matcha',
-      'desc': 'Green tea latte yang creamy.',
-      'price': 12000,
-      'img': 'assets/foto katalog/matcha.jpg',
-    },
-    {
-      'category': 'Minuman',
-      'name': 'Caramel',
-      'desc': 'Minuman manis dengan aroma caramel.',
-      'price': 12000,
-      'img': 'assets/foto katalog/caramel.jpg',
-    },
-  ];
+  final MenuApiService _menuApiService = MenuApiService();
 
   int cartCount = 0;
-  String activeTab = 'Hidangan';
+  String activeTab = 'Semua';
+  String _query = '';
+  bool _isLoading = true;
+  String? _error;
+  List<MenuItemDto> _allMenus = const [];
 
-  List<Map<String, dynamic>> get filteredMenus {
-    return allMenus.where((menu) => menu['category'] == activeTab).toList();
+  List<MenuItemDto> get filteredMenus {
+    return _allMenus.where((menu) {
+      final sameCategory = activeTab == 'Semua'
+          ? true
+          : (menu.categoryUi == activeTab);
+      final name = menu.name.toLowerCase();
+      final desc = menu.description.toLowerCase();
+      final q = _query.trim().toLowerCase();
+      final sameQuery = q.isEmpty || name.contains(q) || desc.contains(q);
+      return sameCategory && sameQuery;
+    }).toList();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _loadMenus();
+  }
+
+  Future<void> _loadMenus() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    try {
+      final menus = await _menuApiService.fetchMenus();
+      if (!mounted) return;
+      setState(() {
+        _allMenus = menus;
+        _isLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = e.toString();
+        _isLoading = false;
+      });
+    }
   }
 
   void _tambahKeKeranjang() {
@@ -115,12 +87,7 @@ class _MenuPageState extends State<MenuPage> {
               children: [
                 _buildHeader(),
                 Expanded(
-                  child: ListView.builder(
-                    padding: const EdgeInsets.fromLTRB(24, 0, 24, 120),
-                    itemCount: filteredMenus.length,
-                    itemBuilder: (context, index) =>
-                        _buildMenuCard(filteredMenus[index]),
-                  ),
+                  child: _buildBody(),
                 ),
               ],
             ),
@@ -136,6 +103,52 @@ class _MenuPageState extends State<MenuPage> {
     );
   }
 
+  Widget _buildBody() {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_error != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.error_outline, color: Colors.redAccent, size: 40),
+              const SizedBox(height: 10),
+              Text(
+                _error!,
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 12, color: Colors.redAccent),
+              ),
+              const SizedBox(height: 12),
+              ElevatedButton(
+                onPressed: _loadMenus,
+                child: const Text('Coba lagi'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (filteredMenus.isEmpty) {
+      return const Center(
+        child: Text(
+          'Menu tidak ditemukan',
+          style: TextStyle(fontWeight: FontWeight.w600, color: Colors.grey),
+        ),
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(24, 0, 24, 120),
+      itemCount: filteredMenus.length,
+      itemBuilder: (context, index) => _buildMenuCard(filteredMenus[index]),
+    );
+  }
+
   Widget _buildHeader() {
     return Padding(
       padding: const EdgeInsets.all(24),
@@ -144,6 +157,10 @@ class _MenuPageState extends State<MenuPage> {
         children: [
           Row(
             children: [
+              const AppBackButton(
+                tooltip: 'Kembali ke Beranda',
+                icon: Icons.arrow_back,
+              ),
               const Text(
                 'Menu',
                 style: TextStyle(
@@ -160,8 +177,7 @@ class _MenuPageState extends State<MenuPage> {
               ),
               IconButton(
                 tooltip: 'Profil',
-                onPressed: () =>
-                    Navigator.pushNamed(context, AppRoutes.profile),
+                onPressed: () => Navigator.pushNamed(context, AppRoutes.profile),
                 icon: const Icon(Icons.person_outline),
               ),
             ],
@@ -171,7 +187,8 @@ class _MenuPageState extends State<MenuPage> {
             scrollDirection: Axis.horizontal,
             child: Row(
               children: [
-                'Hidangan',
+                'Semua',
+                'Makanan utama',
                 'Cemilan',
                 'Minuman',
               ].map(_buildTabItem).toList(),
@@ -187,8 +204,9 @@ class _MenuPageState extends State<MenuPage> {
                 BoxShadow(color: Colors.black.withAlpha(5), blurRadius: 10),
               ],
             ),
-            child: const TextField(
-              decoration: InputDecoration(
+            child: TextField(
+              onChanged: (value) => setState(() => _query = value),
+              decoration: const InputDecoration(
                 icon: Icon(Icons.search, color: Colors.grey),
                 hintText: 'Cari menu favoritmu...',
                 border: InputBorder.none,
@@ -225,7 +243,7 @@ class _MenuPageState extends State<MenuPage> {
     );
   }
 
-  Widget _buildMenuCard(Map<String, dynamic> menu) {
+  Widget _buildMenuCard(MenuItemDto menu) {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(12),
@@ -244,18 +262,15 @@ class _MenuPageState extends State<MenuPage> {
         children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(15),
-            child: Image.asset(
-              menu['img'],
-              width: 90,
-              height: 90,
-              fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) => Container(
-                width: 90,
-                height: 90,
-                color: Colors.grey[300],
-                child: const Icon(Icons.broken_image),
-              ),
-            ),
+            child: menu.imageUrl.isNotEmpty
+                ? Image.network(
+                    menu.imageUrl,
+                    width: 90,
+                    height: 90,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) => _imageFallback(),
+                  )
+                : _imageFallback(),
           ),
           const SizedBox(width: 15),
           Expanded(
@@ -263,14 +278,14 @@ class _MenuPageState extends State<MenuPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  menu['name'],
+                  menu.name,
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 16,
                   ),
                 ),
                 Text(
-                  menu['desc'],
+                  menu.description,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(color: Colors.grey, fontSize: 12),
@@ -280,14 +295,14 @@ class _MenuPageState extends State<MenuPage> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      'Rp ${_idr(menu['price'] as int)}',
+                      'Rp ${_idr(menu.price)}',
                       style: const TextStyle(
                         fontWeight: FontWeight.w900,
                         color: Color(0xFFC8641E),
                       ),
                     ),
                     IconButton.filled(
-                      onPressed: _tambahKeKeranjang,
+                      onPressed: menu.stock > 0 ? _tambahKeKeranjang : null,
                       icon: const Icon(Icons.add),
                       style: IconButton.styleFrom(
                         backgroundColor: const Color(0xFFC8641E),
@@ -303,6 +318,15 @@ class _MenuPageState extends State<MenuPage> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _imageFallback() {
+    return Container(
+      width: 90,
+      height: 90,
+      color: Colors.grey[300],
+      child: const Icon(Icons.broken_image),
     );
   }
 
@@ -361,7 +385,7 @@ class _MenuPageState extends State<MenuPage> {
   }
 
   String _idr(int value) => value.toString().replaceAllMapped(
-    RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-    (m) => '${m[1]}.',
-  );
+        RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+        (m) => '${m[1]}.',
+      );
 }
