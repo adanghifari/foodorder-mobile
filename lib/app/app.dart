@@ -12,13 +12,17 @@ import 'app_routes.dart';
 
 class KedaiKlikApp extends StatelessWidget {
   const KedaiKlikApp({super.key});
+  static const String _defaultInitialRoute = String.fromEnvironment(
+    'INITIAL_ROUTE',
+    defaultValue: AppRoutes.landing,
+  );
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'KedaiKlik',
-      initialRoute: AppRoutes.login,
+      initialRoute: _defaultInitialRoute,
       routes: {
         AppRoutes.login: (_) => const LoginScreen(),
         AppRoutes.register: (_) => const RegisterScreen(),
