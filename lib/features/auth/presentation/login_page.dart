@@ -23,6 +23,14 @@ class _LoginPageState extends State<LoginPage> {
 
   static const Color primaryBrown = Color(0xFFA0522D);
 
+  void _handleBack() {
+    if (Navigator.canPop(context)) {
+      Navigator.pop(context);
+      return;
+    }
+    Navigator.pushReplacementNamed(context, AppRoutes.landing);
+  }
+
   @override
   void dispose() {
     _usernameController.dispose();
@@ -130,9 +138,10 @@ class _LoginPageState extends State<LoginPage> {
           Positioned(
             top: 36,
             left: 12,
-            child: const AppBackButton(
+            child: AppBackButton(
               icon: Icons.arrow_back,
               color: Colors.black87,
+              onPressed: _handleBack,
             ),
           ),
         ],
