@@ -58,7 +58,6 @@ class _MenuPageState extends State<MenuPage> {
 
   @override
   void dispose() {
-    OrderTypeSession.clear();
     super.dispose();
   }
 

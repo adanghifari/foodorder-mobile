@@ -733,7 +733,7 @@ class _LandingPageState extends State<LandingPage>
         '${menu.name} masuk ke keranjang.',
         type: AppNoticeType.success,
       );
-      Navigator.pushNamed(context, AppRoutes.cart);
+      Navigator.pushNamed(context, AppRoutes.menu);
     } catch (e) {
       if (!mounted) return;
       final raw = e.toString().toLowerCase();
