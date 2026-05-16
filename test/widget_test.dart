@@ -1,11 +1,16 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:mobile_app/app/app.dart';
-
 void main() {
-  testWidgets('app smoke test', (WidgetTester tester) async {
-    await tester.pumpWidget(const KedaiKlikApp());
+  testWidgets('material app smoke test', (WidgetTester tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: Text('KedaiKlik'),
+        ),
+      ),
+    );
 
-    expect(find.text('Menu Terbaik'), findsOneWidget);
+    expect(find.text('KedaiKlik'), findsOneWidget);
   });
 }

@@ -1,7 +1,7 @@
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart';
 
 import '../../auth/data/auth_session.dart';
+import '../../../shared/config/api_config.dart';
 
 class ProfileUserDto {
   const ProfileUserDto({
@@ -20,17 +20,7 @@ class ProfileUserDto {
 }
 
 class ProfileApiService {
-  static const String _apiBaseUrlFromEnv = String.fromEnvironment(
-    'API_BASE_URL',
-    defaultValue: '',
-  );
-
-  String get _apiBaseUrl {
-    if (_apiBaseUrlFromEnv.isNotEmpty) {
-      return _apiBaseUrlFromEnv;
-    }
-    return kIsWeb ? 'http://127.0.0.1:8000/api' : 'http://192.168.1.5:8000/api';
-  }
+  String get _apiBaseUrl => ApiConfig.apiBaseUrl;
 
   Future<ProfileUserDto> fetchMe() async {
     final token = await AuthSession.getToken();

@@ -11,6 +11,7 @@ import '../data/order_type_session.dart';
 import '../data/landing_top_menu_service.dart';
 import '../../../shared/widgets/app_bottom_nav_bar.dart';
 import '../../../shared/widgets/app_notice.dart';
+import '../../../shared/config/api_config.dart';
 
 class LandingPage extends StatefulWidget {
   const LandingPage({super.key});
@@ -133,13 +134,8 @@ class _LandingPageState extends State<LandingPage>
       return;
     }
 
-    setState(() => _isLoggedIn = true);
-
     try {
-      const apiFromEnv = String.fromEnvironment('API_BASE_URL', defaultValue: '');
-      final baseUrl = apiFromEnv.isNotEmpty
-          ? apiFromEnv
-          : (kIsWeb ? 'http://127.0.0.1:8000/api' : 'http://192.168.1.5:8000/api');
+      final baseUrl = ApiConfig.apiBaseUrl;
       final dio = Dio(
         BaseOptions(
           connectTimeout: const Duration(seconds: 10),
@@ -155,10 +151,15 @@ class _LandingPageState extends State<LandingPage>
       final data = response.data?['data'] as Map<String, dynamic>? ?? const {};
       final username = (data['username'] ?? data['name'] ?? 'Pengguna').toString();
       setState(() {
+        _isLoggedIn = true;
         _username = username;
       });
     } catch (_) {
-      // Keep landing usable even if profile fetch fails.
+      if (!mounted) return;
+      setState(() {
+        _isLoggedIn = false;
+        _username = 'Pengguna';
+      });
     }
   }
 
@@ -335,7 +336,7 @@ class _LandingPageState extends State<LandingPage>
                           color: Colors.white,
                         ),
                       ),
-                      child: const Text('Sign In'),
+                      child: const Text('Login'),
                     ),
                   ),
           ),

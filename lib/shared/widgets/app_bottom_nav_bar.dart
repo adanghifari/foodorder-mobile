@@ -27,7 +27,8 @@ class AppBottomNavBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.of(context).padding.bottom;
-    const navHeight =65.0;
+    const navHeight = 65.0;
+    final safeBottomPadding = (bottomInset - 30).clamp(0.0, double.infinity);
 
     return SizedBox(
       height: navHeight + bottomInset,
@@ -36,7 +37,7 @@ class AppBottomNavBar extends StatelessWidget {
         children: [
           Positioned.fill(
             child: Container(
-              padding: EdgeInsets.only(bottom: bottomInset - 30),
+              padding: EdgeInsets.only(bottom: safeBottomPadding),
               decoration: const BoxDecoration(
                 color: Colors.white,
                 border: Border(top: BorderSide(color: Color(0xFFE8E8E8))),
@@ -159,20 +160,18 @@ class AppBottomNavBar extends StatelessWidget {
   Widget _scanLabel({required VoidCallback onTap}) {
     return InkWell(
       onTap: onTap,
-      child: const Padding(
-        padding: EdgeInsets.only(top: 52),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'Scan',
-              style: TextStyle(
-                color: _navText,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-              ),
+      child: const Align(
+        alignment: Alignment.bottomCenter,
+        child: Padding(
+          padding: EdgeInsets.only(bottom: 6),
+          child: Text(
+            'Scan',
+            style: TextStyle(
+              color: _navText,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
             ),
-          ],
+          ),
         ),
       ),
     );

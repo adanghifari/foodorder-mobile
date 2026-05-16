@@ -1,5 +1,4 @@
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../../app/app_routes.dart';
@@ -9,6 +8,7 @@ import '../../auth/data/auth_session.dart';
 import '../domain/history_models.dart';
 import 'widgets/order_history_list.dart';
 import 'widgets/payment_history_list.dart';
+import '../../../shared/config/api_config.dart';
 
 class HistoryPage extends StatefulWidget {
   const HistoryPage({super.key});
@@ -36,11 +36,7 @@ class _HistoryPageState extends State<HistoryPage> {
   _HistoryTab _activeTab = _HistoryTab.payment;
   bool _isInitialTabApplied = false;
 
-  String get _apiBaseUrl {
-    const fromEnv = String.fromEnvironment('API_BASE_URL', defaultValue: '');
-    if (fromEnv.isNotEmpty) return fromEnv;
-    return kIsWeb ? 'http://127.0.0.1:8000/api' : 'http://192.168.1.5:8000/api';
-  }
+  String get _apiBaseUrl => ApiConfig.apiBaseUrl;
 
   @override
   void initState() {
