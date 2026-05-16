@@ -92,11 +92,7 @@ class _ScanPageState extends State<ScanPage> {
     }
 
     if (!mounted) return;
-    Navigator.pushNamedAndRemoveUntil(
-      context,
-      AppRoutes.menu,
-      (route) => route.isFirst,
-    );
+    Navigator.pushNamed(context, AppRoutes.menu);
   }
 
   @override
