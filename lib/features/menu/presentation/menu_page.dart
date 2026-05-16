@@ -241,6 +241,12 @@ class _MenuPageState extends State<MenuPage> {
     }
   }
 
+  Future<void> _clearOrderTypeAndPushNamed(String routeName) async {
+    await OrderTypeSession.clear();
+    if (!mounted) return;
+    Navigator.pushNamed(context, routeName);
+  }
+
   @override
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.of(context).padding.bottom;
@@ -250,11 +256,11 @@ class _MenuPageState extends State<MenuPage> {
       backgroundColor: Colors.grey[100],
       bottomNavigationBar: AppBottomNavBar(
         activeItem: AppBottomNavItem.menu,
-        onHomeTap: () => Navigator.pushNamed(context, AppRoutes.landing),
+        onHomeTap: () => _clearOrderTypeAndPushNamed(AppRoutes.landing),
         onMenuTap: () {},
         onScanTap: () => Navigator.pushNamed(context, AppRoutes.scan),
-        onHistoryTap: () => Navigator.pushNamed(context, AppRoutes.orderHistory),
-        onAccountTap: () => Navigator.pushNamed(context, AppRoutes.profile),
+        onHistoryTap: () => _clearOrderTypeAndPushNamed(AppRoutes.orderHistory),
+        onAccountTap: () => _clearOrderTypeAndPushNamed(AppRoutes.profile),
       ),
       body: SafeArea(
         child: Stack(
@@ -358,13 +364,12 @@ class _MenuPageState extends State<MenuPage> {
               const Spacer(),
               IconButton(
                 tooltip: 'Chatbot',
-                onPressed: () => Navigator.pushNamed(context, AppRoutes.chat),
+                onPressed: () => _clearOrderTypeAndPushNamed(AppRoutes.chat),
                 icon: const Icon(Icons.chat_bubble_outline),
               ),
               IconButton(
                 tooltip: 'Profil',
-                onPressed: () =>
-                    Navigator.pushNamed(context, AppRoutes.profile),
+                onPressed: () => _clearOrderTypeAndPushNamed(AppRoutes.profile),
                 icon: const Icon(Icons.person_outline),
               ),
             ],
