@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../../../../app/app_routes.dart';
 import '../../../../shared/widgets/app_back_button.dart';
+import '../../auth/data/auth_session.dart';
+import '../../landing/data/order_type_session.dart';
+import '../../scan/data/table_session.dart';
 
 class PengaturanPage extends StatefulWidget {
   const PengaturanPage({super.key});
@@ -59,8 +63,16 @@ class _PengaturanPageState extends State<PengaturanPage> {
 
           // Tombol Keluar
           TextButton(
-            onPressed: () {
-              // Logika logout
+            onPressed: () async {
+              await AuthSession.clear();
+              await OrderTypeSession.clear();
+              await TableSession.clear();
+              if (!context.mounted) return;
+              Navigator.pushNamedAndRemoveUntil(
+                context,
+                AppRoutes.login,
+                (route) => false,
+              );
             },
             child: const Text(
               "Keluar",
