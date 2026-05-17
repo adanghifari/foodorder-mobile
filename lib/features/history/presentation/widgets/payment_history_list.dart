@@ -14,14 +14,20 @@ class PaymentHistoryList extends StatelessWidget {
     super.key,
     required this.orders,
     this.onRefreshRequested,
+    this.shrinkWrap = false,
+    this.physics,
   });
 
   final List<HistoryOrderItem> orders;
   final Future<void> Function()? onRefreshRequested;
+  final bool shrinkWrap;
+  final ScrollPhysics? physics;
 
   @override
   Widget build(BuildContext context) {
     return ListView.separated(
+      shrinkWrap: shrinkWrap,
+      physics: physics,
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
       itemCount: orders.length,
       separatorBuilder: (context, index) => const SizedBox(height: 12),

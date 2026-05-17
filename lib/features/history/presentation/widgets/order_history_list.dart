@@ -3,13 +3,22 @@ import 'package:flutter/material.dart';
 import '../../domain/history_models.dart';
 
 class OrderHistoryList extends StatelessWidget {
-  const OrderHistoryList({super.key, required this.orders});
+  const OrderHistoryList({
+    super.key,
+    required this.orders,
+    this.shrinkWrap = false,
+    this.physics,
+  });
 
   final List<HistoryOrderItem> orders;
+  final bool shrinkWrap;
+  final ScrollPhysics? physics;
 
   @override
   Widget build(BuildContext context) {
     return ListView.separated(
+      shrinkWrap: shrinkWrap,
+      physics: physics,
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
       itemCount: orders.length,
       separatorBuilder: (context, index) => const SizedBox(height: 12),
