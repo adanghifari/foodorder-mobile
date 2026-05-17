@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
+import '../../../app/app_routes.dart';
+import '../../landing/data/order_type_session.dart';
+import '../data/table_session.dart';
+
 class ScanPage extends StatefulWidget {
   const ScanPage({super.key});
 
@@ -14,6 +18,53 @@ class _ScanPageState extends State<ScanPage> {
   );
   bool _handled = false;
 
+  _ScanPayload? _extractPayload(String rawValue) {
+    final raw = rawValue.trim();
+    if (raw.isEmpty) return null;
+
+    if (RegExp(r'^take[_\-\s]?away$', caseSensitive: false).hasMatch(raw)) {
+      return const _ScanPayload.takeAway();
+    }
+
+    if (RegExp(r'^\d{1,3}$').hasMatch(raw)) {
+      return _ScanPayload.dineIn(int.parse(raw));
+    }
+
+    try {
+      final uri = Uri.parse(raw);
+      final mode = (uri.queryParameters['mode'] ?? '').toLowerCase();
+      final tableIdParam = (uri.queryParameters['tableId'] ?? '').toLowerCase();
+      if (mode == 'take_away' || tableIdParam == 'take_away') {
+        return const _ScanPayload.takeAway();
+      }
+
+      final fromParam = uri.queryParameters['tableId'];
+      if (fromParam != null && RegExp(r'^\d{1,3}$').hasMatch(fromParam)) {
+        return _ScanPayload.dineIn(int.parse(fromParam));
+      }
+
+      final path = uri.path.toLowerCase();
+      if (path.endsWith('/menu/take_away')) {
+        return const _ScanPayload.takeAway();
+      }
+
+      final matchMenuPath = RegExp(r'/menu/(\d{1,3})$').firstMatch(path);
+      if (matchMenuPath != null) {
+        return _ScanPayload.dineIn(int.parse(matchMenuPath.group(1)!));
+      }
+    } catch (_) {
+      final matchPlain = RegExp(
+        r'(?:tableId=|/menu/)(\d{1,3})',
+        caseSensitive: false,
+      ).firstMatch(raw);
+      if (matchPlain != null) {
+        return _ScanPayload.dineIn(int.parse(matchPlain.group(1)!));
+      }
+    }
+
+    return null;
+  }
+
   @override
   void dispose() {
     _controller.dispose();
@@ -26,23 +77,22 @@ class _ScanPageState extends State<ScanPage> {
         ? (capture.barcodes.first.rawValue?.trim() ?? '')
         : '';
     if (code.isEmpty) return;
+    final payload = _extractPayload(code);
+    if (payload == null) {
+      return;
+    }
+
     _handled = true;
+    if (payload.isTakeAway) {
+      await OrderTypeSession.set(OrderType.pickup);
+      await TableSession.clear();
+    } else {
+      await OrderTypeSession.set(OrderType.dineIn);
+      await TableSession.set(payload.tableId!);
+    }
+
     if (!mounted) return;
-    await showDialog<void>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('QR Terdeteksi'),
-        content: Text(code),
-        actions: [
-          FilledButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('OK'),
-          ),
-        ],
-      ),
-    );
-    if (!mounted) return;
-    Navigator.pop(context, code);
+    Navigator.pushNamed(context, AppRoutes.menu);
   }
 
   @override
@@ -89,4 +139,16 @@ class _ScanPageState extends State<ScanPage> {
       ),
     );
   }
+}
+
+class _ScanPayload {
+  const _ScanPayload._({required this.isTakeAway, this.tableId});
+
+  const _ScanPayload.takeAway() : this._(isTakeAway: true);
+
+  const _ScanPayload.dineIn(int tableId)
+    : this._(isTakeAway: false, tableId: tableId);
+
+  final bool isTakeAway;
+  final int? tableId;
 }

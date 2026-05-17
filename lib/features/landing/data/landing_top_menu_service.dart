@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import '../../../shared/config/api_config.dart';
 
 class LandingTopMenuItem {
   const LandingTopMenuItem({
@@ -20,24 +21,8 @@ class LandingTopMenuItem {
 }
 
 class LandingTopMenuService {
-  static const String _apiBaseUrlFromEnv = String.fromEnvironment(
-    'API_BASE_URL',
-    defaultValue: '',
-  );
-
-  String get _apiBaseUrl {
-    if (_apiBaseUrlFromEnv.isNotEmpty) {
-      return _apiBaseUrlFromEnv;
-    }
-    return kIsWeb ? 'http://127.0.0.1:8000/api' : 'http://192.168.1.5:8000/api';
-  }
-
-  String get _serverBaseUrl {
-    if (_apiBaseUrl.endsWith('/api')) {
-      return _apiBaseUrl.substring(0, _apiBaseUrl.length - 4);
-    }
-    return _apiBaseUrl;
-  }
+  String get _apiBaseUrl => ApiConfig.apiBaseUrl;
+  String get _serverBaseUrl => ApiConfig.serverBaseUrl;
 
   Future<List<LandingTopMenuItem>> fetchTopMenusByCategory() async {
     final url = '$_apiBaseUrl/v1/menus/top-by-category';

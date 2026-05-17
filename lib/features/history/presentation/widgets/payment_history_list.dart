@@ -1,10 +1,10 @@
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../auth/data/auth_session.dart';
 import '../../../payment/presentation/midtrans_webview_page.dart';
+import '../../../../shared/config/api_config.dart';
 import '../../../../shared/widgets/app_notice.dart';
 import '../../domain/history_models.dart';
 import 'payment_receipt_page.dart';
@@ -14,14 +14,20 @@ class PaymentHistoryList extends StatelessWidget {
     super.key,
     required this.orders,
     this.onRefreshRequested,
+    this.shrinkWrap = false,
+    this.physics,
   });
 
   final List<HistoryOrderItem> orders;
   final Future<void> Function()? onRefreshRequested;
+  final bool shrinkWrap;
+  final ScrollPhysics? physics;
 
   @override
   Widget build(BuildContext context) {
     return ListView.separated(
+      shrinkWrap: shrinkWrap,
+      physics: physics,
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
       itemCount: orders.length,
       separatorBuilder: (context, index) => const SizedBox(height: 12),
@@ -676,11 +682,6 @@ class _PaymentHistoryCard extends StatelessWidget {
 }
 
 class _HistoryPaymentApi {
-  static const String _apiBaseUrlFromEnv = String.fromEnvironment(
-    'API_BASE_URL',
-    defaultValue: '',
-  );
-
   final Dio _dio = Dio(
     BaseOptions(
       connectTimeout: const Duration(seconds: 10),
@@ -692,10 +693,7 @@ class _HistoryPaymentApi {
     ),
   );
 
-  String get _apiBaseUrl {
-    if (_apiBaseUrlFromEnv.isNotEmpty) return _apiBaseUrlFromEnv;
-    return kIsWeb ? 'http://127.0.0.1:8000/api' : 'http://192.168.1.5:8000/api';
-  }
+  String get _apiBaseUrl => ApiConfig.apiBaseUrl;
 
   Future<String?> continuePayment({
     required String orderId,

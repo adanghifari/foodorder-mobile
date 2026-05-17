@@ -1,7 +1,7 @@
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart';
 
 import '../../auth/data/auth_session.dart';
+import '../../../shared/config/api_config.dart';
 
 class CartItemDto {
   const CartItemDto({
@@ -24,11 +24,6 @@ class CartItemDto {
 }
 
 class CartApiService {
-  static const String _apiBaseUrlFromEnv = String.fromEnvironment(
-    'API_BASE_URL',
-    defaultValue: '',
-  );
-
   final Dio _dio = Dio(
     BaseOptions(
       connectTimeout: const Duration(seconds: 10),
@@ -40,17 +35,10 @@ class CartApiService {
     ),
   );
 
-  String get _apiBaseUrl {
-    if (_apiBaseUrlFromEnv.isNotEmpty) return _apiBaseUrlFromEnv;
-    return kIsWeb ? 'http://127.0.0.1:8000/api' : 'http://192.168.1.5:8000/api';
-  }
+  String get _apiBaseUrl => ApiConfig.apiBaseUrl;
 
   String get _assetBaseUrl {
-    final api = _apiBaseUrl;
-    if (api.endsWith('/api')) {
-      return api.substring(0, api.length - 4);
-    }
-    return api;
+    return ApiConfig.serverBaseUrl;
   }
 
   Future<List<CartItemDto>> getCartItems() async {

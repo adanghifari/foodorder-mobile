@@ -1,5 +1,4 @@
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../../app/app_routes.dart';
@@ -9,6 +8,7 @@ import '../../auth/data/auth_session.dart';
 import '../domain/history_models.dart';
 import 'widgets/order_history_list.dart';
 import 'widgets/payment_history_list.dart';
+import '../../../shared/config/api_config.dart';
 
 class HistoryPage extends StatefulWidget {
   const HistoryPage({super.key});
@@ -34,13 +34,12 @@ class _HistoryPageState extends State<HistoryPage> {
   bool _requireLogin = false;
   List<HistoryOrderItem> _orders = const [];
   _HistoryTab _activeTab = _HistoryTab.payment;
+  _PaymentSortFilter _paymentFilter = _PaymentSortFilter.newest;
+  _OrderStatusFilter _orderFilter = _OrderStatusFilter.latest;
+  bool _showPreviousHistory = false;
   bool _isInitialTabApplied = false;
 
-  String get _apiBaseUrl {
-    const fromEnv = String.fromEnvironment('API_BASE_URL', defaultValue: '');
-    if (fromEnv.isNotEmpty) return fromEnv;
-    return kIsWeb ? 'http://127.0.0.1:8000/api' : 'http://192.168.1.5:8000/api';
-  }
+  String get _apiBaseUrl => ApiConfig.apiBaseUrl;
 
   @override
   void initState() {
@@ -278,7 +277,10 @@ class _HistoryPageState extends State<HistoryPage> {
       );
     }
 
-    if (_orders.isEmpty) {
+    final allFilteredOrders = _filteredOrdersByActiveTab;
+    final todayOrders = _todayOrdersFrom(allFilteredOrders);
+    final previousOrders = _previousOrdersFrom(allFilteredOrders);
+    if (allFilteredOrders.isEmpty) {
       if (_requireLogin) {
         return Center(
           child: Padding(
@@ -314,6 +316,9 @@ class _HistoryPageState extends State<HistoryPage> {
       return Column(
         children: [
           _buildCategoryTabs(),
+          _buildSortDropdown(),
+          _buildTodaySectionHeader(todayCount: 0),
+          _buildPreviousHistoryToggle(previousCount: 0),
           const Expanded(
             child: Center(
               child: Padding(
@@ -347,15 +352,86 @@ class _HistoryPageState extends State<HistoryPage> {
     return Column(
       children: [
         _buildCategoryTabs(),
+        _buildSortDropdown(),
         Expanded(
-          child: _activeTab == _HistoryTab.payment
-              ? PaymentHistoryList(
-                  orders: _orders,
-                  onRefreshRequested: _loadOrders,
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(0, 0, 0, 12),
+            children: [
+              _buildTodaySectionHeader(todayCount: todayOrders.length),
+              if (todayOrders.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(16, 12, 16, 8),
+                  child: Text(
+                    'Belum ada riwayat hari ini',
+                    style: TextStyle(
+                      color: Color(0xFF666666),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 )
-              : OrderHistoryList(orders: _orders),
+              else
+                _buildHistorySectionList(orders: todayOrders),
+              _buildPreviousHistoryToggle(previousCount: previousOrders.length),
+              if (_showPreviousHistory && previousOrders.isNotEmpty)
+                _buildHistorySectionList(orders: previousOrders),
+            ],
+          ),
         ),
       ],
+    );
+  }
+
+  Widget _buildHistorySectionList({required List<HistoryOrderItem> orders}) {
+    if (_activeTab == _HistoryTab.payment) {
+      return PaymentHistoryList(
+        orders: orders,
+        onRefreshRequested: _loadOrders,
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+      );
+    }
+    return OrderHistoryList(
+      orders: orders,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+    );
+  }
+
+  Widget _buildTodaySectionHeader({required int todayCount}) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: const Color(0xFFEDEFF2),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFFD8DEE6)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Riwayat Hari Ini',
+              style: TextStyle(
+                color: Color(0xFF334155),
+                fontSize: 14,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 3),
+            Text(
+              '$todayCount data untuk hari ini',
+              style: const TextStyle(
+                color: Color(0xFF64748B),
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -374,7 +450,9 @@ class _HistoryPageState extends State<HistoryPage> {
               child: _CategoryTabButton(
                 label: 'Riwayat Pembayaran',
                 isActive: _activeTab == _HistoryTab.payment,
-                onTap: () => setState(() => _activeTab = _HistoryTab.payment),
+                onTap: () {
+                  setState(() => _activeTab = _HistoryTab.payment);
+                },
               ),
             ),
             const SizedBox(width: 6),
@@ -382,13 +460,256 @@ class _HistoryPageState extends State<HistoryPage> {
               child: _CategoryTabButton(
                 label: 'Riwayat Pesanan',
                 isActive: _activeTab == _HistoryTab.order,
-                onTap: () => setState(() => _activeTab = _HistoryTab.order),
+                onTap: () {
+                  setState(() => _activeTab = _HistoryTab.order);
+                },
               ),
             ),
           ],
         ),
       ),
     );
+  }
+
+  List<HistoryOrderItem> get _filteredOrdersByActiveTab {
+    final list = List<HistoryOrderItem>.from(_orders);
+    if (_activeTab == _HistoryTab.payment) {
+      final filtered = list.where((order) {
+        switch (_paymentFilter) {
+          case _PaymentSortFilter.newest:
+          case _PaymentSortFilter.oldest:
+            return true;
+          case _PaymentSortFilter.paid:
+            return _isPaidStatus(order.paymentMethodLabel);
+          case _PaymentSortFilter.pending:
+            return _isPendingStatus(order.paymentMethodLabel);
+          case _PaymentSortFilter.failed:
+            return _isFailedStatus(order.paymentMethodLabel);
+        }
+      }).toList();
+
+      filtered.sort((a, b) {
+        final ad = _parseDate(a.dateLabel);
+        final bd = _parseDate(b.dateLabel);
+        if (_paymentFilter == _PaymentSortFilter.oldest) {
+          return ad.compareTo(bd);
+        }
+        return bd.compareTo(ad);
+      });
+      return filtered;
+    }
+
+    final filtered = list.where((order) {
+      switch (_orderFilter) {
+        case _OrderStatusFilter.latest:
+        case _OrderStatusFilter.oldest:
+          return true;
+        case _OrderStatusFilter.waiting:
+          return _matchesAny(order.status, const ['pending', 'menunggu', 'new']);
+        case _OrderStatusFilter.processed:
+          return _matchesAny(order.status, const ['process', 'diproses', 'prepared', 'preparing']);
+        case _OrderStatusFilter.done:
+          return _matchesAny(order.status, const ['done', 'completed', 'selesai', 'served']);
+        case _OrderStatusFilter.cancelled:
+          return _matchesAny(order.status, const ['cancel', 'batal', 'failed']);
+      }
+    }).toList();
+
+    filtered.sort((a, b) {
+      final ad = _parseDate(a.dateLabel);
+      final bd = _parseDate(b.dateLabel);
+      if (_orderFilter == _OrderStatusFilter.oldest) {
+        return ad.compareTo(bd);
+      }
+      return bd.compareTo(ad);
+    });
+    return filtered;
+  }
+
+  List<HistoryOrderItem> _todayOrdersFrom(List<HistoryOrderItem> source) {
+    final now = DateTime.now();
+    return source.where((order) {
+      final d = _parseDate(order.dateLabel);
+      return d.year == now.year && d.month == now.month && d.day == now.day;
+    }).toList();
+  }
+
+  List<HistoryOrderItem> _previousOrdersFrom(List<HistoryOrderItem> source) {
+    final now = DateTime.now();
+    return source.where((order) {
+      final d = _parseDate(order.dateLabel);
+      final isToday = d.year == now.year && d.month == now.month && d.day == now.day;
+      return !isToday;
+    }).toList();
+  }
+
+  Widget _buildPreviousHistoryToggle({required int previousCount}) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
+      child: InkWell(
+        onTap: previousCount < 1
+            ? null
+            : () => setState(() => _showPreviousHistory = !_showPreviousHistory),
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: const Color(0xFFEDEFF2),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: const Color(0xFFD8DEE6)),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Riwayat Sebelumnya',
+                      style: TextStyle(
+                        color: Color(0xFF4B5563),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      previousCount < 1
+                          ? 'Tidak ada riwayat hari sebelumnya'
+                          : '$previousCount data dari hari sebelumnya',
+                      style: const TextStyle(
+                        color: Color(0xFF64748B),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (previousCount > 0)
+                Icon(
+                  _showPreviousHistory
+                      ? Icons.keyboard_arrow_up_rounded
+                      : Icons.keyboard_arrow_down_rounded,
+                  color: const Color(0xFF64748B),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSortDropdown() {
+    final isPayment = _activeTab == _HistoryTab.payment;
+    final options = isPayment
+        ? _paymentSortLabels.entries.toList()
+        : _orderSortLabels.entries.toList();
+    final selected = isPayment ? _paymentFilter.name : _orderFilter.name;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+      child: Row(
+        children: [
+          const Text(
+            'Sort by:',
+            style: TextStyle(
+              color: Color(0xFF666666),
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                border: Border.all(color: const Color(0xFFE3E3E3)),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String>(
+                  value: selected,
+                  isExpanded: true,
+                  items: options
+                      .map(
+                        (e) => DropdownMenuItem<String>(
+                          value: e.key,
+                          child: Text(
+                            e.value,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF4B5563),
+                            ),
+                          ),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (value) {
+                    if (value == null) return;
+                    setState(() {
+                      if (isPayment) {
+                        _paymentFilter = _PaymentSortFilter.values.firstWhere(
+                          (e) => e.name == value,
+                          orElse: () => _PaymentSortFilter.newest,
+                        );
+                      } else {
+                        _orderFilter = _OrderStatusFilter.values.firstWhere(
+                          (e) => e.name == value,
+                          orElse: () => _OrderStatusFilter.latest,
+                        );
+                      }
+                    });
+                  },
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Map<String, String> get _paymentSortLabels => const {
+    'newest': 'Terbaru',
+    'oldest': 'Terlama',
+    'paid': 'Lunas',
+    'pending': 'Menunggu',
+    'failed': 'Gagal',
+  };
+
+  Map<String, String> get _orderSortLabels => const {
+    'latest': 'Terbaru',
+    'oldest': 'Terlama',
+    'waiting': 'Menunggu',
+    'processed': 'Diproses',
+    'done': 'Selesai',
+    'cancelled': 'Batal/Gagal',
+  };
+
+  bool _matchesAny(String raw, List<String> keys) {
+    final value = raw.toLowerCase();
+    for (final key in keys) {
+      if (value.contains(key)) return true;
+    }
+    return false;
+  }
+
+  bool _isPaidStatus(String status) =>
+      _matchesAny(status, const ['paid', 'success', 'settlement', 'lunas']);
+
+  bool _isPendingStatus(String status) =>
+      _matchesAny(status, const ['pending', 'unpaid', 'menunggu']);
+
+  bool _isFailedStatus(String status) =>
+      _matchesAny(status, const ['failed', 'expire', 'cancel', 'deny', 'gagal']);
+
+  DateTime _parseDate(String raw) {
+    final sanitized = raw.trim().replaceFirst(' ', 'T');
+    return DateTime.tryParse(sanitized) ?? DateTime.fromMillisecondsSinceEpoch(0);
   }
 
   int _toInt(dynamic value) {
@@ -465,3 +786,7 @@ class _CategoryTabButton extends StatelessWidget {
 }
 
 enum _HistoryTab { order, payment }
+
+enum _PaymentSortFilter { newest, oldest, paid, pending, failed }
+
+enum _OrderStatusFilter { latest, oldest, waiting, processed, done, cancelled }

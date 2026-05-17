@@ -4,6 +4,7 @@ import '../../../app/app_routes.dart';
 import '../../../shared/widgets/app_notice.dart';
 import '../../landing/data/order_type_session.dart';
 import '../../payment/presentation/midtrans_webview_page.dart';
+import '../../scan/data/table_session.dart';
 import '../data/cart_api_service.dart';
 
 class CartPage extends StatefulWidget {
@@ -41,6 +42,12 @@ class _CartPageState extends State<CartPage> {
 
   Future<void> _initPage() async {
     _orderType = await OrderTypeSession.get();
+    if (_orderType == OrderType.dineIn) {
+      final scannedTableId = await TableSession.get();
+      if (scannedTableId != null && scannedTableId > 0) {
+        _tableController.text = scannedTableId.toString();
+      }
+    }
     await _loadCart();
   }
 
@@ -159,6 +166,7 @@ class _CartPageState extends State<CartPage> {
       }
 
       await OrderTypeSession.clear();
+      await TableSession.clear();
       await _loadCart();
       if (!mounted) return;
       Navigator.pushNamedAndRemoveUntil(
@@ -185,6 +193,18 @@ class _CartPageState extends State<CartPage> {
       }
     });
     await OrderTypeSession.set(value);
+    if (value != OrderType.dineIn) {
+      await TableSession.clear();
+      return;
+    }
+
+    final scannedTableId = await TableSession.get();
+    if (!mounted) return;
+    if (scannedTableId != null && scannedTableId > 0) {
+      setState(() {
+        _tableController.text = scannedTableId.toString();
+      });
+    }
   }
 
   @override

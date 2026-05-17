@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../app/app_routes.dart';
+
 class ChatPage extends StatefulWidget {
   const ChatPage({super.key});
 
@@ -15,6 +17,14 @@ class _ChatPageState extends State<ChatPage> {
   final Color userChatBubbleColor = const Color(0xFFC6620C);
   final Color lightBrownColor = const Color(0xFFC7985F);
 
+  void _handleBack() {
+    if (Navigator.canPop(context)) {
+      Navigator.pop(context);
+      return;
+    }
+    Navigator.pushReplacementNamed(context, AppRoutes.landing);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -23,7 +33,10 @@ class _ChatPageState extends State<ChatPage> {
         backgroundColor: backgroundColor,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
-        leading: const Icon(Icons.arrow_back, color: Colors.black),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.black),
+          onPressed: _handleBack,
+        ),
         title: Row(
           children: [
             CircleAvatar(
