@@ -39,14 +39,14 @@ class OrderTypePickerPage extends StatelessWidget {
             _orderTypeCard(
               context,
               icon: Icons.restaurant,
-              label: 'Makan\nditempat',
-              orderType: OrderType.dineIn,
+              label: 'Booking\nmeja',
+              orderType: OrderType.bookingDineIn,
             ),
             const SizedBox(height: 16),
             _orderTypeCard(
               context,
               icon: Icons.storefront,
-              label: 'Ambil ke\nresto',
+              label: 'Pesan &\nambil',
               orderType: OrderType.pickup,
             ),
           ],

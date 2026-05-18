@@ -1,17 +1,25 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
-enum OrderType { dineIn, pickup }
+enum OrderType { bookingDineIn, onSpotDineIn, pickup }
 
 class OrderTypeSession {
   static const _key = 'order_type';
   static OrderType? _cached;
 
   static String toApiValue(OrderType type) {
-    return type == OrderType.dineIn ? 'dine_in' : 'pickup';
+    return switch (type) {
+      OrderType.bookingDineIn => 'booking_dine_in',
+      OrderType.onSpotDineIn => 'dine_in',
+      OrderType.pickup => 'pickup',
+    };
   }
 
   static String toLabel(OrderType type) {
-    return type == OrderType.dineIn ? 'Makan di tempat' : 'Ambil ke resto';
+    return switch (type) {
+      OrderType.bookingDineIn => 'Booking dine-in',
+      OrderType.onSpotDineIn => 'On the spot dine-in',
+      OrderType.pickup => 'Take away',
+    };
   }
 
   static Future<void> set(OrderType type) async {
@@ -35,7 +43,8 @@ class OrderTypeSession {
   }
 
   static OrderType? _fromApiValue(String? raw) {
-    if (raw == 'dine_in') return OrderType.dineIn;
+    if (raw == 'booking_dine_in') return OrderType.bookingDineIn;
+    if (raw == 'dine_in') return OrderType.onSpotDineIn;
     if (raw == 'pickup') return OrderType.pickup;
     return null;
   }

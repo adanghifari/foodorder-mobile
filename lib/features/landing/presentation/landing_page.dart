@@ -561,8 +561,8 @@ class _LandingPageState extends State<LandingPage>
           child: _whyTile(
             context,
             icon: Icons.restaurant,
-            label: 'Makan\nditempat',
-            orderType: OrderType.dineIn,
+            label: 'Booking\nmeja',
+            orderType: OrderType.bookingDineIn,
           ),
         ),
         const SizedBox(width: 12),
@@ -570,7 +570,7 @@ class _LandingPageState extends State<LandingPage>
           child: _whyTile(
             context,
             icon: Icons.storefront,
-            label: 'Ambil ke\nresto',
+            label: 'Pesan &\nambil',
             orderType: OrderType.pickup,
           ),
         ),
@@ -665,12 +665,13 @@ class _LandingPageState extends State<LandingPage>
                 const SizedBox(height: 12),
                 ListTile(
                   leading: const Icon(Icons.restaurant, color: _accent),
-                  title: const Text('Makan di tempat'),
-                  onTap: () => Navigator.pop(sheetContext, OrderType.dineIn),
+                  title: const Text('Booking meja'),
+                  onTap: () =>
+                      Navigator.pop(sheetContext, OrderType.bookingDineIn),
                 ),
                 ListTile(
                   leading: const Icon(Icons.storefront, color: _accent),
-                  title: const Text('Ambil ke resto'),
+                  title: const Text('Pesan & ambil'),
                   onTap: () => Navigator.pop(sheetContext, OrderType.pickup),
                 ),
               ],

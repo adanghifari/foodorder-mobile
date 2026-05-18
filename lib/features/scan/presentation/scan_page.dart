@@ -87,7 +87,7 @@ class _ScanPageState extends State<ScanPage> {
       await OrderTypeSession.set(OrderType.pickup);
       await TableSession.clear();
     } else {
-      await OrderTypeSession.set(OrderType.dineIn);
+      await OrderTypeSession.set(OrderType.onSpotDineIn);
       await TableSession.set(payload.tableId!);
     }
 

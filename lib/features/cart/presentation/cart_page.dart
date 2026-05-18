@@ -20,8 +20,10 @@ class _CartPageState extends State<CartPage> {
   static const int _serviceFee = 5000;
 
   final CartApiService _cartApiService = CartApiService();
-  final TextEditingController _tableController = TextEditingController();
   final Set<String> _updatingMenuIds = <String>{};
+  final List<int> _bookingStartHours = const [8, 10, 12, 14, 16, 18, 20];
+  final List<int> _bookingDurations = const [2, 4, 6, 8];
+  final List<int> _fallbackTableNumbers = List<int>.generate(20, (i) => i + 1);
   static const String _mobileFinishRedirectUrl =
       'https://mobile.kedaiklik.app/payment-finish';
 
@@ -30,6 +32,16 @@ class _CartPageState extends State<CartPage> {
   String? _error;
   OrderType? _orderType;
   List<CartItemDto> _items = const [];
+  late DateTime _bookingDate;
+  int? _selectedBookingHour;
+  int? _selectedDurationHours;
+  int? _selectedTableNumber;
+  bool _isLoadingBookingAvailability = false;
+  String? _bookingAvailabilityError;
+  bool _isAvailabilityEndpointMissing = false;
+  Set<int> _availableTables = <int>{};
+  Map<int, Set<int>> _tableAvailabilityByHour = <int, Set<int>>{};
+  List<int> _tableNumbers = const [];
 
   int get _subtotal => _items.fold(0, (sum, e) => sum + e.subtotal);
   int get _totalPayment => _subtotal + _serviceFee;
@@ -37,15 +49,19 @@ class _CartPageState extends State<CartPage> {
   @override
   void initState() {
     super.initState();
+    _bookingDate = DateTime.now();
+    _selectedBookingHour = null;
+    _selectedDurationHours = null;
+    _tableNumbers = _fallbackTableNumbers;
     _initPage();
   }
 
   Future<void> _initPage() async {
     _orderType = await OrderTypeSession.get();
-    if (_orderType == OrderType.dineIn) {
+    if (_orderType == OrderType.onSpotDineIn) {
       final scannedTableId = await TableSession.get();
       if (scannedTableId != null && scannedTableId > 0) {
-        _tableController.text = scannedTableId.toString();
+        _selectedTableNumber = scannedTableId;
       }
     }
     await _loadCart();
@@ -53,7 +69,6 @@ class _CartPageState extends State<CartPage> {
 
   @override
   void dispose() {
-    _tableController.dispose();
     super.dispose();
   }
 
@@ -104,6 +119,90 @@ class _CartPageState extends State<CartPage> {
     }
   }
 
+  String _buildBookingStartAt(int hour) {
+    final localBookingStart = DateTime(
+      _bookingDate.year,
+      _bookingDate.month,
+      _bookingDate.day,
+      hour,
+    );
+
+    // Send UTC timestamp so backend timezone conversion stays deterministic.
+    return localBookingStart.toUtc().toIso8601String();
+  }
+
+  Future<void> _reloadBookingAvailability() async {
+    final bookingHour = _selectedBookingHour;
+    final duration = _selectedDurationHours;
+    if (bookingHour == null ||
+        duration == null ||
+        _orderType != OrderType.bookingDineIn) {
+      setState(() {
+        _availableTables = <int>{};
+        _tableAvailabilityByHour = <int, Set<int>>{};
+        _bookingAvailabilityError = null;
+        _isLoadingBookingAvailability = false;
+        _selectedTableNumber = null;
+      });
+      return;
+    }
+
+    setState(() {
+      _isLoadingBookingAvailability = true;
+      _bookingAvailabilityError = null;
+      _isAvailabilityEndpointMissing = false;
+    });
+
+    try {
+      final futures = _bookingStartHours.map((hour) {
+        return _cartApiService.getBookingAvailability(
+          bookingStartAt: _buildBookingStartAt(hour),
+          durationHours: duration,
+        );
+      }).toList();
+
+      final results = await Future.wait(futures);
+      if (!mounted) return;
+
+      final tableNumbers = <int>{};
+      final tableAvailabilityByHour = <int, Set<int>>{};
+      for (var i = 0; i < _bookingStartHours.length; i++) {
+        final hour = _bookingStartHours[i];
+        final result = results[i];
+        tableNumbers.addAll(result.availableTables);
+        tableNumbers.addAll(result.unavailableTables);
+        tableAvailabilityByHour[hour] = result.availableTables.toSet();
+      }
+
+      final selectedAvailability = tableAvailabilityByHour[bookingHour] ?? <int>{};
+      final selectedTable = _selectedTableNumber;
+      final finalTableNumbers = tableNumbers.isEmpty
+          ? _fallbackTableNumbers
+          : (tableNumbers.toList()..sort());
+
+      setState(() {
+        _tableNumbers = finalTableNumbers;
+        _tableAvailabilityByHour = tableAvailabilityByHour;
+        _availableTables = selectedAvailability;
+        if (selectedTable != null &&
+            !finalTableNumbers.contains(selectedTable)) {
+          _selectedTableNumber = null;
+        }
+        _isLoadingBookingAvailability = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      final message = '$e';
+      setState(() {
+        _isLoadingBookingAvailability = false;
+        _isAvailabilityEndpointMissing =
+            message.contains('Endpoint ketersediaan booking belum tersedia di backend.');
+        _bookingAvailabilityError =
+            _isAvailabilityEndpointMissing ? null : message;
+      });
+    }
+  }
+
   Future<void> _payNow() async {
     final orderType = _orderType;
     if (orderType == null) {
@@ -116,12 +215,47 @@ class _CartPageState extends State<CartPage> {
     }
 
     int? tableNumber;
-    if (orderType == OrderType.dineIn) {
-      tableNumber = int.tryParse(_tableController.text.trim());
+    String? bookingStartAt;
+    int? durationHours;
+    if (orderType == OrderType.bookingDineIn) {
+      tableNumber = _selectedTableNumber;
       if (tableNumber == null || tableNumber < 1) {
         AppNotice.show(
           context,
           'Nomor meja wajib diisi dengan benar.',
+          type: AppNoticeType.error,
+        );
+        return;
+      }
+
+      final bookingHour = _selectedBookingHour;
+      final selectedDuration = _selectedDurationHours;
+      if (bookingHour == null || selectedDuration == null) {
+        AppNotice.show(
+          context,
+          'Waktu booking dan durasi wajib dipilih.',
+          type: AppNoticeType.error,
+        );
+        return;
+      }
+
+      if (!_availableTables.contains(tableNumber)) {
+        AppNotice.show(
+          context,
+          'Meja $tableNumber sedang dipakai di jam booking tersebut.',
+          type: AppNoticeType.error,
+        );
+        return;
+      }
+
+      bookingStartAt = _buildBookingStartAt(bookingHour);
+      durationHours = selectedDuration;
+    } else if (orderType == OrderType.onSpotDineIn) {
+      tableNumber = _selectedTableNumber;
+      if (tableNumber == null || tableNumber < 1) {
+        AppNotice.show(
+          context,
+          'Untuk on the spot dine-in, silakan scan QR meja terlebih dahulu.',
           type: AppNoticeType.error,
         );
         return;
@@ -137,6 +271,8 @@ class _CartPageState extends State<CartPage> {
       final orderId = await _cartApiService.checkout(
         orderType: OrderTypeSession.toApiValue(orderType),
         tableNumber: tableNumber,
+        bookingStartAt: bookingStartAt,
+        durationHours: durationHours,
       );
       final redirectUrl = await _cartApiService.createPayment(
         orderId: orderId,
@@ -188,22 +324,30 @@ class _CartPageState extends State<CartPage> {
     if (value == null) return;
     setState(() {
       _orderType = value;
-      if (value != OrderType.dineIn) {
-        _tableController.clear();
+      if (value != OrderType.bookingDineIn) {
+        _selectedTableNumber = null;
+      } else {
+        _selectedBookingHour = null;
+        _selectedDurationHours = null;
+        _selectedTableNumber = null;
+        _availableTables = <int>{};
+        _tableAvailabilityByHour = <int, Set<int>>{};
+        _bookingAvailabilityError = null;
+        _isAvailabilityEndpointMissing = false;
       }
     });
     await OrderTypeSession.set(value);
-    if (value != OrderType.dineIn) {
-      await TableSession.clear();
+    if (value == OrderType.onSpotDineIn) {
+      final scannedTableId = await TableSession.get();
+      if (!mounted) return;
+      setState(() {
+        _selectedTableNumber =
+            (scannedTableId != null && scannedTableId > 0) ? scannedTableId : null;
+      });
       return;
     }
-
-    final scannedTableId = await TableSession.get();
-    if (!mounted) return;
-    if (scannedTableId != null && scannedTableId > 0) {
-      setState(() {
-        _tableController.text = scannedTableId.toString();
-      });
+    if (value == OrderType.pickup) {
+      await TableSession.clear();
     }
   }
 
@@ -333,16 +477,20 @@ class _CartPageState extends State<CartPage> {
                 selectedItemBuilder: (context) => const [
                   Align(
                     alignment: Alignment.centerLeft,
-                    child: Text('Makan di tempat'),
+                    child: Text('Booking meja'),
                   ),
                   Align(
                     alignment: Alignment.centerLeft,
-                    child: Text('Ambil ke resto'),
+                    child: Text('On the spot dine-in'),
+                  ),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text('Pesan & ambil'),
                   ),
                 ],
                 items: [
                   DropdownMenuItem<OrderType>(
-                    value: OrderType.dineIn,
+                    value: OrderType.bookingDineIn,
                     child: Container(
                       height: 56,
                       alignment: Alignment.centerLeft,
@@ -358,9 +506,19 @@ class _CartPageState extends State<CartPage> {
                         children: [
                           Icon(Icons.restaurant, size: 18, color: Color(0xFFC7985F)),
                           SizedBox(width: 10),
-                          Text('Makan di tempat'),
+                          Text('Booking meja'),
                         ],
                       ),
+                    ),
+                  ),
+                  const DropdownMenuItem<OrderType>(
+                    value: OrderType.onSpotDineIn,
+                    child: Row(
+                      children: [
+                        Icon(Icons.qr_code_scanner, size: 18, color: Color(0xFFC7985F)),
+                        SizedBox(width: 10),
+                        Text('On the spot dine-in'),
+                      ],
                     ),
                   ),
                   const DropdownMenuItem<OrderType>(
@@ -369,7 +527,7 @@ class _CartPageState extends State<CartPage> {
                       children: [
                         Icon(Icons.storefront, size: 18, color: Color(0xFFC7985F)),
                         SizedBox(width: 10),
-                        Text('Ambil ke resto'),
+                        Text('Pesan & ambil'),
                       ],
                     ),
                   ),
@@ -378,13 +536,51 @@ class _CartPageState extends State<CartPage> {
               ),
             ),
           ),
-          if (_orderType == OrderType.dineIn) ...[
+          if (_orderType == OrderType.bookingDineIn) ...[
+            const SizedBox(height: 14),
+            _buildLabel('Waktu Booking'),
+            _buildDatePickerField(),
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildHourDropdownField(),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _buildDurationDropdownField(),
+                ),
+              ],
+            ),
             const SizedBox(height: 14),
             _buildLabel('Nomor Meja'),
-            _buildTextField(
-              controller: _tableController,
-              hintText: 'Contoh: 7',
-            ),
+            _buildTableDropdownField(),
+            if (_isLoadingBookingAvailability) ...[
+              const SizedBox(height: 8),
+              const Text(
+                'Memuat ketersediaan meja...',
+                style: TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
+              ),
+            ],
+            if (_bookingAvailabilityError != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                _bookingAvailabilityError!,
+                style: const TextStyle(fontSize: 12, color: Colors.red),
+              ),
+            ],
+            if (_isAvailabilityEndpointMissing) ...[
+              const SizedBox(height: 8),
+              const Text(
+                'Sinkronisasi ketersediaan meja belum aktif di server yang terhubung.',
+                style: TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
+              ),
+            ],
+          ],
+          if (_orderType == OrderType.onSpotDineIn) ...[
+            const SizedBox(height: 14),
+            _buildLabel('Nomor Meja (hasil scan QR)'),
+            _buildOnSpotTableInfo(),
           ],
           const SizedBox(height: 30),
           const Text(
@@ -459,30 +655,208 @@ class _CartPageState extends State<CartPage> {
     );
   }
 
-  Widget _buildTextField({
-    required TextEditingController controller,
-    required String hintText,
-  }) {
+  Widget _buildTableDropdownField() {
+    final canSelectTable =
+        _selectedBookingHour != null && _selectedDurationHours != null;
+
     return Container(
+      height: 52,
+      padding: const EdgeInsets.symmetric(horizontal: 14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: canSelectTable ? Colors.white : const Color(0xFFF3F4F6),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(color: Colors.grey.shade300),
       ),
-      child: TextField(
-        controller: controller,
-        keyboardType: TextInputType.number,
-        decoration: InputDecoration(
-          hintText: hintText,
-          hintStyle: TextStyle(color: Colors.grey.shade400),
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 15,
-            vertical: 15,
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<int>(
+          value: _selectedTableNumber,
+          isExpanded: true,
+          borderRadius: BorderRadius.circular(12),
+          hint: Text(
+            canSelectTable ? 'Pilih meja' : 'Pilih waktu booking dulu',
+            style: const TextStyle(color: Color(0xFF6B7280)),
           ),
-          border: InputBorder.none,
+          items: _tableNumbers.map((tableNumber) {
+            final available = _isAvailabilityEndpointMissing
+                ? true
+                : _availableTables.contains(tableNumber);
+            return DropdownMenuItem<int>(
+              value: tableNumber,
+              child: Text(
+                available ? 'Meja $tableNumber' : 'Meja $tableNumber (dipakai)',
+                style: TextStyle(
+                  color: available ? const Color(0xFF1F2937) : Colors.red,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            );
+          }).toList(),
+          onChanged: canSelectTable
+              ? (value) {
+            if (value == null) return;
+            setState(() => _selectedTableNumber = value);
+          }
+              : null,
         ),
       ),
     );
+  }
+
+  Widget _buildOnSpotTableInfo() {
+    final tableNumber = _selectedTableNumber;
+    return Container(
+      height: 52,
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF3F4F6),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      alignment: Alignment.centerLeft,
+      child: Text(
+        tableNumber == null ? 'Belum ada meja. Scan QR meja dulu.' : 'Meja $tableNumber',
+        style: TextStyle(
+          color: tableNumber == null ? const Color(0xFF6B7280) : const Color(0xFF1F2937),
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDatePickerField() {
+    final displayDate =
+        '${_bookingDate.day.toString().padLeft(2, '0')}/${_bookingDate.month.toString().padLeft(2, '0')}/${_bookingDate.year}';
+
+    return InkWell(
+      onTap: _pickBookingDate,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        height: 52,
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey.shade300),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.calendar_today, size: 18, color: Color(0xFF6B7280)),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                displayDate,
+                style: const TextStyle(
+                  color: Color(0xFF1F2937),
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            const Icon(Icons.keyboard_arrow_down_rounded, color: Color(0xFF6B7280)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHourDropdownField() {
+    return _buildDropdownField<int>(
+      label: 'Jam',
+      value: _selectedBookingHour,
+      items: _bookingStartHours
+          .map(
+            (hour) => DropdownMenuItem<int>(
+              value: hour,
+              child: Text('${hour.toString().padLeft(2, '0')}:00'),
+            ),
+          )
+          .toList(),
+      onChanged: (value) {
+        setState(() {
+          _selectedBookingHour = value;
+          _selectedTableNumber = null;
+          if (value == null) {
+            _availableTables = <int>{};
+            return;
+          }
+          final selectedAvailability = _tableAvailabilityByHour[value] ?? <int>{};
+          _availableTables = selectedAvailability;
+        });
+        if (value == null) return;
+        _reloadBookingAvailability();
+      },
+    );
+  }
+
+  Widget _buildDurationDropdownField() {
+    return _buildDropdownField<int>(
+      label: 'Durasi',
+      value: _selectedDurationHours,
+      items: _bookingDurations
+          .map(
+            (duration) => DropdownMenuItem<int>(
+              value: duration,
+              child: Text(
+                duration >= 4
+                    ? '$duration jam (Biaya Tambahan)'
+                    : '$duration jam',
+              ),
+            ),
+          )
+          .toList(),
+      onChanged: (value) {
+        setState(() {
+          _selectedDurationHours = value;
+          _selectedTableNumber = null;
+        });
+        if (value == null) return;
+        _reloadBookingAvailability();
+      },
+    );
+  }
+
+  Widget _buildDropdownField<T>({
+    required String label,
+    required T? value,
+    required List<DropdownMenuItem<T>> items,
+    required ValueChanged<T?> onChanged,
+  }) {
+    return Container(
+      height: 52,
+      padding: const EdgeInsets.symmetric(horizontal: 14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<T>(
+          value: value,
+          isExpanded: true,
+          borderRadius: BorderRadius.circular(12),
+          hint: Text(label),
+          items: items,
+          onChanged: onChanged,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _pickBookingDate() async {
+    final today = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _bookingDate,
+      firstDate: DateTime(today.year, today.month, today.day),
+      lastDate: DateTime(today.year + 1),
+    );
+    if (picked == null || !mounted) return;
+    setState(() {
+      _bookingDate = DateTime(picked.year, picked.month, picked.day);
+      _selectedTableNumber = null;
+    });
+    await _reloadBookingAvailability();
   }
 
   Widget _buildOrderItem(CartItemDto item) {

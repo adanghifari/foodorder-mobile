@@ -153,9 +153,12 @@ class _HistoryPageState extends State<HistoryPage> {
         }
         final totalItems = orderItems.fold<int>(0, (sum, e) => sum + e.quantity);
 
-        final orderTypeLabel = orderTypeRaw == 'pickup'
-            ? 'Ambil ke resto'
-            : 'Makan di tempat${tableNumber != null ? ' • Meja $tableNumber' : ''}';
+        final orderTypeLabel = switch (orderTypeRaw) {
+          'pickup' => 'Pesan & ambil',
+          'dine_in' =>
+            'On the spot dine-in${tableNumber != null ? ' • Meja $tableNumber' : ''}',
+          _ => 'Booking dine-in${tableNumber != null ? ' • Meja $tableNumber' : ''}',
+        };
         final tableLabel = tableNumber == null ? '-' : '$tableNumber';
 
         return HistoryOrderItem(

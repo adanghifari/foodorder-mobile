@@ -23,6 +23,24 @@ class CartItemDto {
   final String imageUrl;
 }
 
+class BookingAvailabilityDto {
+  const BookingAvailabilityDto({
+    required this.bookingStartAt,
+    required this.bookingEndAt,
+    required this.durationHours,
+    required this.extraCharge,
+    required this.availableTables,
+    required this.unavailableTables,
+  });
+
+  final String bookingStartAt;
+  final String bookingEndAt;
+  final int durationHours;
+  final int extraCharge;
+  final List<int> availableTables;
+  final List<int> unavailableTables;
+}
+
 class CartApiService {
   final Dio _dio = Dio(
     BaseOptions(
@@ -102,12 +120,23 @@ class CartApiService {
     }
   }
 
-  Future<String> checkout({required String orderType, int? tableNumber}) async {
+  Future<String> checkout({
+    required String orderType,
+    int? tableNumber,
+    String? bookingStartAt,
+    int? durationHours,
+  }) async {
     final token = await _requireToken();
     try {
       final payload = <String, dynamic>{'orderType': orderType};
       if (tableNumber != null) {
         payload['tableNumber'] = tableNumber;
+      }
+      if (bookingStartAt != null && bookingStartAt.isNotEmpty) {
+        payload['bookingStartAt'] = bookingStartAt;
+      }
+      if (durationHours != null) {
+        payload['durationHours'] = durationHours;
       }
       final response = await _dio.post<Map<String, dynamic>>(
         '$_apiBaseUrl/v1/cart/checkout',
@@ -145,6 +174,35 @@ class CartApiService {
     }
   }
 
+  Future<BookingAvailabilityDto> getBookingAvailability({
+    required String bookingStartAt,
+    required int durationHours,
+  }) async {
+    final token = await _requireToken();
+    try {
+      final response = await _dio.get<Map<String, dynamic>>(
+        '$_apiBaseUrl/v1/bookings/availability',
+        queryParameters: {
+          'bookingStartAt': bookingStartAt,
+          'durationHours': durationHours,
+        },
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
+      );
+      final map = response.data ?? const <String, dynamic>{};
+      final data = map['data'] as Map<String, dynamic>? ?? const {};
+      return BookingAvailabilityDto(
+        bookingStartAt: (data['bookingStartAt'] ?? '').toString(),
+        bookingEndAt: (data['bookingEndAt'] ?? '').toString(),
+        durationHours: _toInt(data['durationHours']),
+        extraCharge: _toInt(data['extraCharge']),
+        availableTables: _toIntList(data['availableTables']),
+        unavailableTables: _toIntList(data['unavailableTables']),
+      );
+    } on DioException catch (e) {
+      throw Exception(_extractDioMessage(e));
+    }
+  }
+
   Future<String> _requireToken() async {
     final token = await AuthSession.getToken();
     if (token == null || token.isEmpty) {
@@ -160,8 +218,21 @@ class CartApiService {
     return 0;
   }
 
+  List<int> _toIntList(dynamic value) {
+    if (value is! List) return const [];
+    return value
+        .map((item) => _toInt(item))
+        .where((item) => item > 0)
+        .toSet()
+        .toList()
+      ..sort();
+  }
+
   String _extractDioMessage(DioException e) {
     final statusCode = e.response?.statusCode;
+    if (statusCode == 404) {
+      return 'Endpoint ketersediaan booking belum tersedia di backend.';
+    }
     final data = e.response?.data;
     if (data is Map<String, dynamic>) {
       final message = data['message']?.toString();
