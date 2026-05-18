@@ -17,7 +17,7 @@ class OrderTypeSession {
   static String toLabel(OrderType type) {
     return switch (type) {
       OrderType.bookingDineIn => 'Booking dine-in',
-      OrderType.onSpotDineIn => 'On the spot dine-in',
+      OrderType.onSpotDineIn => 'Dine-in',
       OrderType.pickup => 'Take away',
     };
   }

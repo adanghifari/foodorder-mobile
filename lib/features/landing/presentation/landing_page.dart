@@ -5,7 +5,7 @@ import 'package:dio/dio.dart';
 
 import '../../../app/app_routes.dart';
 import '../../auth/data/auth_session.dart';
-import '../../cart/data/cart_api_service.dart';
+
 import 'order_type_picker_page.dart';
 import '../data/order_type_session.dart';
 import '../data/landing_top_menu_service.dart';
@@ -23,7 +23,7 @@ class LandingPage extends StatefulWidget {
 class _LandingPageState extends State<LandingPage>
     with WidgetsBindingObserver {
   final LandingTopMenuService _topMenuService = LandingTopMenuService();
-  final CartApiService _cartApiService = CartApiService();
+
   late List<_LandingMenuCardData> _menuCards;
   bool _isFromBackend = false;
   String? _loadError;
@@ -640,7 +640,11 @@ class _LandingPageState extends State<LandingPage>
   }
 
   Future<OrderType?> _pickOrderType(BuildContext context) async {
-    return showModalBottomSheet<OrderType>(
+    // Using a special sentinel value to detect "Scan QR" selection.
+    // We return null for cancel, an OrderType for normal selection,
+    // and handle scan QR via a flag.
+    var isScanQr = false;
+    final result = await showModalBottomSheet<OrderType?>(
       context: context,
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
@@ -674,12 +678,27 @@ class _LandingPageState extends State<LandingPage>
                   title: const Text('Pesan & ambil'),
                   onTap: () => Navigator.pop(sheetContext, OrderType.pickup),
                 ),
+                ListTile(
+                  leading: const Icon(Icons.qr_code_scanner, color: _accent),
+                  title: const Text('Scan QR'),
+                  onTap: () {
+                    isScanQr = true;
+                    Navigator.pop(sheetContext, null);
+                  },
+                ),
               ],
             ),
           ),
         );
       },
     );
+
+    if (isScanQr) {
+      if (!mounted) return null;
+      Navigator.pushNamed(context, AppRoutes.scan);
+      return null;
+    }
+    return result;
   }
 
   Future<void> _handleTopMenuOrder(
@@ -703,51 +722,13 @@ class _LandingPageState extends State<LandingPage>
       return;
     }
 
-    final token = await AuthSession.getToken();
-    if (token == null || token.isEmpty) {
-      if (!mounted) return;
-      final loginSuccess = await Navigator.pushNamed(
-        context,
-        AppRoutes.login,
-        arguments: const {'returnToPrevious': true},
-      );
-      if (!mounted || loginSuccess != true) return;
-    }
-
     if (!mounted) return;
     final orderType = await _pickOrderType(context);
     if (orderType == null) return;
     await OrderTypeSession.set(orderType);
 
-    try {
-      final currentItems = await _cartApiService.getCartItems();
-      final existingQty = currentItems
-          .where((e) => e.menuId == menu.id)
-          .fold<int>(0, (sum, e) => sum + e.quantity);
-      await _cartApiService.setItemQuantity(
-        menuItemId: menu.id,
-        quantity: existingQty + 1,
-      );
-      if (!mounted) return;
-      AppNotice.show(
-        context,
-        '${menu.name} masuk ke keranjang.',
-        type: AppNoticeType.success,
-      );
-      Navigator.pushNamed(context, AppRoutes.menu);
-    } catch (e) {
-      if (!mounted) return;
-      final raw = e.toString().toLowerCase();
-      final isUnauthorized = raw.contains('401') ||
-          raw.contains('unauth') ||
-          raw.contains('belum login') ||
-          raw.contains('unauthorized');
-      if (isUnauthorized) {
-        await _showLoginRequiredPopup(context);
-      } else {
-        AppNotice.show(context, '$e', type: AppNoticeType.error);
-      }
-    }
+    if (!mounted) return;
+    Navigator.pushNamed(context, AppRoutes.menu);
   }
 
   Future<void> _showLoginRequiredPopup(BuildContext context) async {

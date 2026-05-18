@@ -5,6 +5,7 @@ import '../../../shared/widgets/app_notice.dart';
 import '../../landing/data/order_type_session.dart';
 import '../../payment/presentation/midtrans_webview_page.dart';
 import '../../scan/data/table_session.dart';
+import '../../scan/presentation/scan_page.dart';
 import '../data/cart_api_service.dart';
 
 class CartPage extends StatefulWidget {
@@ -255,7 +256,7 @@ class _CartPageState extends State<CartPage> {
       if (tableNumber == null || tableNumber < 1) {
         AppNotice.show(
           context,
-          'Untuk on the spot dine-in, silakan scan QR meja terlebih dahulu.',
+          'Untuk dine-in, silakan scan QR meja terlebih dahulu.',
           type: AppNoticeType.error,
         );
         return;
@@ -435,107 +436,130 @@ class _CartPageState extends State<CartPage> {
           ),
           const SizedBox(height: 15),
           _buildLabel('Tipe Pesanan'),
-          Container(
-            height: 52,
-            padding: const EdgeInsets.symmetric(horizontal: 14),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.grey.shade300),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.03),
-                  blurRadius: 8,
-                  offset: const Offset(0, 3),
-                ),
-              ],
-            ),
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<OrderType>(
-                value: _orderType,
-                isExpanded: true,
-                itemHeight: 56,
-                menuMaxHeight: 220,
+          if (_orderType == OrderType.onSpotDineIn ||
+              _orderType == OrderType.bookingDineIn)
+            Container(
+              height: 52,
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              decoration: BoxDecoration(
+                color: const Color(0xFFE8E8E8),
                 borderRadius: BorderRadius.circular(12),
-                icon: const Icon(
-                  Icons.keyboard_arrow_down_rounded,
-                  color: Color(0xFF6B7280),
-                ),
-                hint: const Text(
-                  'Pilih tipe pesanan',
-                  style: TextStyle(
-                    color: Color(0xFF9CA3AF),
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
+                border: Border.all(color: Colors.grey.shade300),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    _orderType == OrderType.onSpotDineIn
+                        ? Icons.qr_code_scanner
+                        : Icons.restaurant,
+                    size: 18,
+                    color: const Color(0xFF9CA3AF),
                   ),
-                ),
-                style: const TextStyle(
-                  color: Color(0xFF1F2937),
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
-                selectedItemBuilder: (context) => const [
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text('Booking meja'),
-                  ),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text('On the spot dine-in'),
-                  ),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text('Pesan & ambil'),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      _orderType == OrderType.onSpotDineIn
+                          ? 'Dine-in'
+                          : 'Booking meja',
+                      style: const TextStyle(
+                        color: Color(0xFF6B7280),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ),
                 ],
-                items: [
-                  DropdownMenuItem<OrderType>(
-                    value: OrderType.bookingDineIn,
-                    child: Container(
-                      height: 56,
+              ),
+            )
+          else
+            Container(
+              height: 52,
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey.shade300),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.03),
+                    blurRadius: 8,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<OrderType>(
+                  value: _orderType,
+                  isExpanded: true,
+                  itemHeight: 56,
+                  menuMaxHeight: 220,
+                  borderRadius: BorderRadius.circular(12),
+                  icon: const Icon(
+                    Icons.keyboard_arrow_down_rounded,
+                    color: Color(0xFF6B7280),
+                  ),
+                  hint: const Text(
+                    'Pilih tipe pesanan',
+                    style: TextStyle(
+                      color: Color(0xFF9CA3AF),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  style: const TextStyle(
+                    color: Color(0xFF1F2937),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  selectedItemBuilder: (context) => const [
+                    Align(
                       alignment: Alignment.centerLeft,
-                      decoration: const BoxDecoration(
-                        border: Border(
-                          bottom: BorderSide(
-                            color: Color(0xFFD1D5DB),
-                            width: 1.6,
+                      child: Text('Booking meja'),
+                    ),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text('Pesan & ambil'),
+                    ),
+                  ],
+                  items: [
+                    DropdownMenuItem<OrderType>(
+                      value: OrderType.bookingDineIn,
+                      child: Container(
+                        height: 56,
+                        alignment: Alignment.centerLeft,
+                        decoration: const BoxDecoration(
+                          border: Border(
+                            bottom: BorderSide(
+                              color: Color(0xFFD1D5DB),
+                              width: 1.6,
+                            ),
                           ),
                         ),
+                        child: const Row(
+                          children: [
+                            Icon(Icons.restaurant, size: 18, color: Color(0xFFC7985F)),
+                            SizedBox(width: 10),
+                            Text('Booking meja'),
+                          ],
+                        ),
                       ),
-                      child: const Row(
+                    ),
+                    const DropdownMenuItem<OrderType>(
+                      value: OrderType.pickup,
+                      child: Row(
                         children: [
-                          Icon(Icons.restaurant, size: 18, color: Color(0xFFC7985F)),
+                          Icon(Icons.storefront, size: 18, color: Color(0xFFC7985F)),
                           SizedBox(width: 10),
-                          Text('Booking meja'),
+                          Text('Pesan & ambil'),
                         ],
                       ),
                     ),
-                  ),
-                  const DropdownMenuItem<OrderType>(
-                    value: OrderType.onSpotDineIn,
-                    child: Row(
-                      children: [
-                        Icon(Icons.qr_code_scanner, size: 18, color: Color(0xFFC7985F)),
-                        SizedBox(width: 10),
-                        Text('On the spot dine-in'),
-                      ],
-                    ),
-                  ),
-                  const DropdownMenuItem<OrderType>(
-                    value: OrderType.pickup,
-                    child: Row(
-                      children: [
-                        Icon(Icons.storefront, size: 18, color: Color(0xFFC7985F)),
-                        SizedBox(width: 10),
-                        Text('Pesan & ambil'),
-                      ],
-                    ),
-                  ),
-                ],
-                onChanged: (value) => _onOrderTypeChanged(value),
+                  ],
+                  onChanged: (value) => _onOrderTypeChanged(value),
+                ),
               ),
             ),
-          ),
           if (_orderType == OrderType.bookingDineIn) ...[
             const SizedBox(height: 14),
             _buildLabel('Waktu Booking'),
@@ -702,24 +726,69 @@ class _CartPageState extends State<CartPage> {
     );
   }
 
+  Future<void> _openScanForTable() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute<void>(
+        builder: (_) => const ScanPage(redirectToCart: true),
+      ),
+    );
+    if (!mounted) return;
+    final scannedTableId = await TableSession.get();
+    final newOrderType = await OrderTypeSession.get();
+    if (!mounted) return;
+    setState(() {
+      if (scannedTableId != null && scannedTableId > 0) {
+        _selectedTableNumber = scannedTableId;
+      }
+      if (newOrderType != null) {
+        _orderType = newOrderType;
+      }
+    });
+  }
+
   Widget _buildOnSpotTableInfo() {
     final tableNumber = _selectedTableNumber;
     return Container(
       height: 52,
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 14),
+      padding: const EdgeInsets.only(left: 14, right: 4),
       decoration: BoxDecoration(
         color: const Color(0xFFF3F4F6),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.grey.shade300),
       ),
-      alignment: Alignment.centerLeft,
-      child: Text(
-        tableNumber == null ? 'Belum ada meja. Scan QR meja dulu.' : 'Meja $tableNumber',
-        style: TextStyle(
-          color: tableNumber == null ? const Color(0xFF6B7280) : const Color(0xFF1F2937),
-          fontWeight: FontWeight.w600,
-        ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              tableNumber == null
+                  ? 'Belum ada meja. Scan QR meja dulu.'
+                  : 'Meja $tableNumber',
+              style: TextStyle(
+                color: tableNumber == null
+                    ? const Color(0xFF6B7280)
+                    : const Color(0xFF1F2937),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          if (tableNumber == null)
+            SizedBox(
+              height: 40,
+              width: 40,
+              child: IconButton(
+                onPressed: _openScanForTable,
+                icon: const Icon(
+                  Icons.qr_code_scanner,
+                  size: 20,
+                  color: Color(0xFFC7985F),
+                ),
+                tooltip: 'Scan QR Meja',
+                padding: EdgeInsets.zero,
+              ),
+            ),
+        ],
       ),
     );
   }

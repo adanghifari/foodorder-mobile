@@ -6,7 +6,9 @@ import '../../landing/data/order_type_session.dart';
 import '../data/table_session.dart';
 
 class ScanPage extends StatefulWidget {
-  const ScanPage({super.key});
+  const ScanPage({super.key, this.redirectToCart = false});
+
+  final bool redirectToCart;
 
   @override
   State<ScanPage> createState() => _ScanPageState();
@@ -92,7 +94,10 @@ class _ScanPageState extends State<ScanPage> {
     }
 
     if (!mounted) return;
-    Navigator.pushNamed(context, AppRoutes.menu);
+    final targetRoute = widget.redirectToCart
+        ? AppRoutes.cart
+        : AppRoutes.menu;
+    Navigator.pushNamed(context, targetRoute);
   }
 
   @override
