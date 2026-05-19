@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../app/app_routes.dart';
+import '../../../shared/widgets/app_dropdown_field.dart';
 import '../../../shared/widgets/app_notice.dart';
 import '../../landing/data/order_type_session.dart';
 import '../../payment/presentation/midtrans_webview_page.dart';
@@ -330,7 +331,22 @@ class _CartPageState extends State<CartPage> {
   }
 
   Future<void> _onOrderTypeChanged(OrderType? value) async {
-    if (value == null) return;
+    if (value == null) {
+      setState(() {
+        _orderType = null;
+        _selectedBookingHour = null;
+        _selectedDurationHours = null;
+        _selectedTableNumber = null;
+        _availableTables = <int>{};
+        _tableAvailabilityByHour = <int, Set<int>>{};
+        _tableUnavailabilityByHour = <int, Set<int>>{};
+        _bookingAvailabilityError = null;
+        _isAvailabilityEndpointMissing = false;
+      });
+      await OrderTypeSession.clear();
+      await TableSession.clear();
+      return;
+    }
     setState(() {
       _orderType = value;
       if (value != OrderType.bookingDineIn) {
@@ -482,92 +498,32 @@ class _CartPageState extends State<CartPage> {
               ),
             )
           else
-            Container(
-              height: 52,
-              padding: const EdgeInsets.symmetric(horizontal: 14),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.grey.shade300),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.03),
-                    blurRadius: 8,
-                    offset: const Offset(0, 3),
-                  ),
-                ],
-              ),
-              child: DropdownButtonHideUnderline(
-                child: DropdownButton<OrderType>(
-                  value: _orderType,
-                  isExpanded: true,
-                  itemHeight: 56,
-                  menuMaxHeight: 220,
-                  borderRadius: BorderRadius.circular(12),
-                  icon: const Icon(
-                    Icons.keyboard_arrow_down_rounded,
-                    color: Color(0xFF6B7280),
-                  ),
-                  hint: const Text(
-                    'Pilih tipe pesanan',
-                    style: TextStyle(
-                      color: Color(0xFF9CA3AF),
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  style: const TextStyle(
-                    color: Color(0xFF1F2937),
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                  ),
-                  selectedItemBuilder: (context) => const [
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text('Booking meja'),
-                    ),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text('Pesan & ambil'),
-                    ),
-                  ],
-                  items: [
-                    DropdownMenuItem<OrderType>(
-                      value: OrderType.bookingDineIn,
-                      child: Container(
-                        height: 56,
-                        alignment: Alignment.centerLeft,
-                        decoration: const BoxDecoration(
-                          border: Border(
-                            bottom: BorderSide(
-                              color: Color(0xFFD1D5DB),
-                              width: 1.6,
-                            ),
-                          ),
-                        ),
-                        child: const Row(
-                          children: [
-                            Icon(Icons.restaurant, size: 18, color: Color(0xFFC7985F)),
-                            SizedBox(width: 10),
-                            Text('Booking meja'),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const DropdownMenuItem<OrderType>(
-                      value: OrderType.pickup,
-                      child: Row(
-                        children: [
-                          Icon(Icons.storefront, size: 18, color: Color(0xFFC7985F)),
-                          SizedBox(width: 10),
-                          Text('Pesan & ambil'),
-                        ],
-                      ),
-                    ),
-                  ],
-                  onChanged: (value) => _onOrderTypeChanged(value),
+            AppDropdownField<OrderType>(
+              value: _orderType,
+              hintText: 'Pilih tipe pesanan',
+              menuMaxHeight: 240,
+              dividerWidth: 2.2,
+              borderColor: Colors.grey.shade300,
+              shadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.03),
+                  blurRadius: 8,
+                  offset: const Offset(0, 3),
                 ),
-              ),
+              ],
+              options: const [
+                AppDropdownOption<OrderType>(
+                  value: OrderType.bookingDineIn,
+                  label: 'Booking meja',
+                  icon: Icons.restaurant,
+                ),
+                AppDropdownOption<OrderType>(
+                  value: OrderType.pickup,
+                  label: 'Pesan & ambil',
+                  icon: Icons.storefront,
+                ),
+              ],
+              onChanged: (value) => _onOrderTypeChanged(value),
             ),
           if (_orderType == OrderType.bookingDineIn) ...[
             const SizedBox(height: 14),
@@ -692,47 +648,28 @@ class _CartPageState extends State<CartPage> {
     final canSelectTable =
         _selectedBookingHour != null && _selectedDurationHours != null;
 
-    return Container(
-      height: 52,
-      padding: const EdgeInsets.symmetric(horizontal: 14),
-      decoration: BoxDecoration(
-        color: canSelectTable ? Colors.white : const Color(0xFFF3F4F6),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade300),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<int>(
-          value: _selectedTableNumber,
-          isExpanded: true,
-          borderRadius: BorderRadius.circular(12),
-          hint: Text(
-            canSelectTable ? 'Pilih meja' : 'Pilih waktu booking dulu',
-            style: const TextStyle(color: Color(0xFF6B7280)),
-          ),
-          items: _tableNumbers.map((tableNumber) {
-            final available = _isAvailabilityEndpointMissing
-                ? true
-                : _availableTables.contains(tableNumber);
-            return DropdownMenuItem<int>(
-              value: tableNumber,
-              enabled: available,
-              child: Text(
-                available ? 'Meja $tableNumber' : 'Meja $tableNumber (Dipakai)',
-                style: TextStyle(
-                  color: available ? const Color(0xFF1F2937) : Colors.red,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            );
-          }).toList(),
-          onChanged: canSelectTable
-              ? (value) {
-            if (value == null) return;
-            setState(() => _selectedTableNumber = value);
-          }
-              : null,
-        ),
-      ),
+    return AppDropdownField<int>(
+      value: _selectedTableNumber,
+      hintText: 'Pilih meja',
+      menuMaxHeight: 260,
+      dividerWidth: 2.2,
+      backgroundColor: canSelectTable ? Colors.white : const Color(0xFFF3F4F6),
+      borderColor: Colors.grey.shade300,
+      options: _tableNumbers.map((tableNumber) {
+        final available = _isAvailabilityEndpointMissing
+            ? true
+            : _availableTables.contains(tableNumber);
+        return AppDropdownOption<int>(
+          value: tableNumber,
+          label: available ? 'Meja $tableNumber' : 'Meja $tableNumber (Dipakai)',
+          enabled: available,
+        );
+      }).toList(),
+      onChanged: canSelectTable
+          ? (value) {
+              setState(() => _selectedTableNumber = value);
+            }
+          : null,
     );
   }
 
@@ -846,17 +783,33 @@ class _CartPageState extends State<CartPage> {
         selectedHour != null && hours.contains(selectedHour);
 
     return _buildDropdownField<int>(
-      label: 'Jam',
+      label: 'Pilih jam',
       value: hasSelectedHour ? selectedHour : null,
-      items: hours
+      options: hours
           .map(
-            (hour) => DropdownMenuItem<int>(
+            (hour) => AppDropdownOption<int>(
               value: hour,
-              child: Text('${hour.toString().padLeft(2, '0')}:00'),
+              label: '${hour.toString().padLeft(2, '0')}:00',
             ),
           )
           .toList(),
       onChanged: (value) {
+        if (value == null) {
+          setState(() {
+            _selectedBookingHour = null;
+            _selectedDurationHours = null;
+            _selectedTableNumber = null;
+            _availableTables = <int>{};
+            _tableNumbers = _fallbackTableNumbers;
+            _tableAvailabilityByHour = <int, Set<int>>{};
+            _tableUnavailabilityByHour = <int, Set<int>>{};
+            _bookingAvailabilityError = null;
+            _isAvailabilityEndpointMissing = false;
+            _isLoadingBookingAvailability = false;
+          });
+          return;
+        }
+
         setState(() {
           _selectedBookingHour = value;
           final nextDurations = _getAvailableDurations(value);
@@ -865,10 +818,6 @@ class _CartPageState extends State<CartPage> {
             _selectedDurationHours = null;
           }
           _selectedTableNumber = null;
-          if (value == null) {
-            _availableTables = <int>{};
-            return;
-          }
           final selectedAvailability = _resolveAvailableTablesForHour(
             value,
             _tableNumbers,
@@ -877,7 +826,6 @@ class _CartPageState extends State<CartPage> {
           );
           _availableTables = selectedAvailability;
         });
-        if (value == null) return;
         _reloadBookingAvailability();
       },
     );
@@ -890,17 +838,15 @@ class _CartPageState extends State<CartPage> {
         selectedDuration != null && durations.contains(selectedDuration);
 
     return _buildDropdownField<int>(
-      label: 'Durasi',
+      label: 'Pilih durasi',
       value: hasSelectedDuration ? selectedDuration : null,
-      items: durations
+      options: durations
           .map(
-            (duration) => DropdownMenuItem<int>(
+            (duration) => AppDropdownOption<int>(
               value: duration,
-              child: Text(
-                duration >= 5
-                    ? '$duration jam (Biaya Tambahan)'
-                    : '$duration jam',
-              ),
+              label: duration >= 5
+                  ? '$duration jam (Biaya Tambahan)'
+                  : '$duration jam',
             ),
           )
           .toList(),
@@ -908,6 +854,12 @@ class _CartPageState extends State<CartPage> {
         setState(() {
           _selectedDurationHours = value;
           _selectedTableNumber = null;
+          if (value == null) {
+            _availableTables = <int>{};
+            _tableAvailabilityByHour = <int, Set<int>>{};
+            _tableUnavailabilityByHour = <int, Set<int>>{};
+            _bookingAvailabilityError = null;
+          }
         });
         if (value == null) return;
         _reloadBookingAvailability();
@@ -918,27 +870,17 @@ class _CartPageState extends State<CartPage> {
   Widget _buildDropdownField<T>({
     required String label,
     required T? value,
-    required List<DropdownMenuItem<T>> items,
+    required List<AppDropdownOption<T>> options,
     required ValueChanged<T?> onChanged,
   }) {
-    return Container(
-      height: 52,
-      padding: const EdgeInsets.symmetric(horizontal: 14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade300),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<T>(
-          value: value,
-          isExpanded: true,
-          borderRadius: BorderRadius.circular(12),
-          hint: Text(label),
-          items: items,
-          onChanged: onChanged,
-        ),
-      ),
+    return AppDropdownField<T>(
+      value: value,
+      hintText: label,
+      menuMaxHeight: 260,
+      dividerWidth: 2.2,
+      borderColor: Colors.grey.shade300,
+      options: options,
+      onChanged: onChanged,
     );
   }
 

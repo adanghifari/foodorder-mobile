@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../../app/app_routes.dart';
 import '../../../shared/widgets/app_back_button.dart';
 import '../../../shared/widgets/app_bottom_nav_bar.dart';
+import '../../../shared/widgets/app_dropdown_field.dart';
 import '../../auth/data/auth_session.dart';
 import '../domain/history_models.dart';
 import 'widgets/order_history_list.dart';
@@ -641,50 +642,36 @@ class _HistoryPageState extends State<HistoryPage> {
           ),
           const SizedBox(width: 10),
           Expanded(
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                border: Border.all(color: const Color(0xFFE3E3E3)),
-                borderRadius: BorderRadius.circular(10),
+            child: AppDropdownField<String>(
+              value: selected,
+              menuMaxHeight: 240,
+              dividerWidth: 2.2,
+              borderRadius: 10,
+              borderColor: const Color(0xFFE3E3E3),
+              textStyle: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF4B5563),
               ),
-              child: DropdownButtonHideUnderline(
-                child: DropdownButton<String>(
-                  value: selected,
-                  isExpanded: true,
-                  items: options
-                      .map(
-                        (e) => DropdownMenuItem<String>(
-                          value: e.key,
-                          child: Text(
-                            e.value,
-                            style: const TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
-                              color: Color(0xFF4B5563),
-                            ),
-                          ),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: (value) {
-                    if (value == null) return;
-                    setState(() {
-                      if (isPayment) {
-                        _paymentFilter = _PaymentSortFilter.values.firstWhere(
-                          (e) => e.name == value,
-                          orElse: () => _PaymentSortFilter.newest,
-                        );
-                      } else {
-                        _orderFilter = _OrderSortFilter.values.firstWhere(
-                          (e) => e.name == value,
-                          orElse: () => _OrderSortFilter.latest,
-                        );
-                      }
-                    });
-                  },
-                ),
-              ),
+              options: options
+                  .map((e) => AppDropdownOption<String>(value: e.key, label: e.value))
+                  .toList(),
+              onChanged: (value) {
+                if (value == null) return;
+                setState(() {
+                  if (isPayment) {
+                    _paymentFilter = _PaymentSortFilter.values.firstWhere(
+                      (e) => e.name == value,
+                      orElse: () => _PaymentSortFilter.newest,
+                    );
+                  } else {
+                    _orderFilter = _OrderSortFilter.values.firstWhere(
+                      (e) => e.name == value,
+                      orElse: () => _OrderSortFilter.latest,
+                    );
+                  }
+                });
+              },
             ),
           ),
         ],
