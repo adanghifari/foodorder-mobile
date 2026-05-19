@@ -22,7 +22,7 @@ class _CartPageState extends State<CartPage> {
 
   final CartApiService _cartApiService = CartApiService();
   final Set<String> _updatingMenuIds = <String>{};
-  final List<int> _bookingStartHours = const [8, 10, 12, 14, 16, 18, 20];
+  final List<int> _bookingStartHours = const [8, 10, 12, 14, 16, 18];
   final List<int> _bookingDurations = const [2, 4, 6, 8];
   final List<int> _fallbackTableNumbers = List<int>.generate(20, (i) => i + 1);
   static const String _mobileFinishRedirectUrl =
@@ -42,6 +42,7 @@ class _CartPageState extends State<CartPage> {
   bool _isAvailabilityEndpointMissing = false;
   Set<int> _availableTables = <int>{};
   Map<int, Set<int>> _tableAvailabilityByHour = <int, Set<int>>{};
+  Map<int, Set<int>> _tableUnavailabilityByHour = <int, Set<int>>{};
   List<int> _tableNumbers = const [];
 
   int get _subtotal => _items.fold(0, (sum, e) => sum + e.subtotal);
@@ -141,6 +142,7 @@ class _CartPageState extends State<CartPage> {
       setState(() {
         _availableTables = <int>{};
         _tableAvailabilityByHour = <int, Set<int>>{};
+        _tableUnavailabilityByHour = <int, Set<int>>{};
         _bookingAvailabilityError = null;
         _isLoadingBookingAvailability = false;
         _selectedTableNumber = null;
@@ -155,38 +157,44 @@ class _CartPageState extends State<CartPage> {
     });
 
     try {
-      final futures = _bookingStartHours.map((hour) {
-        return _cartApiService.getBookingAvailability(
-          bookingStartAt: _buildBookingStartAt(hour),
-          durationHours: duration,
-        );
-      }).toList();
-
-      final results = await Future.wait(futures);
+      final result = await _cartApiService.getBookingAvailability(
+        bookingStartAt: _buildBookingStartAt(bookingHour),
+        durationHours: duration,
+      );
       if (!mounted) return;
 
-      final tableNumbers = <int>{};
-      final tableAvailabilityByHour = <int, Set<int>>{};
-      for (var i = 0; i < _bookingStartHours.length; i++) {
-        final hour = _bookingStartHours[i];
-        final result = results[i];
-        tableNumbers.addAll(result.availableTables);
-        tableNumbers.addAll(result.unavailableTables);
-        tableAvailabilityByHour[hour] = result.availableTables.toSet();
-      }
+      final tableNumbers = <int>{}
+        ..addAll(result.availableTables)
+        ..addAll(result.unavailableTables);
+      final tableAvailabilityByHour = <int, Set<int>>{
+        bookingHour: result.availableTables.toSet(),
+      };
+      final tableUnavailabilityByHour = <int, Set<int>>{
+        bookingHour: result.unavailableTables.toSet(),
+      };
 
-      final selectedAvailability = tableAvailabilityByHour[bookingHour] ?? <int>{};
       final selectedTable = _selectedTableNumber;
       final finalTableNumbers = tableNumbers.isEmpty
           ? _fallbackTableNumbers
           : (tableNumbers.toList()..sort());
+      final selectedAvailability = _resolveAvailableTablesForHour(
+        bookingHour,
+        finalTableNumbers,
+        tableAvailabilityByHour,
+        tableUnavailabilityByHour,
+      );
 
       setState(() {
         _tableNumbers = finalTableNumbers;
         _tableAvailabilityByHour = tableAvailabilityByHour;
+        _tableUnavailabilityByHour = tableUnavailabilityByHour;
         _availableTables = selectedAvailability;
         if (selectedTable != null &&
             !finalTableNumbers.contains(selectedTable)) {
+          _selectedTableNumber = null;
+        } else if (!_isAvailabilityEndpointMissing &&
+            selectedTable != null &&
+            !selectedAvailability.contains(selectedTable)) {
           _selectedTableNumber = null;
         }
         _isLoadingBookingAvailability = false;
@@ -333,6 +341,7 @@ class _CartPageState extends State<CartPage> {
         _selectedTableNumber = null;
         _availableTables = <int>{};
         _tableAvailabilityByHour = <int, Set<int>>{};
+        _tableUnavailabilityByHour = <int, Set<int>>{};
         _bookingAvailabilityError = null;
         _isAvailabilityEndpointMissing = false;
       }
@@ -706,8 +715,9 @@ class _CartPageState extends State<CartPage> {
                 : _availableTables.contains(tableNumber);
             return DropdownMenuItem<int>(
               value: tableNumber,
+              enabled: available,
               child: Text(
-                available ? 'Meja $tableNumber' : 'Meja $tableNumber (dipakai)',
+                available ? 'Meja $tableNumber' : 'Meja $tableNumber (Dipakai)',
                 style: TextStyle(
                   color: available ? const Color(0xFF1F2937) : Colors.red,
                   fontWeight: FontWeight.w600,
@@ -830,10 +840,15 @@ class _CartPageState extends State<CartPage> {
   }
 
   Widget _buildHourDropdownField() {
+    final hours = _getAvailableBookingHours();
+    final selectedHour = _selectedBookingHour;
+    final hasSelectedHour =
+        selectedHour != null && hours.contains(selectedHour);
+
     return _buildDropdownField<int>(
       label: 'Jam',
-      value: _selectedBookingHour,
-      items: _bookingStartHours
+      value: hasSelectedHour ? selectedHour : null,
+      items: hours
           .map(
             (hour) => DropdownMenuItem<int>(
               value: hour,
@@ -844,12 +859,22 @@ class _CartPageState extends State<CartPage> {
       onChanged: (value) {
         setState(() {
           _selectedBookingHour = value;
+          final nextDurations = _getAvailableDurations(value);
+          if (_selectedDurationHours != null &&
+              !nextDurations.contains(_selectedDurationHours)) {
+            _selectedDurationHours = null;
+          }
           _selectedTableNumber = null;
           if (value == null) {
             _availableTables = <int>{};
             return;
           }
-          final selectedAvailability = _tableAvailabilityByHour[value] ?? <int>{};
+          final selectedAvailability = _resolveAvailableTablesForHour(
+            value,
+            _tableNumbers,
+            _tableAvailabilityByHour,
+            _tableUnavailabilityByHour,
+          );
           _availableTables = selectedAvailability;
         });
         if (value == null) return;
@@ -859,15 +884,20 @@ class _CartPageState extends State<CartPage> {
   }
 
   Widget _buildDurationDropdownField() {
+    final durations = _getAvailableDurations(_selectedBookingHour);
+    final selectedDuration = _selectedDurationHours;
+    final hasSelectedDuration =
+        selectedDuration != null && durations.contains(selectedDuration);
+
     return _buildDropdownField<int>(
       label: 'Durasi',
-      value: _selectedDurationHours,
-      items: _bookingDurations
+      value: hasSelectedDuration ? selectedDuration : null,
+      items: durations
           .map(
             (duration) => DropdownMenuItem<int>(
               value: duration,
               child: Text(
-                duration >= 4
+                duration >= 5
                     ? '$duration jam (Biaya Tambahan)'
                     : '$duration jam',
               ),
@@ -912,6 +942,47 @@ class _CartPageState extends State<CartPage> {
     );
   }
 
+  Set<int> _resolveAvailableTablesForHour(
+    int hour,
+    List<int> tableNumbers,
+    Map<int, Set<int>> availableByHour,
+    Map<int, Set<int>> unavailableByHour,
+  ) {
+    final available = availableByHour[hour] ?? <int>{};
+    if (available.isNotEmpty) {
+      return available;
+    }
+
+    final unavailable = unavailableByHour[hour] ?? <int>{};
+    if (unavailable.isEmpty) {
+      return <int>{};
+    }
+
+    return tableNumbers
+        .where((tableNumber) => !unavailable.contains(tableNumber))
+        .toSet();
+  }
+
+  List<int> _getAvailableBookingHours() {
+    final now = DateTime.now();
+    final isToday =
+        _bookingDate.year == now.year &&
+        _bookingDate.month == now.month &&
+        _bookingDate.day == now.day;
+
+    return _bookingStartHours.where((hour) {
+      if (!isToday) return true;
+      return hour > now.hour;
+    }).toList();
+  }
+
+  List<int> _getAvailableDurations(int? bookingHour) {
+    if (bookingHour == null) return const [];
+    return _bookingDurations
+        .where((duration) => bookingHour + duration <= 20)
+        .toList();
+  }
+
   Future<void> _pickBookingDate() async {
     final today = DateTime.now();
     final picked = await showDatePicker(
@@ -923,6 +994,16 @@ class _CartPageState extends State<CartPage> {
     if (picked == null || !mounted) return;
     setState(() {
       _bookingDate = DateTime(picked.year, picked.month, picked.day);
+      final availableHours = _getAvailableBookingHours();
+      if (_selectedBookingHour != null &&
+          !availableHours.contains(_selectedBookingHour)) {
+        _selectedBookingHour = null;
+      }
+      final availableDurations = _getAvailableDurations(_selectedBookingHour);
+      if (_selectedDurationHours != null &&
+          !availableDurations.contains(_selectedDurationHours)) {
+        _selectedDurationHours = null;
+      }
       _selectedTableNumber = null;
     });
     await _reloadBookingAvailability();

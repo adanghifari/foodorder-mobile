@@ -221,7 +221,19 @@ class CartApiService {
   List<int> _toIntList(dynamic value) {
     if (value is! List) return const [];
     return value
-        .map((item) => _toInt(item))
+        .map((item) {
+          if (item is Map<String, dynamic>) {
+            return _toInt(
+              item['tableNumber'] ??
+                  item['table_number'] ??
+                  item['tableId'] ??
+                  item['table_id'] ??
+                  item['id'] ??
+                  item['number'],
+            );
+          }
+          return _toInt(item);
+        })
         .where((item) => item > 0)
         .toSet()
         .toList()
