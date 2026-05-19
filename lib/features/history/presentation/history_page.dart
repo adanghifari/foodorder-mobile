@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 import '../../../app/app_routes.dart';
 import '../../../shared/widgets/app_back_button.dart';
@@ -35,7 +36,7 @@ class _HistoryPageState extends State<HistoryPage> {
   List<HistoryOrderItem> _orders = const [];
   _HistoryTab _activeTab = _HistoryTab.payment;
   _PaymentSortFilter _paymentFilter = _PaymentSortFilter.newest;
-  _OrderStatusFilter _orderFilter = _OrderStatusFilter.latest;
+  _OrderSortFilter _orderFilter = _OrderSortFilter.latest;
   bool _showPreviousHistory = false;
   bool _isInitialTabApplied = false;
 
@@ -114,11 +115,18 @@ class _HistoryPageState extends State<HistoryPage> {
               item['nomorVA'],
         );
         final orderTypeRaw = (item['orderType'] ?? 'dine_in').toString();
+        final bookingStartAtRaw = (item['bookingStartAt'] ?? '').toString();
+        final durationHours = _toInt(item['durationHours']);
         final tableNumber = item['tableNumber'];
         final totalPrice = _toInt(item['totalPrice']);
         final paidAt = (item['paidAt'] ?? '').toString();
         final createdAt = (item['createdAt'] ?? '').toString();
-        final displayDateRaw = paidAt.isNotEmpty ? paidAt : createdAt;
+        final eventAt = _resolvePaymentEventAt(
+          paymentStatus: paymentStatus,
+          paidAtRaw: paidAt,
+          createdAtRaw: createdAt,
+        );
+        final displayDateLabel = _formatEventDateLabel(eventAt);
         final rawItems = item['items'];
         final items = rawItems is List ? rawItems : const <dynamic>[];
         final orderItems = <HistoryLineItem>[];
@@ -153,11 +161,21 @@ class _HistoryPageState extends State<HistoryPage> {
         }
         final totalItems = orderItems.fold<int>(0, (sum, e) => sum + e.quantity);
 
-        final orderTypeLabel = switch (orderTypeRaw) {
-          'pickup' => 'Pesan & ambil',
+        final orderTypeKey = switch (orderTypeRaw) {
+          'booking_dine_in' => 'booking',
+          'dine_in' => 'dine_in',
+          _ => 'pickup',
+        };
+        final bookingScheduleLabel = _formatBookingSchedule(
+          bookingStartAtRaw: bookingStartAtRaw,
+          durationHours: durationHours,
+        );
+        final orderTypeLabel = switch (orderTypeKey) {
+          'booking' =>
+            'Booking${tableNumber != null ? ' • Meja $tableNumber' : ''}${bookingScheduleLabel.isNotEmpty ? ' • $bookingScheduleLabel' : ''}',
           'dine_in' =>
-            'Dine-in${tableNumber != null ? ' • Meja $tableNumber' : ''}',
-          _ => 'Booking dine-in${tableNumber != null ? ' • Meja $tableNumber' : ''}',
+            'Dine In Langsung${tableNumber != null ? ' • Meja $tableNumber' : ''}',
+          _ => 'Takeaway/Pickup',
         };
         final tableLabel = tableNumber == null ? '-' : '$tableNumber';
 
@@ -166,10 +184,10 @@ class _HistoryPageState extends State<HistoryPage> {
           orderCode: orderId.isEmpty
               ? '-'
               : 'ORD-${orderId.substring(orderId.length > 6 ? orderId.length - 6 : 0).toUpperCase()}',
-          dateLabel: displayDateRaw.isEmpty
-              ? '-'
-              : displayDateRaw.replaceFirst('T', ' '),
+          dateLabel: displayDateLabel,
+          eventAt: eventAt,
           orderTypeLabel: orderTypeLabel,
+          orderTypeKey: orderTypeKey,
           customerName: customerName.isEmpty ? '-' : customerName,
           customerEmail: customerEmail.isEmpty ? '-' : customerEmail,
           tableLabel: tableLabel,
@@ -492,8 +510,8 @@ class _HistoryPageState extends State<HistoryPage> {
       }).toList();
 
       filtered.sort((a, b) {
-        final ad = _parseDate(a.dateLabel);
-        final bd = _parseDate(b.dateLabel);
+        final ad = a.eventAt;
+        final bd = b.eventAt;
         if (_paymentFilter == _PaymentSortFilter.oldest) {
           return ad.compareTo(bd);
         }
@@ -504,24 +522,22 @@ class _HistoryPageState extends State<HistoryPage> {
 
     final filtered = list.where((order) {
       switch (_orderFilter) {
-        case _OrderStatusFilter.latest:
-        case _OrderStatusFilter.oldest:
+        case _OrderSortFilter.latest:
+        case _OrderSortFilter.oldest:
           return true;
-        case _OrderStatusFilter.waiting:
-          return _matchesAny(order.status, const ['pending', 'menunggu', 'new']);
-        case _OrderStatusFilter.processed:
-          return _matchesAny(order.status, const ['process', 'diproses', 'prepared', 'preparing']);
-        case _OrderStatusFilter.done:
-          return _matchesAny(order.status, const ['done', 'completed', 'selesai', 'served']);
-        case _OrderStatusFilter.cancelled:
-          return _matchesAny(order.status, const ['cancel', 'batal', 'failed']);
+        case _OrderSortFilter.booking:
+          return order.orderTypeKey == 'booking';
+        case _OrderSortFilter.dineInDirect:
+          return order.orderTypeKey == 'dine_in';
+        case _OrderSortFilter.takeawayPickup:
+          return order.orderTypeKey == 'pickup';
       }
     }).toList();
 
     filtered.sort((a, b) {
-      final ad = _parseDate(a.dateLabel);
-      final bd = _parseDate(b.dateLabel);
-      if (_orderFilter == _OrderStatusFilter.oldest) {
+      final ad = a.eventAt;
+      final bd = b.eventAt;
+      if (_orderFilter == _OrderSortFilter.oldest) {
         return ad.compareTo(bd);
       }
       return bd.compareTo(ad);
@@ -532,7 +548,7 @@ class _HistoryPageState extends State<HistoryPage> {
   List<HistoryOrderItem> _todayOrdersFrom(List<HistoryOrderItem> source) {
     final now = DateTime.now();
     return source.where((order) {
-      final d = _parseDate(order.dateLabel);
+      final d = order.eventAt;
       return d.year == now.year && d.month == now.month && d.day == now.day;
     }).toList();
   }
@@ -540,7 +556,7 @@ class _HistoryPageState extends State<HistoryPage> {
   List<HistoryOrderItem> _previousOrdersFrom(List<HistoryOrderItem> source) {
     final now = DateTime.now();
     return source.where((order) {
-      final d = _parseDate(order.dateLabel);
+      final d = order.eventAt;
       final isToday = d.year == now.year && d.month == now.month && d.day == now.day;
       return !isToday;
     }).toList();
@@ -660,9 +676,9 @@ class _HistoryPageState extends State<HistoryPage> {
                           orElse: () => _PaymentSortFilter.newest,
                         );
                       } else {
-                        _orderFilter = _OrderStatusFilter.values.firstWhere(
+                        _orderFilter = _OrderSortFilter.values.firstWhere(
                           (e) => e.name == value,
-                          orElse: () => _OrderStatusFilter.latest,
+                          orElse: () => _OrderSortFilter.latest,
                         );
                       }
                     });
@@ -687,10 +703,9 @@ class _HistoryPageState extends State<HistoryPage> {
   Map<String, String> get _orderSortLabels => const {
     'latest': 'Terbaru',
     'oldest': 'Terlama',
-    'waiting': 'Menunggu',
-    'processed': 'Diproses',
-    'done': 'Selesai',
-    'cancelled': 'Batal/Gagal',
+    'booking': 'Booking',
+    'dineInDirect': 'Dine In Langsung',
+    'takeawayPickup': 'Takeaway/Pickup',
   };
 
   bool _matchesAny(String raw, List<String> keys) {
@@ -709,11 +724,6 @@ class _HistoryPageState extends State<HistoryPage> {
 
   bool _isFailedStatus(String status) =>
       _matchesAny(status, const ['failed', 'expire', 'cancel', 'deny', 'gagal']);
-
-  DateTime _parseDate(String raw) {
-    final sanitized = raw.trim().replaceFirst(' ', 'T');
-    return DateTime.tryParse(sanitized) ?? DateTime.fromMillisecondsSinceEpoch(0);
-  }
 
   int _toInt(dynamic value) {
     if (value is int) return value;
@@ -746,6 +756,44 @@ class _HistoryPageState extends State<HistoryPage> {
         raw.contains('unauthorized') ||
         raw.contains('unauth') ||
         raw.contains('belum login');
+  }
+
+  String _formatBookingSchedule({
+    required String bookingStartAtRaw,
+    required int durationHours,
+  }) {
+    if (bookingStartAtRaw.trim().isEmpty || durationHours < 1) return '';
+    final parsed = DateTime.tryParse(bookingStartAtRaw);
+    if (parsed == null) return '';
+
+    final local = parsed.toLocal();
+    final date = DateFormat('dd/MM/yyyy').format(local);
+    final startTime = DateFormat('HH:mm').format(local);
+    return '$date $startTime • $durationHours jam';
+  }
+
+  DateTime _resolvePaymentEventAt({
+    required String paymentStatus,
+    required String paidAtRaw,
+    required String createdAtRaw,
+  }) {
+    final usePaidAt = _isPaidStatus(paymentStatus);
+    final selectedRaw = usePaidAt
+        ? (paidAtRaw.trim().isEmpty ? createdAtRaw : paidAtRaw)
+        : createdAtRaw;
+    final fallbackRaw = selectedRaw.trim().isEmpty ? paidAtRaw : selectedRaw;
+    if (fallbackRaw.trim().isEmpty) {
+      return DateTime.fromMillisecondsSinceEpoch(0);
+    }
+
+    final parsed = DateTime.tryParse(fallbackRaw);
+    if (parsed == null) return DateTime.fromMillisecondsSinceEpoch(0);
+    return parsed.toLocal();
+  }
+
+  String _formatEventDateLabel(DateTime eventAt) {
+    if (eventAt.millisecondsSinceEpoch == 0) return '-';
+    return DateFormat('dd-MM-yyyy (HH:mm:ss)').format(eventAt);
   }
 }
 
@@ -792,4 +840,10 @@ enum _HistoryTab { order, payment }
 
 enum _PaymentSortFilter { newest, oldest, paid, pending, failed }
 
-enum _OrderStatusFilter { latest, oldest, waiting, processed, done, cancelled }
+enum _OrderSortFilter {
+  latest,
+  oldest,
+  booking,
+  dineInDirect,
+  takeawayPickup,
+}

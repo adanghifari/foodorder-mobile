@@ -91,7 +91,7 @@ class _PaymentHistoryCard extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  order.orderCode,
+                  order.dateLabel,
                   style: const TextStyle(
                     color: _dark,
                     fontSize: 15,
@@ -103,7 +103,7 @@ class _PaymentHistoryCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 10),
-          _kv('Tanggal Bayar', order.dateLabel),
+          _kv('Order ID', order.orderCode),
           _kv('Metode/Status', order.paymentMethodLabel),
           _kv('Metode Bayar', order.paymentMethod),
           _kv('Status Order', order.status),
