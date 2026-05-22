@@ -41,6 +41,26 @@ class BookingAvailabilityDto {
   final List<int> unavailableTables;
 }
 
+class OnSpotTableAdvisoryDto {
+  const OnSpotTableAdvisoryDto({
+    required this.hasAdvisory,
+    required this.level,
+    required this.message,
+    required this.nextBookingStartAt,
+    required this.blockedStartAt,
+    required this.availableDurationLabel,
+    required this.minutesUntilBlocked,
+  });
+
+  final bool hasAdvisory;
+  final String level;
+  final String message;
+  final String nextBookingStartAt;
+  final String blockedStartAt;
+  final String availableDurationLabel;
+  final int minutesUntilBlocked;
+}
+
 class CartApiService {
   final Dio _dio = Dio(
     BaseOptions(
@@ -197,6 +217,30 @@ class CartApiService {
         extraCharge: _toInt(data['extraCharge']),
         availableTables: _toIntList(data['availableTables']),
         unavailableTables: _toIntList(data['unavailableTables']),
+      );
+    } on DioException catch (e) {
+      throw Exception(_extractDioMessage(e));
+    }
+  }
+
+  Future<OnSpotTableAdvisoryDto> getOnSpotTableAdvisory({
+    required int tableNumber,
+  }) async {
+    try {
+      final response = await _dio.get<Map<String, dynamic>>(
+        '$_apiBaseUrl/v1/tables/$tableNumber/onspot-advisory',
+      );
+      final map = response.data ?? const <String, dynamic>{};
+      final data = map['data'] as Map<String, dynamic>? ?? const {};
+      return OnSpotTableAdvisoryDto(
+        hasAdvisory: data['hasAdvisory'] == true,
+        level: (data['level'] ?? 'none').toString(),
+        message: (data['message'] ?? '').toString(),
+        nextBookingStartAt: (data['nextBookingStartAt'] ?? '').toString(),
+        blockedStartAt: (data['blockedStartAt'] ?? '').toString(),
+        availableDurationLabel:
+            (data['availableDurationLabel'] ?? '').toString(),
+        minutesUntilBlocked: _toInt(data['minutesUntilBlocked']),
       );
     } on DioException catch (e) {
       throw Exception(_extractDioMessage(e));

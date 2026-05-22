@@ -31,6 +31,7 @@ class _CartPageState extends State<CartPage> {
 
   bool _isLoading = true;
   bool _isSubmitting = false;
+  bool _hasShownOnSpotAdvisory = false;
   String? _error;
   OrderType? _orderType;
   List<CartItemDto> _items = const [];
@@ -68,6 +69,31 @@ class _CartPageState extends State<CartPage> {
       }
     }
     await _loadCart();
+    await _showOnSpotAdvisoryIfNeeded();
+  }
+
+  Future<void> _showOnSpotAdvisoryIfNeeded() async {
+    if (!mounted || _hasShownOnSpotAdvisory) return;
+    if (_orderType != OrderType.onSpotDineIn) return;
+    final tableNumber = _selectedTableNumber;
+    if (tableNumber == null || tableNumber < 1) return;
+
+    try {
+      final advisory = await _cartApiService.getOnSpotTableAdvisory(
+        tableNumber: tableNumber,
+      );
+      if (!mounted || !advisory.hasAdvisory || advisory.level == 'none') return;
+      _hasShownOnSpotAdvisory = true;
+      AppNotice.show(
+        context,
+        advisory.message,
+        type: advisory.level == 'blocked'
+            ? AppNoticeType.error
+            : AppNoticeType.info,
+      );
+    } catch (_) {
+      // Keep silent to avoid noisy UX on advisory fetch failures.
+    }
   }
 
   @override
