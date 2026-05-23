@@ -86,7 +86,7 @@ class _ScanPageState extends State<ScanPage> {
 
     _handled = true;
     if (payload.isTakeAway) {
-      await OrderTypeSession.set(OrderType.pickup);
+      await OrderTypeSession.set(OrderType.takeAway);
       await TableSession.clear();
     } else {
       await OrderTypeSession.set(OrderType.onSpotDineIn);
@@ -94,9 +94,7 @@ class _ScanPageState extends State<ScanPage> {
     }
 
     if (!mounted) return;
-    final targetRoute = widget.redirectToCart
-        ? AppRoutes.cart
-        : AppRoutes.menu;
+    final targetRoute = widget.redirectToCart ? AppRoutes.cart : AppRoutes.menu;
     Navigator.pushNamed(context, targetRoute);
   }
 
@@ -112,10 +110,7 @@ class _ScanPageState extends State<ScanPage> {
       body: Stack(
         fit: StackFit.expand,
         children: [
-          MobileScanner(
-            controller: _controller,
-            onDetect: _onDetect,
-          ),
+          MobileScanner(controller: _controller, onDetect: _onDetect),
           Center(
             child: Container(
               width: 250,

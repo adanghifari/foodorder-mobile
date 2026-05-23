@@ -235,10 +235,12 @@ class _CartPageState extends State<CartPage> {
       final message = AppNotice.humanizeMessage(e);
       setState(() {
         _isLoadingBookingAvailability = false;
-        _isAvailabilityEndpointMissing =
-            message.contains('Endpoint ketersediaan booking belum tersedia di backend.');
-        _bookingAvailabilityError =
-            _isAvailabilityEndpointMissing ? null : message;
+        _isAvailabilityEndpointMissing = message.contains(
+          'Endpoint ketersediaan booking belum tersedia di backend.',
+        );
+        _bookingAvailabilityError = _isAvailabilityEndpointMissing
+            ? null
+            : message;
       });
     }
   }
@@ -302,7 +304,11 @@ class _CartPageState extends State<CartPage> {
       }
     }
     if (_items.isEmpty) {
-      AppNotice.show(context, 'Keranjang masih kosong.', type: AppNoticeType.error);
+      AppNotice.show(
+        context,
+        'Keranjang masih kosong.',
+        type: AppNoticeType.error,
+      );
       return;
     }
 
@@ -322,7 +328,9 @@ class _CartPageState extends State<CartPage> {
         final needsFirstCustomerName =
             isOnSpotDineIn &&
             (message.toLowerCase().contains('meja sedang dipakai') ||
-                message.toLowerCase().contains('selected table is not available'));
+                message.toLowerCase().contains(
+                  'selected table is not available',
+                ));
 
         if (!needsFirstCustomerName) {
           rethrow;
@@ -507,12 +515,13 @@ class _CartPageState extends State<CartPage> {
       final scannedTableId = await TableSession.get();
       if (!mounted) return;
       setState(() {
-        _selectedTableNumber =
-            (scannedTableId != null && scannedTableId > 0) ? scannedTableId : null;
+        _selectedTableNumber = (scannedTableId != null && scannedTableId > 0)
+            ? scannedTableId
+            : null;
       });
       return;
     }
-    if (value == OrderType.pickup) {
+    if (value == OrderType.pickup || value == OrderType.takeAway) {
       await TableSession.clear();
     }
   }
@@ -659,7 +668,7 @@ class _CartPageState extends State<CartPage> {
                 ),
                 AppDropdownOption<OrderType>(
                   value: OrderType.pickup,
-                  label: 'Pesan & ambil',
+                  label: 'Pickup (tanpa QR)',
                   icon: Icons.storefront,
                 ),
               ],
@@ -672,13 +681,9 @@ class _CartPageState extends State<CartPage> {
             const SizedBox(height: 14),
             Row(
               children: [
-                Expanded(
-                  child: _buildHourDropdownField(),
-                ),
+                Expanded(child: _buildHourDropdownField()),
                 const SizedBox(width: 12),
-                Expanded(
-                  child: _buildDurationDropdownField(),
-                ),
+                Expanded(child: _buildDurationDropdownField()),
               ],
             ),
             const SizedBox(height: 14),
@@ -801,7 +806,9 @@ class _CartPageState extends State<CartPage> {
             : _availableTables.contains(tableNumber);
         return AppDropdownOption<int>(
           value: tableNumber,
-          label: available ? 'Meja $tableNumber' : 'Meja $tableNumber (Dipakai)',
+          label: available
+              ? 'Meja $tableNumber'
+              : 'Meja $tableNumber (Dipakai)',
           enabled: available,
         );
       }).toList(),
@@ -897,7 +904,11 @@ class _CartPageState extends State<CartPage> {
         ),
         child: Row(
           children: [
-            const Icon(Icons.calendar_today, size: 18, color: Color(0xFF6B7280)),
+            const Icon(
+              Icons.calendar_today,
+              size: 18,
+              color: Color(0xFF6B7280),
+            ),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
@@ -909,7 +920,10 @@ class _CartPageState extends State<CartPage> {
                 ),
               ),
             ),
-            const Icon(Icons.keyboard_arrow_down_rounded, color: Color(0xFF6B7280)),
+            const Icon(
+              Icons.keyboard_arrow_down_rounded,
+              color: Color(0xFF6B7280),
+            ),
           ],
         ),
       ),
