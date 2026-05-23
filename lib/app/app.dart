@@ -12,6 +12,8 @@ import '../features/profile/presentation/profile_page.dart';
 import '../features/scan/presentation/scan_page.dart';
 import 'app_routes.dart';
 
+final GlobalKey<NavigatorState> appNavigatorKey = GlobalKey<NavigatorState>();
+
 class KedaiKlikApp extends StatelessWidget {
   const KedaiKlikApp({super.key});
   static const String _defaultInitialRoute = String.fromEnvironment(
@@ -22,6 +24,7 @@ class KedaiKlikApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: appNavigatorKey,
       debugShowCheckedModeBanner: false,
       title: 'KedaiKlik',
       theme: ThemeData(

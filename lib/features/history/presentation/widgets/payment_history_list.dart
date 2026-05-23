@@ -377,7 +377,11 @@ class _PaymentHistoryCard extends StatelessWidget {
       await onRefreshRequested?.call();
     } catch (e) {
       if (!context.mounted) return;
-      AppNotice.show(context, '$e', type: AppNoticeType.error);
+      AppNotice.show(
+        context,
+        AppNotice.humanizeMessage(e),
+        type: AppNoticeType.error,
+      );
     }
   }
 
@@ -493,7 +497,11 @@ class _PaymentHistoryCard extends StatelessWidget {
       await onRefreshRequested?.call();
     } catch (e) {
       if (!context.mounted) return;
-      AppNotice.show(context, '$e', type: AppNoticeType.error);
+      AppNotice.show(
+        context,
+        AppNotice.humanizeMessage(e),
+        type: AppNoticeType.error,
+      );
     }
   }
 
@@ -510,7 +518,11 @@ class _PaymentHistoryCard extends StatelessWidget {
       await onRefreshRequested?.call();
     } catch (e) {
       if (!context.mounted) return;
-      AppNotice.show(context, '$e', type: AppNoticeType.error);
+      AppNotice.show(
+        context,
+        AppNotice.humanizeMessage(e),
+        type: AppNoticeType.error,
+      );
     }
   }
 

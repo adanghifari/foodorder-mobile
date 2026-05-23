@@ -115,7 +115,7 @@ class _LandingPageState extends State<LandingPage>
       if (mounted) {
         setState(() {
           _isFromBackend = false;
-          _loadError = e.toString();
+          _loadError = AppNotice.humanizeMessage(e);
         });
       }
       // Keep fallback static menus if API is unavailable.

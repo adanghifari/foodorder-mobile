@@ -43,6 +43,10 @@
 	</dict>
 	<key>NSCameraUsageDescription</key>
 	<string>Kamera digunakan untuk memindai kode QR pesanan.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+	</array>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

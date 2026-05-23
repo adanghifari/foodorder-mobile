@@ -116,7 +116,7 @@ class _CartPageState extends State<CartPage> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = '$e';
+        _error = AppNotice.humanizeMessage(e);
         _isLoading = false;
       });
     }
@@ -140,7 +140,11 @@ class _CartPageState extends State<CartPage> {
       await _loadCart();
     } catch (e) {
       if (!mounted) return;
-      AppNotice.show(context, '$e', type: AppNoticeType.error);
+      AppNotice.show(
+        context,
+        AppNotice.humanizeMessage(e),
+        type: AppNoticeType.error,
+      );
     } finally {
       if (mounted) {
         setState(() => _updatingMenuIds.remove(item.menuId));
@@ -228,7 +232,7 @@ class _CartPageState extends State<CartPage> {
       });
     } catch (e) {
       if (!mounted) return;
-      final message = '$e';
+      final message = AppNotice.humanizeMessage(e);
       setState(() {
         _isLoadingBookingAvailability = false;
         _isAvailabilityEndpointMissing =
@@ -377,14 +381,18 @@ class _CartPageState extends State<CartPage> {
       );
     } catch (e) {
       if (!mounted) return;
-      final message = '$e';
+      final message = AppNotice.humanizeMessage(e);
       if (orderType == OrderType.bookingDineIn &&
           (message.toLowerCase().contains('meja tidak tersedia') ||
               message.toLowerCase().contains('http 409'))) {
         await _reloadBookingAvailability();
         if (!mounted) return;
       }
-      AppNotice.show(context, '$e', type: AppNoticeType.error);
+      AppNotice.show(
+        context,
+        AppNotice.humanizeMessage(e),
+        type: AppNoticeType.error,
+      );
     } finally {
       if (mounted) {
         setState(() => _isSubmitting = false);

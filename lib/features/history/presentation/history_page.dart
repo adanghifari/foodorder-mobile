@@ -6,6 +6,7 @@ import '../../../app/app_routes.dart';
 import '../../../shared/widgets/app_back_button.dart';
 import '../../../shared/widgets/app_bottom_nav_bar.dart';
 import '../../../shared/widgets/app_dropdown_field.dart';
+import '../../../shared/widgets/app_notice.dart';
 import '../../auth/data/auth_session.dart';
 import '../domain/history_models.dart';
 import 'widgets/order_history_list.dart';
@@ -223,7 +224,7 @@ class _HistoryPageState extends State<HistoryPage> {
       });
     } catch (e) {
       if (!mounted) return;
-      final message = '$e';
+      final message = AppNotice.humanizeMessage(e);
       setState(() {
         _error = _isUnauthorizedMessage(message)
             ? 'Anda belum login. Silakan login terlebih dahulu untuk melihat riwayat.'

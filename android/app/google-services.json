@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "4108500953",
+    "project_id": "kedaiklik-61a56",
+    "storage_bucket": "kedaiklik-61a56.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:4108500953:android:d1bfd3ca89d978f23023c8",
+        "android_client_info": {
+          "package_name": "com.example.foodorder_mobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBdi9QoNS3EueG7YJSLkACl-pzxPiravtY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
