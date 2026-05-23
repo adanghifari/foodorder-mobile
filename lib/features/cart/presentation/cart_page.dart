@@ -304,12 +304,41 @@ class _CartPageState extends State<CartPage> {
 
     setState(() => _isSubmitting = true);
     try {
-      final orderId = await _cartApiService.checkout(
-        orderType: OrderTypeSession.toApiValue(orderType),
-        tableNumber: tableNumber,
-        bookingStartAt: bookingStartAt,
-        durationHours: durationHours,
-      );
+      String orderId;
+      try {
+        orderId = await _cartApiService.checkout(
+          orderType: OrderTypeSession.toApiValue(orderType),
+          tableNumber: tableNumber,
+          bookingStartAt: bookingStartAt,
+          durationHours: durationHours,
+        );
+      } catch (e) {
+        final message = '$e';
+        final isOnSpotDineIn = orderType == OrderType.onSpotDineIn;
+        final needsFirstCustomerName =
+            isOnSpotDineIn &&
+            (message.toLowerCase().contains('meja sedang dipakai') ||
+                message.toLowerCase().contains('selected table is not available'));
+
+        if (!needsFirstCustomerName) {
+          rethrow;
+        }
+
+        final firstCustomerName = await _showFirstCustomerNameDialog();
+        if (!mounted) return;
+        if (firstCustomerName == null || firstCustomerName.trim().isEmpty) {
+          setState(() => _isSubmitting = false);
+          return;
+        }
+
+        orderId = await _cartApiService.checkout(
+          orderType: OrderTypeSession.toApiValue(orderType),
+          tableNumber: tableNumber,
+          bookingStartAt: bookingStartAt,
+          durationHours: durationHours,
+          firstCustomerName: firstCustomerName,
+        );
+      }
       final redirectUrl = await _cartApiService.createPayment(
         orderId: orderId,
         finishRedirectUrl: _mobileFinishRedirectUrl,
@@ -348,12 +377,89 @@ class _CartPageState extends State<CartPage> {
       );
     } catch (e) {
       if (!mounted) return;
+      final message = '$e';
+      if (orderType == OrderType.bookingDineIn &&
+          (message.toLowerCase().contains('meja tidak tersedia') ||
+              message.toLowerCase().contains('http 409'))) {
+        await _reloadBookingAvailability();
+        if (!mounted) return;
+      }
       AppNotice.show(context, '$e', type: AppNoticeType.error);
     } finally {
       if (mounted) {
         setState(() => _isSubmitting = false);
       }
     }
+  }
+
+  Future<String?> _showFirstCustomerNameDialog() async {
+    String inputValue = '';
+    String? errorText;
+
+    final result = await showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setLocalState) {
+            return AlertDialog(
+              title: const Text('Meja sedang dipakai!'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Jika anda bagian dari pemesan pertama, silahkan masukkan nama pemesan pertama dibawah ini.',
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    textInputAction: TextInputAction.done,
+                    onChanged: (value) {
+                      inputValue = value;
+                    },
+                    decoration: InputDecoration(
+                      labelText: 'Nama pemesan pertama',
+                      errorText: errorText,
+                      border: const OutlineInputBorder(),
+                    ),
+                    onSubmitted: (_) {
+                      final value = inputValue.trim();
+                      if (value.isEmpty) {
+                        setLocalState(() {
+                          errorText = 'Nama pemesan pertama wajib diisi';
+                        });
+                        return;
+                      }
+                      Navigator.of(dialogContext).pop(value);
+                    },
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(null),
+                  child: const Text('Batal'),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    final value = inputValue.trim();
+                    if (value.isEmpty) {
+                      setLocalState(() {
+                        errorText = 'Nama pemesan pertama wajib diisi';
+                      });
+                      return;
+                    }
+                    Navigator.of(dialogContext).pop(value);
+                  },
+                  child: const Text('Lanjutkan'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+    return result?.trim();
   }
 
   Future<void> _onOrderTypeChanged(OrderType? value) async {

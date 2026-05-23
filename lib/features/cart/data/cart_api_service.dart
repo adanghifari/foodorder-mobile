@@ -145,6 +145,7 @@ class CartApiService {
     int? tableNumber,
     String? bookingStartAt,
     int? durationHours,
+    String? firstCustomerName,
   }) async {
     final token = await _requireToken();
     try {
@@ -157,6 +158,9 @@ class CartApiService {
       }
       if (durationHours != null) {
         payload['durationHours'] = durationHours;
+      }
+      if (firstCustomerName != null && firstCustomerName.trim().isNotEmpty) {
+        payload['firstCustomerName'] = firstCustomerName.trim();
       }
       final response = await _dio.post<Map<String, dynamic>>(
         '$_apiBaseUrl/v1/cart/checkout',
