@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../app/app_routes.dart';
 import '../../../../shared/widgets/app_back_button.dart';
 import '../../../../shared/widgets/app_bottom_nav_bar.dart';
+import '../../../../shared/widgets/app_notice.dart';
 import '../../auth/data/auth_session.dart';
 import '../../landing/data/order_type_session.dart';
 import 'favorit_page.dart';
@@ -47,7 +48,7 @@ class _ProfilePageState extends State<ProfilePage> {
       });
     } catch (e) {
       if (!mounted) return;
-      final message = e.toString();
+      final message = AppNotice.humanizeMessage(e);
       setState(() {
         _error = _isUnauthorizedMessage(message)
             ? 'Anda belum login. Silakan login terlebih dahulu untuk melihat profil.'

@@ -3,7 +3,9 @@ class HistoryOrderItem {
     required this.orderId,
     required this.orderCode,
     required this.dateLabel,
+    required this.eventAt,
     required this.orderTypeLabel,
+    required this.orderTypeKey,
     required this.customerName,
     required this.customerEmail,
     required this.tableLabel,
@@ -23,7 +25,9 @@ class HistoryOrderItem {
   final String orderId;
   final String orderCode;
   final String dateLabel;
+  final DateTime eventAt;
   final String orderTypeLabel;
+  final String orderTypeKey;
   final String customerName;
   final String customerEmail;
   final String tableLabel;

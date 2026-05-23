@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../app/app_routes.dart';
+import '../../scan/presentation/scan_page.dart';
 import '../data/order_type_session.dart';
 
 class OrderTypePickerPage extends StatelessWidget {
@@ -39,15 +40,72 @@ class OrderTypePickerPage extends StatelessWidget {
             _orderTypeCard(
               context,
               icon: Icons.restaurant,
-              label: 'Makan\nditempat',
-              orderType: OrderType.dineIn,
+              label: 'Booking\nmeja',
+              orderType: OrderType.bookingDineIn,
             ),
             const SizedBox(height: 16),
             _orderTypeCard(
               context,
               icon: Icons.storefront,
-              label: 'Ambil ke\nresto',
+              label: 'Pesan &\nambil',
               orderType: OrderType.pickup,
+            ),
+            const SizedBox(height: 16),
+            _scanQrCard(context),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _scanQrCard(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(24),
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute<void>(
+            builder: (_) => ScanPage(redirectToCart: redirectToCart),
+          ),
+        );
+      },
+      child: Container(
+        width: double.infinity,
+        height: 170,
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF8F8F8),
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x10000000),
+              blurRadius: 10,
+              offset: Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              height: 74,
+              width: 74,
+              decoration: const BoxDecoration(
+                color: _accent,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.qr_code_scanner, color: Colors.white, size: 36),
+            ),
+            const SizedBox(width: 18),
+            const Expanded(
+              child: Text(
+                'Scan\nQR',
+                style: TextStyle(
+                  color: _textDark,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                  height: 1.25,
+                ),
+              ),
             ),
           ],
         ),
@@ -113,3 +171,4 @@ class OrderTypePickerPage extends StatelessWidget {
     );
   }
 }
+

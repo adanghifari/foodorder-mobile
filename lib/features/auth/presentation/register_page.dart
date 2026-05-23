@@ -200,7 +200,11 @@ class _RegisterPageState extends State<RegisterPage> {
       Navigator.pop(context);
     } catch (e) {
       if (!mounted) return;
-      AppNotice.show(context, 'Registrasi gagal: $e', type: AppNoticeType.error);
+      AppNotice.show(
+        context,
+        'Registrasi gagal: ${AppNotice.humanizeMessage(e)}',
+        type: AppNoticeType.error,
+      );
     } finally {
       if (mounted) {
         setState(() => _isSubmitting = false);

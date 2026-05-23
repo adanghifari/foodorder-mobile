@@ -57,7 +57,7 @@ class _OrderHistoryCard extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  order.orderCode,
+                  order.dateLabel,
                   style: const TextStyle(
                     color: _dark,
                     fontSize: 15,
@@ -69,7 +69,7 @@ class _OrderHistoryCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 10),
-          _kv('Tanggal', order.dateLabel),
+          _kv('Order ID', order.orderCode),
           _kv('Tipe', order.orderTypeLabel),
           _kv('Jumlah Item', '${order.totalItems} item'),
           _kv('Status Bayar', order.paymentMethodLabel),

@@ -6,6 +6,36 @@ class AppNotice {
   static OverlayEntry? _topEntry;
   static bool _isConfirmShowing = false;
 
+  static String humanizeMessage(
+    Object? error, {
+    String fallback = 'Terjadi kesalahan. Silakan coba lagi.',
+  }) {
+    if (error == null) return fallback;
+
+    var message = error.toString().trim();
+    if (message.isEmpty) return fallback;
+
+    final patterns = <RegExp>[
+      RegExp(r'^Exception:\s*', caseSensitive: false),
+      RegExp(r'^FormatException:\s*', caseSensitive: false),
+      RegExp(r'^Error:\s*', caseSensitive: false),
+      RegExp(r'^DioException(?:\s*\[[^\]]+\])?:\s*', caseSensitive: false),
+      RegExp(r'^Bad state:\s*', caseSensitive: false),
+    ];
+
+    for (final pattern in patterns) {
+      message = message.replaceFirst(pattern, '');
+    }
+
+    message = message
+        .replaceAll(RegExp(r'\bException:\s*', caseSensitive: false), '')
+        .replaceAll(RegExp(r'\bError:\s*', caseSensitive: false), '')
+        .trim();
+
+    message = message.trim();
+    return message.isEmpty ? fallback : message;
+  }
+
   static void show(
     BuildContext context,
     String message, {

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../app/app_routes.dart';
+import '../../../shared/notifications/push_notification_service.dart';
 import '../../../shared/widgets/app_notice.dart';
 import '../../../shared/widgets/app_back_button.dart';
 import '../data/auth_api_service.dart';
@@ -291,6 +292,7 @@ class _LoginPageState extends State<LoginPage> {
         password: password,
       );
       await AuthSession.setToken(token);
+      await PushNotificationService.instance.syncTokenForCurrentUser();
       if (!mounted) return;
       final args = ModalRoute.of(context)?.settings.arguments;
       final fromGuardedFlow = args is Map && (args['returnToPrevious'] == true);
@@ -302,7 +304,11 @@ class _LoginPageState extends State<LoginPage> {
       }
     } catch (e) {
       if (!mounted) return;
-      AppNotice.show(context, 'Login gagal: $e', type: AppNoticeType.error);
+      AppNotice.show(
+        context,
+        'Login gagal: ${AppNotice.humanizeMessage(e)}',
+        type: AppNoticeType.error,
+      );
     } finally {
       if (mounted) {
         setState(() => _isSubmitting = false);

@@ -79,7 +79,7 @@ class _MenuPageState extends State<MenuPage> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = e.toString();
+        _error = AppNotice.humanizeMessage(e);
         _isLoading = false;
       });
     }
@@ -130,7 +130,11 @@ class _MenuPageState extends State<MenuPage> {
         await Navigator.pushNamed(context, AppRoutes.login);
         return;
       }
-      AppNotice.show(context, '$e', type: AppNoticeType.error);
+      AppNotice.show(
+        context,
+        AppNotice.humanizeMessage(e),
+        type: AppNoticeType.error,
+      );
     } finally {
       if (mounted) {
         setState(() => _updatingMenuKeys.remove(key));
@@ -175,7 +179,11 @@ class _MenuPageState extends State<MenuPage> {
         await Navigator.pushNamed(context, AppRoutes.login);
         return;
       }
-      AppNotice.show(context, '$e', type: AppNoticeType.error);
+      AppNotice.show(
+        context,
+        AppNotice.humanizeMessage(e),
+        type: AppNoticeType.error,
+      );
     } finally {
       if (mounted) {
         setState(() => _updatingMenuKeys.remove(key));
