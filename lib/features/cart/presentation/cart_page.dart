@@ -8,6 +8,8 @@ import '../../payment/presentation/midtrans_webview_page.dart';
 import '../../scan/data/table_session.dart';
 import '../../scan/presentation/scan_page.dart';
 import '../data/cart_api_service.dart';
+import '../../history/domain/history_models.dart';
+import '../../profile/presentation/payment_receipt_page.dart';
 
 class CartPage extends StatefulWidget {
   const CartPage({super.key});
@@ -31,6 +33,8 @@ class _CartPageState extends State<CartPage> {
 
   bool _isLoading = true;
   bool _isSubmitting = false;
+  bool _isReadOnly = false;
+  bool _routeArgsResolved = false;
   bool _hasShownOnSpotAdvisory = false;
   String? _error;
   OrderType? _orderType;
@@ -46,9 +50,25 @@ class _CartPageState extends State<CartPage> {
   Map<int, Set<int>> _tableAvailabilityByHour = <int, Set<int>>{};
   Map<int, Set<int>> _tableUnavailabilityByHour = <int, Set<int>>{};
   List<int> _tableNumbers = const [];
+  int _extraCharge = 0;
 
   int get _subtotal => _items.fold(0, (sum, e) => sum + e.subtotal);
-  int get _totalPayment => _subtotal + _serviceFee;
+  int get _totalPayment => _subtotal + _serviceFee + (_orderType == OrderType.bookingDineIn ? _extraCharge : 0);
+
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_routeArgsResolved) return;
+    _routeArgsResolved = true;
+    final args = ModalRoute.of(context)?.settings.arguments;
+    if (args is Map) {
+      final raw = args['readOnly'];
+      if (raw is bool) {
+        _isReadOnly = raw;
+      }
+    }
+  }
 
   @override
   void initState() {
@@ -98,6 +118,8 @@ class _CartPageState extends State<CartPage> {
 
   @override
   void dispose() {
+    // Always reset order type when leaving cart detail page.
+    OrderTypeSession.clear();
     super.dispose();
   }
 
@@ -177,6 +199,7 @@ class _CartPageState extends State<CartPage> {
         _bookingAvailabilityError = null;
         _isLoadingBookingAvailability = false;
         _selectedTableNumber = null;
+        _extraCharge = 0;
       });
       return;
     }
@@ -220,6 +243,7 @@ class _CartPageState extends State<CartPage> {
         _tableAvailabilityByHour = tableAvailabilityByHour;
         _tableUnavailabilityByHour = tableUnavailabilityByHour;
         _availableTables = selectedAvailability;
+        _extraCharge = result.extraCharge;
         if (selectedTable != null &&
             !finalTableNumbers.contains(selectedTable)) {
           _selectedTableNumber = null;
@@ -235,10 +259,13 @@ class _CartPageState extends State<CartPage> {
       final message = AppNotice.humanizeMessage(e);
       setState(() {
         _isLoadingBookingAvailability = false;
-        _isAvailabilityEndpointMissing =
-            message.contains('Endpoint ketersediaan booking belum tersedia di backend.');
-        _bookingAvailabilityError =
-            _isAvailabilityEndpointMissing ? null : message;
+        _extraCharge = 0;
+        _isAvailabilityEndpointMissing = message.contains(
+          'Endpoint ketersediaan booking belum tersedia di backend.',
+        );
+        _bookingAvailabilityError = _isAvailabilityEndpointMissing
+            ? null
+            : message;
       });
     }
   }
@@ -302,7 +329,11 @@ class _CartPageState extends State<CartPage> {
       }
     }
     if (_items.isEmpty) {
-      AppNotice.show(context, 'Keranjang masih kosong.', type: AppNoticeType.error);
+      AppNotice.show(
+        context,
+        'Keranjang masih kosong.',
+        type: AppNoticeType.error,
+      );
       return;
     }
 
@@ -322,7 +353,9 @@ class _CartPageState extends State<CartPage> {
         final needsFirstCustomerName =
             isOnSpotDineIn &&
             (message.toLowerCase().contains('meja sedang dipakai') ||
-                message.toLowerCase().contains('selected table is not available'));
+                message.toLowerCase().contains(
+                  'selected table is not available',
+                ));
 
         if (!needsFirstCustomerName) {
           rethrow;
@@ -370,15 +403,34 @@ class _CartPageState extends State<CartPage> {
         return;
       }
 
+      setState(() => _isSubmitting = true);
+      HistoryOrderItem? orderItem;
+      try {
+        orderItem = await _cartApiService.getOrderReceipt(orderId);
+      } catch (e) {
+        // Ignored, fallback to landing page on error
+      }
+
       await OrderTypeSession.clear();
       await TableSession.clear();
       await _loadCart();
       if (!mounted) return;
-      Navigator.pushNamedAndRemoveUntil(
-        context,
-        AppRoutes.landing,
-        (route) => route.isFirst,
-      );
+
+      if (orderItem != null) {
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(
+            builder: (_) => PaymentReceiptPage(order: orderItem!),
+          ),
+          (route) => route.isFirst,
+        );
+      } else {
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          AppRoutes.landing,
+          (route) => route.isFirst,
+        );
+      }
     } catch (e) {
       if (!mounted) return;
       final message = AppNotice.humanizeMessage(e);
@@ -398,6 +450,12 @@ class _CartPageState extends State<CartPage> {
         setState(() => _isSubmitting = false);
       }
     }
+  }
+
+  Future<void> _goToMenuAndResetOrderType() async {
+    await OrderTypeSession.clear();
+    if (!mounted) return;
+    await Navigator.pushNamed(context, AppRoutes.menu);
   }
 
   Future<String?> _showFirstCustomerNameDialog() async {
@@ -482,6 +540,7 @@ class _CartPageState extends State<CartPage> {
         _tableUnavailabilityByHour = <int, Set<int>>{};
         _bookingAvailabilityError = null;
         _isAvailabilityEndpointMissing = false;
+        _extraCharge = 0;
       });
       await OrderTypeSession.clear();
       await TableSession.clear();
@@ -489,6 +548,7 @@ class _CartPageState extends State<CartPage> {
     }
     setState(() {
       _orderType = value;
+      _extraCharge = 0;
       if (value != OrderType.bookingDineIn) {
         _selectedTableNumber = null;
       } else {
@@ -507,12 +567,13 @@ class _CartPageState extends State<CartPage> {
       final scannedTableId = await TableSession.get();
       if (!mounted) return;
       setState(() {
-        _selectedTableNumber =
-            (scannedTableId != null && scannedTableId > 0) ? scannedTableId : null;
+        _selectedTableNumber = (scannedTableId != null && scannedTableId > 0)
+            ? scannedTableId
+            : null;
       });
       return;
     }
-    if (value == OrderType.pickup) {
+    if (value == OrderType.pickup || value == OrderType.takeAway) {
       await TableSession.clear();
     }
   }
@@ -580,7 +641,7 @@ class _CartPageState extends State<CartPage> {
             const Text('Keranjang kosong'),
             const SizedBox(height: 12),
             ElevatedButton(
-              onPressed: () => Navigator.pushNamed(context, AppRoutes.menu),
+              onPressed: _goToMenuAndResetOrderType,
               child: const Text('Pilih Menu'),
             ),
           ],
@@ -593,20 +654,41 @@ class _CartPageState extends State<CartPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (_isReadOnly) ...[
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFF4E8),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFF0D7BB)),
+              ),
+              child: const Text(
+                'Ini keranjang anda!',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Color(0xFF8A5A2B),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
+          ],
           ..._items.map(
             (item) => Padding(
               padding: const EdgeInsets.only(bottom: 16),
               child: _buildOrderItem(item),
             ),
           ),
-          const SizedBox(height: 15),
-          _buildLabel('Tipe Pesanan'),
-          if (_orderType == OrderType.onSpotDineIn ||
-              _orderType == OrderType.bookingDineIn)
-            Container(
-              height: 52,
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 14),
+          if (!_isReadOnly) ...[
+            const SizedBox(height: 15),
+            _buildLabel('Tipe Pesanan'),
+            if (_orderType == OrderType.onSpotDineIn ||
+                _orderType == OrderType.bookingDineIn)
+              Container(
+                height: 52,
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 14),
               decoration: BoxDecoration(
                 color: const Color(0xFFE8E8E8),
                 borderRadius: BorderRadius.circular(12),
@@ -636,49 +718,46 @@ class _CartPageState extends State<CartPage> {
                   ),
                 ],
               ),
-            )
-          else
-            AppDropdownField<OrderType>(
-              value: _orderType,
-              hintText: 'Pilih tipe pesanan',
-              menuMaxHeight: 240,
-              dividerWidth: 2.2,
-              borderColor: Colors.grey.shade300,
-              shadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.03),
-                  blurRadius: 8,
-                  offset: const Offset(0, 3),
-                ),
-              ],
-              options: const [
-                AppDropdownOption<OrderType>(
-                  value: OrderType.bookingDineIn,
-                  label: 'Booking meja',
-                  icon: Icons.restaurant,
-                ),
-                AppDropdownOption<OrderType>(
-                  value: OrderType.pickup,
-                  label: 'Pesan & ambil',
-                  icon: Icons.storefront,
-                ),
-              ],
-              onChanged: (value) => _onOrderTypeChanged(value),
-            ),
-          if (_orderType == OrderType.bookingDineIn) ...[
+              )
+            else
+              AppDropdownField<OrderType>(
+                value: _orderType,
+                hintText: 'Pilih tipe pesanan',
+                menuMaxHeight: 240,
+                dividerWidth: 2.2,
+                borderColor: Colors.grey.shade300,
+                shadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.03),
+                    blurRadius: 8,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+                options: const [
+                  AppDropdownOption<OrderType>(
+                    value: OrderType.bookingDineIn,
+                    label: 'Booking meja',
+                    icon: Icons.restaurant,
+                  ),
+                  AppDropdownOption<OrderType>(
+                    value: OrderType.pickup,
+                    label: 'Pickup (tanpa QR)',
+                    icon: Icons.storefront,
+                  ),
+                ],
+                onChanged: (value) => _onOrderTypeChanged(value),
+              ),
+          ],
+          if (!_isReadOnly && _orderType == OrderType.bookingDineIn) ...[
             const SizedBox(height: 14),
             _buildLabel('Waktu Booking'),
             _buildDatePickerField(),
             const SizedBox(height: 14),
             Row(
               children: [
-                Expanded(
-                  child: _buildHourDropdownField(),
-                ),
+                Expanded(child: _buildHourDropdownField()),
                 const SizedBox(width: 12),
-                Expanded(
-                  child: _buildDurationDropdownField(),
-                ),
+                Expanded(child: _buildDurationDropdownField()),
               ],
             ),
             const SizedBox(height: 14),
@@ -706,7 +785,7 @@ class _CartPageState extends State<CartPage> {
               ),
             ],
           ],
-          if (_orderType == OrderType.onSpotDineIn) ...[
+          if (!_isReadOnly && _orderType == OrderType.onSpotDineIn) ...[
             const SizedBox(height: 14),
             _buildLabel('Nomor Meja (hasil scan QR)'),
             _buildOnSpotTableInfo(),
@@ -719,55 +798,58 @@ class _CartPageState extends State<CartPage> {
           const SizedBox(height: 15),
           _buildPaymentRow('Subtotal', _subtotal),
           _buildPaymentRow('Biaya Layanan', _serviceFee),
+          if (_orderType == OrderType.bookingDineIn && _extraCharge > 0)
+            _buildPaymentRow('Biaya Booking', _extraCharge),
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 8),
             child: Divider(thickness: 1),
           ),
           _buildPaymentRow('Total Pembayaran', _totalPayment, isTotal: true),
           const SizedBox(height: 30),
-          Row(
-            children: [
-              Expanded(
+          if (!_isReadOnly)
+            Row(
+              children: [
+                Expanded(
                 child: OutlinedButton(
-                  onPressed: () => Navigator.pushNamed(context, AppRoutes.menu),
+                  onPressed: _goToMenuAndResetOrderType,
                   style: OutlinedButton.styleFrom(
                     side: const BorderSide(color: _lightBrownColor),
-                    padding: const EdgeInsets.symmetric(vertical: 15),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      padding: const EdgeInsets.symmetric(vertical: 15),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
-                  ),
-                  child: const Text(
-                    'Tambah Item',
-                    style: TextStyle(
-                      color: _lightBrownColor,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 15),
-              Expanded(
-                child: ElevatedButton(
-                  onPressed: _isSubmitting ? null : _payNow,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: _lightBrownColor,
-                    padding: const EdgeInsets.symmetric(vertical: 15),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: Text(
-                    _isSubmitting ? 'Memproses...' : 'Bayar',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
+                    child: const Text(
+                      'Tambah Item',
+                      style: TextStyle(
+                        color: _lightBrownColor,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ],
-          ),
+                const SizedBox(width: 15),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: _isSubmitting ? null : _payNow,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _lightBrownColor,
+                      padding: const EdgeInsets.symmetric(vertical: 15),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: Text(
+                      _isSubmitting ? 'Memproses...' : 'Bayar',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           const SizedBox(height: 20),
         ],
       ),
@@ -801,7 +883,9 @@ class _CartPageState extends State<CartPage> {
             : _availableTables.contains(tableNumber);
         return AppDropdownOption<int>(
           value: tableNumber,
-          label: available ? 'Meja $tableNumber' : 'Meja $tableNumber (Dipakai)',
+          label: available
+              ? 'Meja $tableNumber'
+              : 'Meja $tableNumber (Dipakai)',
           enabled: available,
         );
       }).toList(),
@@ -897,7 +981,11 @@ class _CartPageState extends State<CartPage> {
         ),
         child: Row(
           children: [
-            const Icon(Icons.calendar_today, size: 18, color: Color(0xFF6B7280)),
+            const Icon(
+              Icons.calendar_today,
+              size: 18,
+              color: Color(0xFF6B7280),
+            ),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
@@ -909,7 +997,10 @@ class _CartPageState extends State<CartPage> {
                 ),
               ),
             ),
-            const Icon(Icons.keyboard_arrow_down_rounded, color: Color(0xFF6B7280)),
+            const Icon(
+              Icons.keyboard_arrow_down_rounded,
+              color: Color(0xFF6B7280),
+            ),
           ],
         ),
       ),
@@ -984,7 +1075,7 @@ class _CartPageState extends State<CartPage> {
           .map(
             (duration) => AppDropdownOption<int>(
               value: duration,
-              label: duration >= 5
+              label: duration >= 4
                   ? '$duration jam (Biaya Tambahan)'
                   : '$duration jam',
             ),

@@ -5,6 +5,8 @@ import '../../../../shared/widgets/app_back_button.dart';
 import '../../auth/data/auth_session.dart';
 import '../../landing/data/order_type_session.dart';
 import '../../scan/data/table_session.dart';
+import 'informasi_akun_page.dart';
+import 'ganti_password_page.dart';
 
 class PengaturanPage extends StatefulWidget {
   const PengaturanPage({super.key});
@@ -43,8 +45,6 @@ class _PengaturanPageState extends State<PengaturanPage> {
 
           // List Menu Pengaturan
           _buildMenuSetting("Informasi akun", isSwitch: false),
-          _buildMenuSetting("Alamat tersimpan", isSwitch: false),
-          _buildMenuSetting("Ubah Email", isSwitch: false),
           _buildMenuSetting("Ganti Password", isSwitch: false),
 
           // Menu Notifikasi dengan Switch Oranye
@@ -121,8 +121,25 @@ class _PengaturanPageState extends State<PengaturanPage> {
               ),
         onTap: isSwitch
             ? null
-            : () {
-                // Navigasi ke sub-menu jika ada
+            : () async {
+                if (title == "Informasi akun") {
+                  final result = await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const InformasiAkunPage(),
+                    ),
+                  );
+                  if (result == true && mounted) {
+                    Navigator.pop(context, true);
+                  }
+                } else if (title == "Ganti Password") {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const GantiPasswordPage(),
+                    ),
+                  );
+                }
               },
       ),
     );

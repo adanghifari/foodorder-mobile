@@ -113,8 +113,11 @@ class _LoginPageState extends State<LoginPage> {
 
   Widget _buildHeader(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
+    final statusBarHeight = MediaQuery.of(context).padding.top;
+    final headerHeight = statusBarHeight + 240;
+
     return SizedBox(
-      height: 220,
+      height: headerHeight,
       width: double.infinity,
       child: Stack(
         children: [
@@ -126,18 +129,21 @@ class _LoginPageState extends State<LoginPage> {
                 end: Alignment.bottomCenter,
               ),
             ),
-            child: Center(
-              child: Padding(
-                padding: const EdgeInsets.only(bottom: 10),
+            child: Padding(
+              padding: EdgeInsets.only(
+                top: statusBarHeight + 20,
+                bottom: 15,
+              ),
+              child: Center(
                 child: Image.asset(
                   'assets/logo.png',
-                  width: screenWidth * 0.80,
+                  width: screenWidth * 0.75,
                 ),
               ),
             ),
           ),
           Positioned(
-            top: 36,
+            top: statusBarHeight > 0 ? statusBarHeight + 8 : 20,
             left: 12,
             child: AppBackButton(
               icon: Icons.arrow_back,

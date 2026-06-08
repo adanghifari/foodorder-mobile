@@ -36,7 +36,7 @@ class _HistoryPageState extends State<HistoryPage> {
   String? _error;
   bool _requireLogin = false;
   List<HistoryOrderItem> _orders = const [];
-  _HistoryTab _activeTab = _HistoryTab.payment;
+  _HistoryTab _activeTab = _HistoryTab.order;
   _PaymentSortFilter _paymentFilter = _PaymentSortFilter.newest;
   _OrderSortFilter _orderFilter = _OrderSortFilter.latest;
   bool _showPreviousHistory = false;
@@ -203,6 +203,7 @@ class _HistoryPageState extends State<HistoryPage> {
           midtransOrderId: midtransOrderId,
           status: status,
           totalPrice: totalPrice,
+          extraCharge: _toInt(item['extraCharge']),
           items: orderItems,
         );
       }).toList();
@@ -340,8 +341,6 @@ class _HistoryPageState extends State<HistoryPage> {
         children: [
           _buildCategoryTabs(),
           _buildSortDropdown(),
-          _buildTodaySectionHeader(todayCount: 0),
-          _buildPreviousHistoryToggle(previousCount: 0),
           const Expanded(
             child: Center(
               child: Padding(
@@ -380,24 +379,27 @@ class _HistoryPageState extends State<HistoryPage> {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(0, 0, 0, 12),
             children: [
-              _buildTodaySectionHeader(todayCount: todayOrders.length),
-              if (todayOrders.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.fromLTRB(16, 12, 16, 8),
-                  child: Text(
-                    'Belum ada riwayat hari ini',
-                    style: TextStyle(
-                      color: Color(0xFF666666),
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                )
-              else
-                _buildHistorySectionList(orders: todayOrders),
-              _buildPreviousHistoryToggle(previousCount: previousOrders.length),
-              if (_showPreviousHistory && previousOrders.isNotEmpty)
-                _buildHistorySectionList(orders: previousOrders),
+              _buildUnifiedSection(
+                title: 'Riwayat Hari Ini',
+                subtitle: '${todayOrders.length} data untuk hari ini',
+                orders: todayOrders,
+                isExpandable: false,
+                isExpanded: true,
+                emptyMessage: 'Belum ada riwayat hari ini',
+              ),
+              _buildUnifiedSection(
+                title: 'Riwayat Sebelumnya',
+                subtitle: previousOrders.isEmpty
+                    ? 'Tidak ada riwayat hari sebelumnya'
+                    : '${previousOrders.length} data dari hari sebelumnya',
+                orders: previousOrders,
+                isExpandable: true,
+                isExpanded: _showPreviousHistory,
+                onTap: previousOrders.isEmpty
+                    ? null
+                    : () => setState(() => _showPreviousHistory = !_showPreviousHistory),
+                emptyMessage: 'Tidak ada riwayat hari sebelumnya',
+              ),
             ],
           ),
         ),
@@ -405,55 +407,131 @@ class _HistoryPageState extends State<HistoryPage> {
     );
   }
 
-  Widget _buildHistorySectionList({required List<HistoryOrderItem> orders}) {
+  Widget _buildHistorySectionList({
+    required List<HistoryOrderItem> orders,
+    EdgeInsetsGeometry padding = const EdgeInsets.fromLTRB(16, 12, 16, 24),
+  }) {
     if (_activeTab == _HistoryTab.payment) {
       return PaymentHistoryList(
         orders: orders,
         onRefreshRequested: _loadOrders,
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
+        padding: padding,
       );
     }
     return OrderHistoryList(
       orders: orders,
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
+      padding: padding,
     );
   }
 
-  Widget _buildTodaySectionHeader({required int todayCount}) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        decoration: BoxDecoration(
-          color: const Color(0xFFEDEFF2),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: const Color(0xFFD8DEE6)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Riwayat Hari Ini',
-              style: TextStyle(
-                color: Color(0xFF334155),
-                fontSize: 14,
-                fontWeight: FontWeight.w800,
+  Widget _buildUnifiedSection({
+    required String title,
+    required String subtitle,
+    required List<HistoryOrderItem> orders,
+    required bool isExpandable,
+    required bool isExpanded,
+    VoidCallback? onTap,
+    String? emptyMessage,
+  }) {
+    final showContent = !isExpandable || isExpanded;
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFE2E8F0),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFCBD5E1)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.vertical(
+              top: const Radius.circular(15),
+              bottom: Radius.circular(showContent ? 0 : 15),
+            ),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFCBD5E1),
+                borderRadius: BorderRadius.vertical(
+                  top: const Radius.circular(15),
+                  bottom: Radius.circular(showContent ? 0 : 15),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          style: const TextStyle(
+                            color: Color(0xFF334155),
+                            fontSize: 14,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          subtitle,
+                          style: const TextStyle(
+                            color: Color(0xFF64748B),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (isExpandable && orders.isNotEmpty)
+                    Icon(
+                      isExpanded
+                          ? Icons.keyboard_arrow_up_rounded
+                          : Icons.keyboard_arrow_down_rounded,
+                      color: const Color(0xFF64748B),
+                    ),
+                ],
               ),
             ),
-            const SizedBox(height: 3),
-            Text(
-              '$todayCount data untuk hari ini',
-              style: const TextStyle(
-                color: Color(0xFF64748B),
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
+          ),
+          if (showContent) ...[
+            if (orders.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+                child: Center(
+                  child: Text(
+                    emptyMessage ?? 'Belum ada data',
+                    style: const TextStyle(
+                      color: Color(0xFF64748B),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              )
+            else
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+                child: _buildHistorySectionList(
+                  orders: orders,
+                  padding: EdgeInsets.zero,
+                ),
               ),
-            ),
           ],
-        ),
+        ],
       ),
     );
   }
@@ -471,20 +549,20 @@ class _HistoryPageState extends State<HistoryPage> {
           children: [
             Expanded(
               child: _CategoryTabButton(
-                label: 'Riwayat Pembayaran',
-                isActive: _activeTab == _HistoryTab.payment,
+                label: 'Riwayat Pesanan',
+                isActive: _activeTab == _HistoryTab.order,
                 onTap: () {
-                  setState(() => _activeTab = _HistoryTab.payment);
+                  setState(() => _activeTab = _HistoryTab.order);
                 },
               ),
             ),
             const SizedBox(width: 6),
             Expanded(
               child: _CategoryTabButton(
-                label: 'Riwayat Pesanan',
-                isActive: _activeTab == _HistoryTab.order,
+                label: 'Riwayat Pembayaran',
+                isActive: _activeTab == _HistoryTab.payment,
                 onTap: () {
-                  setState(() => _activeTab = _HistoryTab.order);
+                  setState(() => _activeTab = _HistoryTab.payment);
                 },
               ),
             ),
@@ -564,63 +642,7 @@ class _HistoryPageState extends State<HistoryPage> {
     }).toList();
   }
 
-  Widget _buildPreviousHistoryToggle({required int previousCount}) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
-      child: InkWell(
-        onTap: previousCount < 1
-            ? null
-            : () => setState(() => _showPreviousHistory = !_showPreviousHistory),
-        borderRadius: BorderRadius.circular(14),
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          decoration: BoxDecoration(
-            color: const Color(0xFFEDEFF2),
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: const Color(0xFFD8DEE6)),
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Riwayat Sebelumnya',
-                      style: TextStyle(
-                        color: Color(0xFF4B5563),
-                        fontSize: 14,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      previousCount < 1
-                          ? 'Tidak ada riwayat hari sebelumnya'
-                          : '$previousCount data dari hari sebelumnya',
-                      style: const TextStyle(
-                        color: Color(0xFF64748B),
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              if (previousCount > 0)
-                Icon(
-                  _showPreviousHistory
-                      ? Icons.keyboard_arrow_up_rounded
-                      : Icons.keyboard_arrow_down_rounded,
-                  color: const Color(0xFF64748B),
-                ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+
 
   Widget _buildSortDropdown() {
     final isPayment = _activeTab == _HistoryTab.payment;

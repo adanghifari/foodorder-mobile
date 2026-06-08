@@ -1,6 +1,6 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
-enum OrderType { bookingDineIn, onSpotDineIn, pickup }
+enum OrderType { bookingDineIn, onSpotDineIn, pickup, takeAway }
 
 class OrderTypeSession {
   static const _key = 'order_type';
@@ -11,6 +11,7 @@ class OrderTypeSession {
       OrderType.bookingDineIn => 'booking_dine_in',
       OrderType.onSpotDineIn => 'dine_in',
       OrderType.pickup => 'pickup',
+      OrderType.takeAway => 'take_away',
     };
   }
 
@@ -18,7 +19,8 @@ class OrderTypeSession {
     return switch (type) {
       OrderType.bookingDineIn => 'Booking dine-in',
       OrderType.onSpotDineIn => 'Dine-in',
-      OrderType.pickup => 'Take away',
+      OrderType.pickup => 'Pickup',
+      OrderType.takeAway => 'Take away (QR)',
     };
   }
 
@@ -46,6 +48,7 @@ class OrderTypeSession {
     if (raw == 'booking_dine_in') return OrderType.bookingDineIn;
     if (raw == 'dine_in') return OrderType.onSpotDineIn;
     if (raw == 'pickup') return OrderType.pickup;
+    if (raw == 'take_away') return OrderType.takeAway;
     return null;
   }
 }

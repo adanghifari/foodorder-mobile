@@ -1,4 +1,5 @@
 abstract final class AppRoutes {
+  static const splash = '/';
   static const login = '/login';
   static const register = '/register';
   static const landing = '/landing';
@@ -9,4 +10,5 @@ abstract final class AppRoutes {
   static const chat = '/chat';
   static const orderHistory = '/order-history';
   static const scan = '/scan';
+  static const struk = '/struk';
 }
