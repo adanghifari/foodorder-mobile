@@ -13,7 +13,7 @@ class PaymentReceiptPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final subtotal = order.items.fold<int>(0, (sum, e) => sum + e.subtotal);
-    final serviceFee = (order.totalPrice - subtotal).clamp(0, 1 << 30);
+    final serviceFee = (order.totalPrice - subtotal - order.extraCharge).clamp(0, 1 << 30);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF2F2F2),
@@ -154,6 +154,8 @@ class PaymentReceiptPage extends StatelessWidget {
                     children: [
                       _totalRow('Subtotal', idr(subtotal)),
                       _totalRow('Biaya Layanan', idr(serviceFee)),
+                      if (order.extraCharge > 0)
+                        _totalRow('Biaya Booking', idr(order.extraCharge)),
                       const SizedBox(height: 4),
                       _totalRow(
                         'Total Pembayaran',

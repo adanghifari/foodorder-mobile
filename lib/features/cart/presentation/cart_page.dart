@@ -48,9 +48,11 @@ class _CartPageState extends State<CartPage> {
   Map<int, Set<int>> _tableAvailabilityByHour = <int, Set<int>>{};
   Map<int, Set<int>> _tableUnavailabilityByHour = <int, Set<int>>{};
   List<int> _tableNumbers = const [];
+  int _extraCharge = 0;
 
   int get _subtotal => _items.fold(0, (sum, e) => sum + e.subtotal);
-  int get _totalPayment => _subtotal + _serviceFee;
+  int get _totalPayment => _subtotal + _serviceFee + (_orderType == OrderType.bookingDineIn ? _extraCharge : 0);
+
 
   @override
   void didChangeDependencies() {
@@ -195,6 +197,7 @@ class _CartPageState extends State<CartPage> {
         _bookingAvailabilityError = null;
         _isLoadingBookingAvailability = false;
         _selectedTableNumber = null;
+        _extraCharge = 0;
       });
       return;
     }
@@ -238,6 +241,7 @@ class _CartPageState extends State<CartPage> {
         _tableAvailabilityByHour = tableAvailabilityByHour;
         _tableUnavailabilityByHour = tableUnavailabilityByHour;
         _availableTables = selectedAvailability;
+        _extraCharge = result.extraCharge;
         if (selectedTable != null &&
             !finalTableNumbers.contains(selectedTable)) {
           _selectedTableNumber = null;
@@ -253,6 +257,7 @@ class _CartPageState extends State<CartPage> {
       final message = AppNotice.humanizeMessage(e);
       setState(() {
         _isLoadingBookingAvailability = false;
+        _extraCharge = 0;
         _isAvailabilityEndpointMissing = message.contains(
           'Endpoint ketersediaan booking belum tersedia di backend.',
         );
@@ -514,6 +519,7 @@ class _CartPageState extends State<CartPage> {
         _tableUnavailabilityByHour = <int, Set<int>>{};
         _bookingAvailabilityError = null;
         _isAvailabilityEndpointMissing = false;
+        _extraCharge = 0;
       });
       await OrderTypeSession.clear();
       await TableSession.clear();
@@ -521,6 +527,7 @@ class _CartPageState extends State<CartPage> {
     }
     setState(() {
       _orderType = value;
+      _extraCharge = 0;
       if (value != OrderType.bookingDineIn) {
         _selectedTableNumber = null;
       } else {
@@ -770,6 +777,8 @@ class _CartPageState extends State<CartPage> {
           const SizedBox(height: 15),
           _buildPaymentRow('Subtotal', _subtotal),
           _buildPaymentRow('Biaya Layanan', _serviceFee),
+          if (_orderType == OrderType.bookingDineIn && _extraCharge > 0)
+            _buildPaymentRow('Biaya Booking', _extraCharge),
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 8),
             child: Divider(thickness: 1),
@@ -1045,7 +1054,7 @@ class _CartPageState extends State<CartPage> {
           .map(
             (duration) => AppDropdownOption<int>(
               value: duration,
-              label: duration >= 5
+              label: duration >= 4
                   ? '$duration jam (Biaya Tambahan)'
                   : '$duration jam',
             ),

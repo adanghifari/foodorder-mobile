@@ -19,6 +19,7 @@ class HistoryOrderItem {
     required this.midtransOrderId,
     required this.status,
     required this.totalPrice,
+    required this.extraCharge,
     required this.items,
   });
 
@@ -41,6 +42,7 @@ class HistoryOrderItem {
   final String midtransOrderId;
   final String status;
   final int totalPrice;
+  final int extraCharge;
   final List<HistoryLineItem> items;
 }
 

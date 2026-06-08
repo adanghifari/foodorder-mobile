@@ -203,6 +203,7 @@ class _HistoryPageState extends State<HistoryPage> {
           midtransOrderId: midtransOrderId,
           status: status,
           totalPrice: totalPrice,
+          extraCharge: _toInt(item['extraCharge']),
           items: orderItems,
         );
       }).toList();
