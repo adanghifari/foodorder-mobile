@@ -7,7 +7,7 @@ import '../../../payment/presentation/midtrans_webview_page.dart';
 import '../../../../shared/config/api_config.dart';
 import '../../../../shared/widgets/app_notice.dart';
 import '../../domain/history_models.dart';
-import 'payment_receipt_page.dart';
+import '../../../profile/presentation/payment_receipt_page.dart';
 
 class PaymentHistoryList extends StatelessWidget {
   const PaymentHistoryList({
@@ -16,19 +16,21 @@ class PaymentHistoryList extends StatelessWidget {
     this.onRefreshRequested,
     this.shrinkWrap = false,
     this.physics,
+    this.padding = const EdgeInsets.fromLTRB(16, 12, 16, 24),
   });
 
   final List<HistoryOrderItem> orders;
   final Future<void> Function()? onRefreshRequested;
   final bool shrinkWrap;
   final ScrollPhysics? physics;
+  final EdgeInsetsGeometry padding;
 
   @override
   Widget build(BuildContext context) {
     return ListView.separated(
       shrinkWrap: shrinkWrap,
       physics: physics,
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+      padding: padding,
       itemCount: orders.length,
       separatorBuilder: (context, index) => const SizedBox(height: 12),
       itemBuilder: (context, index) => _PaymentHistoryCard(

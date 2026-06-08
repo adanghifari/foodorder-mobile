@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../domain/history_models.dart';
+import '../../history/domain/history_models.dart';
 
 class PaymentReceiptPage extends StatelessWidget {
   const PaymentReceiptPage({super.key, required this.order});

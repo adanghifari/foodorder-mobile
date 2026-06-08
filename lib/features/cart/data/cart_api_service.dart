@@ -1,7 +1,9 @@
 import 'package:dio/dio.dart';
+import 'package:intl/intl.dart';
 
 import '../../auth/data/auth_session.dart';
 import '../../../shared/config/api_config.dart';
+import '../../history/domain/history_models.dart';
 
 class CartItemDto {
   const CartItemDto({
@@ -314,5 +316,153 @@ class CartApiService {
 
     final normalized = value.startsWith('/') ? value : '/$value';
     return '$_assetBaseUrl$normalized';
+  }
+
+  Future<HistoryOrderItem?> getOrderReceipt(String orderId) async {
+    final token = await _requireToken();
+    try {
+      final response = await _dio.get<Map<String, dynamic>>(
+        '$_apiBaseUrl/v1/orders/me',
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
+      );
+      final map = response.data ?? const <String, dynamic>{};
+      final rows = map['data'] as List<dynamic>? ?? const [];
+
+      for (final row in rows) {
+        final item = row as Map<String, dynamic>;
+        final curOrderId = (item['orderId'] ?? '').toString();
+        if (curOrderId != orderId) continue;
+
+        final customer = item['customer'];
+        final customerMap = customer is Map<String, dynamic>
+            ? customer
+            : const <String, dynamic>{};
+        final customerName = (customerMap['name'] ?? '').toString();
+        final customerEmail = (customerMap['email'] ?? '').toString();
+        final status = (item['status'] ?? '-').toString();
+        final paymentStatus = (item['paymentStatus'] ?? '-').toString();
+        final paymentMethod = (item['paymentMethod'] ?? item['method'] ?? item['paymentType'] ?? '').toString();
+        final paymentUrl = (item['paymentUrl'] ?? '').toString();
+        final midtransOrderId = (item['midtransOrderId'] ?? '').toString();
+        final paymentExpiry = (item['paymentExpiry'] ?? '').toString();
+        final qrisImageUrl = (item['qrisImageUrl'] ?? '').toString();
+        final vaNumber = (item['vaNumber'] ?? item['virtualAccountNumber'] ?? item['nomorVa'] ?? item['nomorVA'] ?? '').toString();
+        final orderTypeRaw = (item['orderType'] ?? 'dine_in').toString();
+        final bookingStartAtRaw = (item['bookingStartAt'] ?? '').toString();
+        final durationHours = _toInt(item['durationHours']);
+        final tableNumber = item['tableNumber'];
+        final totalPrice = _toInt(item['totalPrice']);
+        final paidAt = (item['paidAt'] ?? '').toString();
+        final createdAt = (item['createdAt'] ?? '').toString();
+
+        final eventAt = _resolvePaymentEventAt(
+          paymentStatus: paymentStatus,
+          paidAtRaw: paidAt,
+          createdAtRaw: createdAt,
+        );
+        final displayDateLabel = _formatEventDateLabel(eventAt);
+
+        final rawItems = item['items'];
+        final items = rawItems is List ? rawItems : const <dynamic>[];
+        final orderItems = <HistoryLineItem>[];
+        for (final e in items) {
+          if (e is! Map<String, dynamic>) continue;
+          final menu = e['menu'];
+          final menuName = menu is Map<String, dynamic> ? (menu['name'] ?? '').toString() : '';
+          final name = (e['name'] ?? e['menuName'] ?? e['itemName'] ?? e['foodName'] ?? menuName).toString();
+          final qty = _toInt(e['quantity']);
+          final unitPriceRaw = _toInt(e['unitPrice']);
+          final priceRaw = _toInt(e['price']);
+          final subtotalRaw = _toInt(e['subtotal']);
+          final unitPrice = unitPriceRaw > 0 ? unitPriceRaw : (qty > 0 ? (priceRaw / qty).round() : priceRaw);
+          final subtotal = subtotalRaw > 0 ? subtotalRaw : (priceRaw > 0 ? priceRaw : unitPrice * qty);
+          orderItems.add(
+            HistoryLineItem(
+              name: name.isEmpty ? 'Item' : name,
+              quantity: qty,
+              unitPrice: unitPrice,
+              subtotal: subtotal > 0 ? subtotal : unitPrice * qty,
+            ),
+          );
+        }
+        final totalItems = orderItems.fold<int>(0, (sum, e) => sum + e.quantity);
+        final orderTypeKey = orderTypeRaw == 'booking_dine_in' ? 'booking' : (orderTypeRaw == 'dine_in' ? 'dine_in' : 'pickup');
+        final bookingScheduleLabel = _formatBookingSchedule(
+          bookingStartAtRaw: bookingStartAtRaw,
+          durationHours: durationHours,
+        );
+        final orderTypeLabel = orderTypeKey == 'booking'
+            ? 'Booking${tableNumber != null ? ' • Meja $tableNumber' : ''}${bookingScheduleLabel.isNotEmpty ? ' • $bookingScheduleLabel' : ''}'
+            : (orderTypeKey == 'dine_in'
+                ? 'Dine In Langsung${tableNumber != null ? ' • Meja $tableNumber' : ''}'
+                : 'Takeaway/Pickup');
+        final tableLabel = tableNumber == null ? '-' : '$tableNumber';
+
+        return HistoryOrderItem(
+          orderId: curOrderId,
+          orderCode: curOrderId.isEmpty ? '-' : 'ORD-${curOrderId.substring(curOrderId.length > 6 ? curOrderId.length - 6 : 0).toUpperCase()}',
+          dateLabel: displayDateLabel,
+          eventAt: eventAt,
+          orderTypeLabel: orderTypeLabel,
+          orderTypeKey: orderTypeKey,
+          customerName: customerName.isEmpty ? '-' : customerName,
+          customerEmail: customerEmail.isEmpty ? '-' : customerEmail,
+          tableLabel: tableLabel,
+          totalItems: totalItems,
+          paymentMethodLabel: paymentStatus,
+          paymentMethod: paymentMethod.isEmpty ? '-' : paymentMethod,
+          vaNumber: vaNumber.isEmpty ? '-' : vaNumber,
+          paymentExpiry: paymentExpiry.isEmpty ? '-' : paymentExpiry.replaceFirst('T', ' '),
+          qrisImageUrl: qrisImageUrl,
+          paymentUrl: paymentUrl,
+          midtransOrderId: midtransOrderId,
+          status: status,
+          totalPrice: totalPrice,
+          extraCharge: _toInt(item['extraCharge']),
+          items: orderItems,
+        );
+      }
+      return null;
+    } on DioException catch (e) {
+      throw Exception(_extractDioMessage(e));
+    }
+  }
+
+  DateTime _resolvePaymentEventAt({
+    required String paymentStatus,
+    required String paidAtRaw,
+    required String createdAtRaw,
+  }) {
+    final isPaid = paymentStatus.toUpperCase() == 'PAID' ||
+        paymentStatus.toUpperCase() == 'SUCCESS' ||
+        paymentStatus.toUpperCase() == 'SETTLEMENT';
+    final selectedRaw = isPaid
+        ? (paidAtRaw.trim().isEmpty ? createdAtRaw : paidAtRaw)
+        : createdAtRaw;
+    final fallbackRaw = selectedRaw.trim().isEmpty ? paidAtRaw : selectedRaw;
+    if (fallbackRaw.trim().isEmpty) {
+      return DateTime.fromMillisecondsSinceEpoch(0);
+    }
+    final parsed = DateTime.tryParse(fallbackRaw);
+    if (parsed == null) return DateTime.fromMillisecondsSinceEpoch(0);
+    return parsed.toLocal();
+  }
+
+  String _formatEventDateLabel(DateTime eventAt) {
+    if (eventAt.millisecondsSinceEpoch == 0) return '-';
+    return DateFormat('dd-MM-yyyy (HH:mm:ss)').format(eventAt);
+  }
+
+  String _formatBookingSchedule({
+    required String bookingStartAtRaw,
+    required int durationHours,
+  }) {
+    if (bookingStartAtRaw.trim().isEmpty || durationHours < 1) return '';
+    final parsed = DateTime.tryParse(bookingStartAtRaw);
+    if (parsed == null) return '';
+    final local = parsed.toLocal();
+    final date = DateFormat('dd/MM/yyyy').format(local);
+    final startTime = DateFormat('HH:mm').format(local);
+    return '$date $startTime • $durationHours jam';
   }
 }

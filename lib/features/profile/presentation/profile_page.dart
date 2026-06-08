@@ -260,6 +260,14 @@ class _ProfilePageState extends State<ProfilePage> {
         const Divider(thickness: 1, color: Color(0xFFEEEEEE)),
         _buildMenuTile(
           context,
+          icon: Icons.assignment_outlined,
+          title: 'Riwayat Pesanan',
+          destination: null,
+          namedRoute: AppRoutes.orderHistory,
+          routeArguments: const {'tab': 'order'},
+        ),
+        _buildMenuTile(
+          context,
           icon: Icons.receipt_long_outlined,
           title: 'Riwayat Pembayaran',
           destination: null,
@@ -268,11 +276,10 @@ class _ProfilePageState extends State<ProfilePage> {
         ),
         _buildMenuTile(
           context,
-          icon: Icons.assignment_outlined,
-          title: 'Riwayat Pesanan',
+          icon: Icons.receipt_outlined,
+          title: 'Struk Saya',
           destination: null,
-          namedRoute: AppRoutes.orderHistory,
-          routeArguments: const {'tab': 'order'},
+          namedRoute: AppRoutes.struk,
         ),
         _buildMenuTile(
           context,

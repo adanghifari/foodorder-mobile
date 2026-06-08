@@ -9,6 +9,7 @@ import '../features/menu/presentation/menu_page.dart';
 import '../features/history/presentation/history_page.dart';
 import '../features/payment/presentation/payment_page.dart';
 import '../features/profile/presentation/profile_page.dart';
+import '../features/profile/presentation/struk_page.dart';
 import '../features/scan/presentation/scan_page.dart';
 import '../features/splash/presentation/splash_intro_page.dart';
 import 'app_routes.dart';
@@ -85,6 +86,7 @@ class KedaiKlikApp extends StatelessWidget {
         AppRoutes.chat: (_) => const ChatPage(),
         AppRoutes.orderHistory: (_) => const HistoryPage(),
         AppRoutes.scan: (_) => const ScanPage(),
+        AppRoutes.struk: (_) => const StrukPage(),
       },
     );
   }

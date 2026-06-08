@@ -8,6 +8,8 @@ import '../../payment/presentation/midtrans_webview_page.dart';
 import '../../scan/data/table_session.dart';
 import '../../scan/presentation/scan_page.dart';
 import '../data/cart_api_service.dart';
+import '../../history/domain/history_models.dart';
+import '../../profile/presentation/payment_receipt_page.dart';
 
 class CartPage extends StatefulWidget {
   const CartPage({super.key});
@@ -401,15 +403,34 @@ class _CartPageState extends State<CartPage> {
         return;
       }
 
+      setState(() => _isSubmitting = true);
+      HistoryOrderItem? orderItem;
+      try {
+        orderItem = await _cartApiService.getOrderReceipt(orderId);
+      } catch (e) {
+        // Ignored, fallback to landing page on error
+      }
+
       await OrderTypeSession.clear();
       await TableSession.clear();
       await _loadCart();
       if (!mounted) return;
-      Navigator.pushNamedAndRemoveUntil(
-        context,
-        AppRoutes.landing,
-        (route) => route.isFirst,
-      );
+
+      if (orderItem != null) {
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(
+            builder: (_) => PaymentReceiptPage(order: orderItem!),
+          ),
+          (route) => route.isFirst,
+        );
+      } else {
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          AppRoutes.landing,
+          (route) => route.isFirst,
+        );
+      }
     } catch (e) {
       if (!mounted) return;
       final message = AppNotice.humanizeMessage(e);

@@ -8,18 +8,20 @@ class OrderHistoryList extends StatelessWidget {
     required this.orders,
     this.shrinkWrap = false,
     this.physics,
+    this.padding = const EdgeInsets.fromLTRB(16, 12, 16, 24),
   });
 
   final List<HistoryOrderItem> orders;
   final bool shrinkWrap;
   final ScrollPhysics? physics;
+  final EdgeInsetsGeometry padding;
 
   @override
   Widget build(BuildContext context) {
     return ListView.separated(
       shrinkWrap: shrinkWrap,
       physics: physics,
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+      padding: padding,
       itemCount: orders.length,
       separatorBuilder: (context, index) => const SizedBox(height: 12),
       itemBuilder: (context, index) => _OrderHistoryCard(order: orders[index]),
@@ -122,7 +124,6 @@ class _OrderHistoryCard extends StatelessWidget {
   }
 
   void _showOrderDetail(BuildContext context) {
-    var showingItems = false;
     showDialog<void>(
       context: context,
       builder: (context) {
@@ -150,19 +151,17 @@ class _OrderHistoryCard extends StatelessWidget {
                             color: const Color(0xFFFFF4E8),
                             borderRadius: BorderRadius.circular(10),
                           ),
-                          child: Icon(
-                            showingItems
-                                ? Icons.restaurant_menu_rounded
-                                : Icons.receipt_long_rounded,
+                          child: const Icon(
+                            Icons.receipt_long_rounded,
                             color: _accent,
                             size: 18,
                           ),
                         ),
                         const SizedBox(width: 10),
-                        Expanded(
+                        const Expanded(
                           child: Text(
-                            showingItems ? 'Daftar Item Pesanan' : 'Detail Pesanan',
-                            style: const TextStyle(
+                            'Detail Pesanan',
+                            style: TextStyle(
                               color: _dark,
                               fontSize: 17,
                               fontWeight: FontWeight.w800,
@@ -180,9 +179,7 @@ class _OrderHistoryCard extends StatelessWidget {
                         color: const Color(0xFFF8F8F8),
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: showingItems
-                          ? _buildItemsList()
-                          : _buildOrderSummary(context),
+                      child: _buildOrderSummary(context),
                     ),
                     const SizedBox(height: 14),
                     const SizedBox(height: 8),
