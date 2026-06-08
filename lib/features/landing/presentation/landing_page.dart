@@ -5,6 +5,7 @@ import 'package:dio/dio.dart';
 
 import '../../../app/app_routes.dart';
 import '../../auth/data/auth_session.dart';
+import '../../cart/data/cart_api_service.dart';
 
 import 'order_type_picker_page.dart';
 import '../data/order_type_session.dart';
@@ -31,16 +32,15 @@ class _LandingPageState extends State<LandingPage>
   static const Duration _welcomeDuration = Duration(milliseconds: 640);
   static const Duration _welcomeTimeline = Duration(milliseconds: 2100);
   static const Duration _loopTimeline = Duration(milliseconds: 4200);
-  static const double _chatBottomClearance = 92;
 
   late List<_LandingMenuCardData> _menuCards;
   final ScrollController _scrollController = ScrollController();
   late final AnimationController _welcomeController;
   late final AnimationController _loopController;
-  bool _isFromBackend = false;
   String? _loadError;
   bool _isLoggedIn = false;
   String _username = 'Pengguna';
+  bool _isAuthLoading = true;
   String _name = 'Pengguna';
   String? _avatarUrl;
   Offset? _chatShortcutPosition;
@@ -154,7 +154,6 @@ class _LandingPageState extends State<LandingPage>
       if (mapped.isNotEmpty) {
         setState(() {
           _menuCards = mapped;
-          _isFromBackend = true;
           _loadError = null;
         });
       }
@@ -162,7 +161,6 @@ class _LandingPageState extends State<LandingPage>
       debugPrint('Failed to load top menus from backend: $e');
       if (mounted) {
         setState(() {
-          _isFromBackend = false;
           _loadError = AppNotice.humanizeMessage(e);
         });
       }
@@ -180,9 +178,16 @@ class _LandingPageState extends State<LandingPage>
         _username = 'Pengguna';
         _name = 'Pengguna';
         _avatarUrl = null;
+        _isAuthLoading = false;
       });
       return;
     }
+
+    // Immediately assume logged in since local token exists to prevent Login button flicker
+    setState(() {
+      _isLoggedIn = true;
+      _isAuthLoading = false;
+    });
 
     try {
       final baseUrl = ApiConfig.apiBaseUrl;
@@ -227,7 +232,7 @@ class _LandingPageState extends State<LandingPage>
     return Scaffold(
       backgroundColor: _bg,
       bottomNavigationBar: _staggeredEntrance(
-        delayMs: 1080,
+        delayMs: 0,
         offsetY: 24,
         child: AppBottomNavBar(
           activeItem: AppBottomNavItem.home,
@@ -255,8 +260,7 @@ class _LandingPageState extends State<LandingPage>
                   _chatShortcutEdgePadding,
               viewportSize.height -
                   _chatShortcutHeight -
-                  _chatShortcutBottomSafePadding -
-                  bottomInset,
+                  _chatShortcutBottomSafePadding,
             );
             final currentPosition = _clampChatShortcutPosition(
               _chatShortcutPosition ?? defaultPosition,
@@ -480,9 +484,7 @@ class _LandingPageState extends State<LandingPage>
     final maxY =
         viewportSize.height -
         _chatShortcutHeight -
-        _chatShortcutBottomSafePadding -
-        bottomInset -
-        _chatBottomClearance;
+        _chatShortcutBottomSafePadding;
 
     return Offset(position.dx.clamp(minX, maxX), position.dy.clamp(minY, maxY));
   }
@@ -651,14 +653,11 @@ class _LandingPageState extends State<LandingPage>
                 child: Opacity(opacity: value, child: child),
               );
             },
-            child: _isLoggedIn
-                ? Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 8,
-                    ),
+            child: _isAuthLoading
+                ? const SizedBox.shrink()
+                : _isLoggedIn
+                    ? Container(
                     decoration: BoxDecoration(
-                      color: Colors.white,
                       borderRadius: BorderRadius.circular(12),
                       boxShadow: const [
                         BoxShadow(
@@ -668,42 +667,60 @@ class _LandingPageState extends State<LandingPage>
                         ),
                       ],
                     ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        _avatarUrl != null && _avatarUrl!.isNotEmpty
-                            ? CircleAvatar(
-                                radius: 14,
-                                backgroundImage: NetworkImage(_avatarUrl!),
-                              )
-                            : Container(
-                                width: 28,
-                                height: 28,
-                                decoration: const BoxDecoration(
-                                  color: Color(0xFFC7985F),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Center(
-                                  child: Text(
-                                    _getInitials(_name),
-                                    style: const TextStyle(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.white,
+                    child: Material(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(12),
+                        onTap: () async {
+                          await Navigator.pushNamed(context, AppRoutes.profile);
+                          if (!mounted) return;
+                          await _loadAuthState();
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 8,
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              _avatarUrl != null && _avatarUrl!.isNotEmpty
+                                  ? CircleAvatar(
+                                      radius: 14,
+                                      backgroundImage: NetworkImage(_avatarUrl!),
+                                    )
+                                  : Container(
+                                      width: 28,
+                                      height: 28,
+                                      decoration: const BoxDecoration(
+                                        color: Color(0xFFC7985F),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: Center(
+                                        child: Text(
+                                          _getInitials(_name),
+                                          style: const TextStyle(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.white,
+                                          ),
+                                        ),
+                                      ),
                                     ),
-                                  ),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Hai! $_username',
+                                style: const TextStyle(
+                                  color: _textDark,
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w700,
                                 ),
                               ),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Hai! $_username',
-                          style: const TextStyle(
-                            color: _textDark,
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w700,
+                            ],
                           ),
                         ),
-                      ],
+                      ),
                     ),
                   )
                 : Material(
@@ -744,48 +761,59 @@ class _LandingPageState extends State<LandingPage>
   }
 
   Widget _buildSectionTitle() {
-    final lineProgress = _reducedMotion
-        ? 1.0
-        : Curves.easeOutCubic.transform(_intervalProgress(360, 820));
-    return Center(
-      child: Column(
-        children: [
-          const Text(
-            'Menu Terbaik',
-            style: TextStyle(
-              fontSize: 32,
-              fontWeight: FontWeight.w800,
-              color: _textDark,
-              letterSpacing: -0.4,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Container(width: 126 * lineProgress, height: 5, color: _accentDark),
-          const SizedBox(height: 8),
-          AnimatedOpacity(
-            opacity: _menuSectionRevealed ? 1 : 0.72,
-            duration: const Duration(milliseconds: 280),
-            child: Text(
-              _isFromBackend ? 'Sumber: Backend' : 'Sumber: Fallback',
-              style: const TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF6C6C6C),
+    return AnimatedBuilder(
+      animation: _welcomeController,
+      builder: (context, _) {
+        final lineProgress = _reducedMotion
+            ? 1.0
+            : Curves.easeOutCubic.transform(_intervalProgress(360, 820));
+        final textOpacity = _reducedMotion
+            ? 1.0
+            : _intervalProgress(600, 1000);
+
+        return Center(
+          child: Column(
+            children: [
+              const Text(
+                'Menu Terbaik',
+                style: TextStyle(
+                  fontSize: 32,
+                  fontWeight: FontWeight.w800,
+                  color: _textDark,
+                  letterSpacing: -0.4,
+                ),
               ),
-            ),
+              const SizedBox(height: 8),
+              Container(width: 126 * lineProgress, height: 5, color: _accentDark),
+              const SizedBox(height: 10),
+              Opacity(
+                opacity: textOpacity,
+                child: const Text(
+                  'Taste it!',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontStyle: FontStyle.italic,
+                    fontWeight: FontWeight.w800,
+                    color: _accent,
+                    letterSpacing: 1.6,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              if (_loadError != null) ...[
+                const SizedBox(height: 4),
+                Text(
+                  _loadError!,
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 10, color: Colors.redAccent),
+                ),
+              ],
+            ],
           ),
-          if (_loadError != null) ...[
-            const SizedBox(height: 4),
-            Text(
-              _loadError!,
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 10, color: Colors.redAccent),
-            ),
-          ],
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -1121,7 +1149,7 @@ class _LandingPageState extends State<LandingPage>
     );
 
     if (isScanQr) {
-      if (!mounted) return null;
+      if (!context.mounted) return null;
       Navigator.pushNamed(context, AppRoutes.scan);
       return null;
     }
@@ -1132,6 +1160,11 @@ class _LandingPageState extends State<LandingPage>
     BuildContext context,
     _LandingMenuCardData menu,
   ) async {
+    if (!_isLoggedIn) {
+      await _showLoginRequiredPopup(context);
+      return;
+    }
+
     if (menu.stock < 1) {
       AppNotice.show(
         context,
@@ -1149,13 +1182,35 @@ class _LandingPageState extends State<LandingPage>
       return;
     }
 
-    if (!mounted) return;
+    if (!context.mounted) return;
     final orderType = await _pickOrderType(context);
     if (orderType == null) return;
-    await OrderTypeSession.set(orderType);
 
-    if (!mounted) return;
-    Navigator.pushNamed(context, AppRoutes.menu);
+    try {
+      await OrderTypeSession.set(orderType);
+
+      final cartApiService = CartApiService();
+      await cartApiService.setItemQuantity(
+        menuItemId: menu.id,
+        quantity: 1,
+      );
+
+      if (!context.mounted) return;
+      AppNotice.show(
+        context,
+        '${menu.name} berhasil ditambahkan ke keranjang.',
+        type: AppNoticeType.success,
+      );
+
+      Navigator.pushNamed(context, AppRoutes.menu);
+    } catch (e) {
+      if (!context.mounted) return;
+      AppNotice.show(
+        context,
+        'Gagal menambahkan ke keranjang: ${AppNotice.humanizeMessage(e)}',
+        type: AppNoticeType.error,
+      );
+    }
   }
 
   Future<void> _showLoginRequiredPopup(BuildContext context) async {
@@ -1168,7 +1223,7 @@ class _LandingPageState extends State<LandingPage>
       confirmLabel: 'Login',
     );
 
-    if (!mounted || shouldLogin != true) return;
+    if (!context.mounted || shouldLogin != true) return;
     Navigator.pushNamed(context, AppRoutes.login);
   }
 
