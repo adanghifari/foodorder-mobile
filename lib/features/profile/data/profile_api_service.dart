@@ -10,6 +10,7 @@ class ProfileUserDto {
     required this.email,
     required this.phone,
     required this.role,
+    this.avatarUrl,
   });
 
   final String name;
@@ -17,6 +18,7 @@ class ProfileUserDto {
   final String email;
   final String phone;
   final String role;
+  final String? avatarUrl;
 }
 
 class ProfileApiService {
@@ -36,17 +38,89 @@ class ProfileApiService {
       final map = response.data ?? const <String, dynamic>{};
       final data = map['data'] as Map<String, dynamic>? ?? const {};
 
+      final avatarVal = data['avatar_url'] ?? data['photo'] ?? data['profile_picture'];
+
       return ProfileUserDto(
         name: (data['name'] ?? '-').toString(),
         username: (data['username'] ?? '-').toString(),
         email: (data['email'] ?? '-').toString(),
         phone: (data['no_telp'] ?? '-').toString(),
         role: (data['role'] ?? '-').toString(),
+        avatarUrl: (avatarVal == null || avatarVal.toString() == 'null') ? null : avatarVal.toString(),
       );
     } on DioException catch (e) {
       throw Exception(_extractDioMessage(e));
     } catch (e) {
       throw Exception('Gagal mengambil profil: $e');
+    }
+  }
+
+  Future<ProfileUserDto> updateProfile({
+    required String name,
+    required String username,
+    required String phone,
+    String? avatarUrl,
+  }) async {
+    final token = await AuthSession.getToken();
+    if (token == null || token.isEmpty) {
+      throw Exception('Belum login. Silakan login terlebih dahulu.');
+    }
+
+    try {
+      final response = await _dio.put<Map<String, dynamic>>(
+        '$_apiBaseUrl/v1/auth/update',
+        data: {
+          'name': name,
+          'username': username,
+          'no_telp': phone,
+          'avatar_url': avatarUrl,
+        },
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
+      );
+      final map = response.data ?? const <String, dynamic>{};
+      final data = map['data'] as Map<String, dynamic>? ?? const {};
+
+      final avatarVal = data['avatar_url'] ?? data['photo'] ?? data['profile_picture'];
+
+      return ProfileUserDto(
+        name: (data['name'] ?? '-').toString(),
+        username: (data['username'] ?? '-').toString(),
+        email: (data['email'] ?? '-').toString(),
+        phone: (data['no_telp'] ?? '-').toString(),
+        role: (data['role'] ?? '-').toString(),
+        avatarUrl: (avatarVal == null || avatarVal.toString() == 'null') ? null : avatarVal.toString(),
+      );
+    } on DioException catch (e) {
+      throw Exception(_extractDioMessage(e));
+    } catch (e) {
+      throw Exception('Gagal memperbarui profil: $e');
+    }
+  }
+
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+    required String newPasswordConfirmation,
+  }) async {
+    final token = await AuthSession.getToken();
+    if (token == null || token.isEmpty) {
+      throw Exception('Belum login. Silakan login terlebih dahulu.');
+    }
+
+    try {
+      await _dio.put<Map<String, dynamic>>(
+        '$_apiBaseUrl/v1/auth/change-password',
+        data: {
+          'current_password': currentPassword,
+          'new_password': newPassword,
+          'new_password_confirmation': newPasswordConfirmation,
+        },
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
+      );
+    } on DioException catch (e) {
+      throw Exception(_extractDioMessage(e));
+    } catch (e) {
+      throw Exception('Gagal mengubah password: $e');
     }
   }
 

@@ -31,6 +31,8 @@ class _CartPageState extends State<CartPage> {
 
   bool _isLoading = true;
   bool _isSubmitting = false;
+  bool _isReadOnly = false;
+  bool _routeArgsResolved = false;
   bool _hasShownOnSpotAdvisory = false;
   String? _error;
   OrderType? _orderType;
@@ -49,6 +51,20 @@ class _CartPageState extends State<CartPage> {
 
   int get _subtotal => _items.fold(0, (sum, e) => sum + e.subtotal);
   int get _totalPayment => _subtotal + _serviceFee;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_routeArgsResolved) return;
+    _routeArgsResolved = true;
+    final args = ModalRoute.of(context)?.settings.arguments;
+    if (args is Map) {
+      final raw = args['readOnly'];
+      if (raw is bool) {
+        _isReadOnly = raw;
+      }
+    }
+  }
 
   @override
   void initState() {
@@ -98,6 +114,8 @@ class _CartPageState extends State<CartPage> {
 
   @override
   void dispose() {
+    // Always reset order type when leaving cart detail page.
+    OrderTypeSession.clear();
     super.dispose();
   }
 
@@ -408,6 +426,12 @@ class _CartPageState extends State<CartPage> {
     }
   }
 
+  Future<void> _goToMenuAndResetOrderType() async {
+    await OrderTypeSession.clear();
+    if (!mounted) return;
+    await Navigator.pushNamed(context, AppRoutes.menu);
+  }
+
   Future<String?> _showFirstCustomerNameDialog() async {
     String inputValue = '';
     String? errorText;
@@ -589,7 +613,7 @@ class _CartPageState extends State<CartPage> {
             const Text('Keranjang kosong'),
             const SizedBox(height: 12),
             ElevatedButton(
-              onPressed: () => Navigator.pushNamed(context, AppRoutes.menu),
+              onPressed: _goToMenuAndResetOrderType,
               child: const Text('Pilih Menu'),
             ),
           ],
@@ -602,20 +626,41 @@ class _CartPageState extends State<CartPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (_isReadOnly) ...[
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFF4E8),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFF0D7BB)),
+              ),
+              child: const Text(
+                'Ini keranjang anda!',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Color(0xFF8A5A2B),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
+          ],
           ..._items.map(
             (item) => Padding(
               padding: const EdgeInsets.only(bottom: 16),
               child: _buildOrderItem(item),
             ),
           ),
-          const SizedBox(height: 15),
-          _buildLabel('Tipe Pesanan'),
-          if (_orderType == OrderType.onSpotDineIn ||
-              _orderType == OrderType.bookingDineIn)
-            Container(
-              height: 52,
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 14),
+          if (!_isReadOnly) ...[
+            const SizedBox(height: 15),
+            _buildLabel('Tipe Pesanan'),
+            if (_orderType == OrderType.onSpotDineIn ||
+                _orderType == OrderType.bookingDineIn)
+              Container(
+                height: 52,
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 14),
               decoration: BoxDecoration(
                 color: const Color(0xFFE8E8E8),
                 borderRadius: BorderRadius.circular(12),
@@ -645,36 +690,37 @@ class _CartPageState extends State<CartPage> {
                   ),
                 ],
               ),
-            )
-          else
-            AppDropdownField<OrderType>(
-              value: _orderType,
-              hintText: 'Pilih tipe pesanan',
-              menuMaxHeight: 240,
-              dividerWidth: 2.2,
-              borderColor: Colors.grey.shade300,
-              shadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.03),
-                  blurRadius: 8,
-                  offset: const Offset(0, 3),
-                ),
-              ],
-              options: const [
-                AppDropdownOption<OrderType>(
-                  value: OrderType.bookingDineIn,
-                  label: 'Booking meja',
-                  icon: Icons.restaurant,
-                ),
-                AppDropdownOption<OrderType>(
-                  value: OrderType.pickup,
-                  label: 'Pickup (tanpa QR)',
-                  icon: Icons.storefront,
-                ),
-              ],
-              onChanged: (value) => _onOrderTypeChanged(value),
-            ),
-          if (_orderType == OrderType.bookingDineIn) ...[
+              )
+            else
+              AppDropdownField<OrderType>(
+                value: _orderType,
+                hintText: 'Pilih tipe pesanan',
+                menuMaxHeight: 240,
+                dividerWidth: 2.2,
+                borderColor: Colors.grey.shade300,
+                shadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.03),
+                    blurRadius: 8,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+                options: const [
+                  AppDropdownOption<OrderType>(
+                    value: OrderType.bookingDineIn,
+                    label: 'Booking meja',
+                    icon: Icons.restaurant,
+                  ),
+                  AppDropdownOption<OrderType>(
+                    value: OrderType.pickup,
+                    label: 'Pickup (tanpa QR)',
+                    icon: Icons.storefront,
+                  ),
+                ],
+                onChanged: (value) => _onOrderTypeChanged(value),
+              ),
+          ],
+          if (!_isReadOnly && _orderType == OrderType.bookingDineIn) ...[
             const SizedBox(height: 14),
             _buildLabel('Waktu Booking'),
             _buildDatePickerField(),
@@ -711,7 +757,7 @@ class _CartPageState extends State<CartPage> {
               ),
             ],
           ],
-          if (_orderType == OrderType.onSpotDineIn) ...[
+          if (!_isReadOnly && _orderType == OrderType.onSpotDineIn) ...[
             const SizedBox(height: 14),
             _buildLabel('Nomor Meja (hasil scan QR)'),
             _buildOnSpotTableInfo(),
@@ -730,49 +776,50 @@ class _CartPageState extends State<CartPage> {
           ),
           _buildPaymentRow('Total Pembayaran', _totalPayment, isTotal: true),
           const SizedBox(height: 30),
-          Row(
-            children: [
-              Expanded(
+          if (!_isReadOnly)
+            Row(
+              children: [
+                Expanded(
                 child: OutlinedButton(
-                  onPressed: () => Navigator.pushNamed(context, AppRoutes.menu),
+                  onPressed: _goToMenuAndResetOrderType,
                   style: OutlinedButton.styleFrom(
                     side: const BorderSide(color: _lightBrownColor),
-                    padding: const EdgeInsets.symmetric(vertical: 15),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      padding: const EdgeInsets.symmetric(vertical: 15),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
-                  ),
-                  child: const Text(
-                    'Tambah Item',
-                    style: TextStyle(
-                      color: _lightBrownColor,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 15),
-              Expanded(
-                child: ElevatedButton(
-                  onPressed: _isSubmitting ? null : _payNow,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: _lightBrownColor,
-                    padding: const EdgeInsets.symmetric(vertical: 15),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: Text(
-                    _isSubmitting ? 'Memproses...' : 'Bayar',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
+                    child: const Text(
+                      'Tambah Item',
+                      style: TextStyle(
+                        color: _lightBrownColor,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ],
-          ),
+                const SizedBox(width: 15),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: _isSubmitting ? null : _payNow,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _lightBrownColor,
+                      padding: const EdgeInsets.symmetric(vertical: 15),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: Text(
+                      _isSubmitting ? 'Memproses...' : 'Bayar',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           const SizedBox(height: 20),
         ],
       ),

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 enum AppBottomNavItem { home, menu, history, account }
 
-class AppBottomNavBar extends StatelessWidget {
+class AppBottomNavBar extends StatefulWidget {
   const AppBottomNavBar({
     super.key,
     required this.activeItem,
@@ -11,11 +11,9 @@ class AppBottomNavBar extends StatelessWidget {
     required this.onScanTap,
     required this.onHistoryTap,
     required this.onAccountTap,
+    this.enableEntranceAnimation = false,
+    this.enableScanPulse = false,
   });
-
-  static const Color _accent = Color(0xFFD45A00);
-  static const Color _navText = Color(0xFF6A6A6A);
-  static const double _scanButtonSize = 82;
 
   final AppBottomNavItem activeItem;
   final VoidCallback onHomeTap;
@@ -23,6 +21,56 @@ class AppBottomNavBar extends StatelessWidget {
   final VoidCallback onScanTap;
   final VoidCallback onHistoryTap;
   final VoidCallback onAccountTap;
+  final bool enableEntranceAnimation;
+  final bool enableScanPulse;
+
+  @override
+  State<AppBottomNavBar> createState() => _AppBottomNavBarState();
+}
+
+class _AppBottomNavBarState extends State<AppBottomNavBar>
+    with SingleTickerProviderStateMixin {
+  static const Color _accent = Color(0xFFD45A00);
+  static const Color _navText = Color(0xFF6A6A6A);
+  static const double _scanButtonSize = 82;
+
+  late final AnimationController _pulseController;
+  bool _entered = false;
+  bool _scanPressed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2200),
+    );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      setState(() => _entered = true);
+      if (widget.enableScanPulse) {
+        _pulseController.repeat(reverse: true);
+      }
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant AppBottomNavBar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.enableScanPulse && !_pulseController.isAnimating) {
+      _pulseController.repeat(reverse: true);
+    }
+    if (!widget.enableScanPulse && _pulseController.isAnimating) {
+      _pulseController.stop();
+      _pulseController.value = 0;
+    }
+  }
+
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -30,7 +78,7 @@ class AppBottomNavBar extends StatelessWidget {
     const navHeight = 65.0;
     final safeBottomPadding = (bottomInset - 30).clamp(0.0, double.infinity);
 
-    return SizedBox(
+    final nav = SizedBox(
       height: navHeight + bottomInset,
       child: Stack(
         clipBehavior: Clip.none,
@@ -55,33 +103,33 @@ class AppBottomNavBar extends StatelessWidget {
                     child: _navItem(
                       label: 'Beranda',
                       icon: Icons.home_rounded,
-                      active: activeItem == AppBottomNavItem.home,
-                      onTap: onHomeTap,
+                      active: widget.activeItem == AppBottomNavItem.home,
+                      onTap: widget.onHomeTap,
                     ),
                   ),
                   Expanded(
                     child: _navItem(
                       label: 'Menu',
                       icon: Icons.menu_book_rounded,
-                      active: activeItem == AppBottomNavItem.menu,
-                      onTap: onMenuTap,
+                      active: widget.activeItem == AppBottomNavItem.menu,
+                      onTap: widget.onMenuTap,
                     ),
                   ),
-                  Expanded(child: _scanLabel(onTap: onScanTap)),
+                  Expanded(child: _scanLabel(onTap: widget.onScanTap)),
                   Expanded(
                     child: _navItem(
                       label: 'Riwayat',
                       icon: Icons.receipt_long_rounded,
-                      active: activeItem == AppBottomNavItem.history,
-                      onTap: onHistoryTap,
+                      active: widget.activeItem == AppBottomNavItem.history,
+                      onTap: widget.onHistoryTap,
                     ),
                   ),
                   Expanded(
                     child: _navItem(
                       label: 'Akun',
                       icon: Icons.person_outline_rounded,
-                      active: activeItem == AppBottomNavItem.account,
-                      onTap: onAccountTap,
+                      active: widget.activeItem == AppBottomNavItem.account,
+                      onTap: widget.onAccountTap,
                     ),
                   ),
                 ],
@@ -94,36 +142,75 @@ class AppBottomNavBar extends StatelessWidget {
             top: -24,
             child: Center(
               child: GestureDetector(
-                onTap: onScanTap,
-                child: Container(
-                  width: _scanButtonSize,
-                  height: _scanButtonSize,
-                  decoration: const BoxDecoration(
-                    color: _accent,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Color(0x30000000),
-                        blurRadius: 16,
-                        offset: Offset(0, 8),
-                      ),
-                    ],
-                  ),
-                  child: const Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.qr_code_scanner_rounded,
-                        color: Colors.white,
-                        size: 30,
-                      ),
-                    ],
+                onTapDown: (_) => setState(() => _scanPressed = true),
+                onTapCancel: () => setState(() => _scanPressed = false),
+                onTapUp: (_) => setState(() => _scanPressed = false),
+                onTap: widget.onScanTap,
+                child: TweenAnimationBuilder<double>(
+                  tween: Tween<double>(begin: 1, end: 1),
+                  duration: const Duration(milliseconds: 120),
+                  builder: (context, _, child) {
+                    return AnimatedBuilder(
+                      animation: _pulseController,
+                      builder: (context, child) {
+                        final pulse = widget.enableScanPulse
+                            ? (0.96 + (_pulseController.value * 0.04))
+                            : 1.0;
+                        final pressedScale = _scanPressed ? 0.95 : 1.0;
+                        return Transform.scale(
+                          scale: pulse * pressedScale,
+                          child: child,
+                        );
+                      },
+                      child: child,
+                    );
+                  },
+                  child: Container(
+                    width: _scanButtonSize,
+                    height: _scanButtonSize,
+                    decoration: const BoxDecoration(
+                      color: _accent,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Color(0x30000000),
+                          blurRadius: 16,
+                          offset: Offset(0, 8),
+                        ),
+                      ],
+                    ),
+                    child: const Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.qr_code_scanner_rounded,
+                          color: Colors.white,
+                          size: 30,
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
             ),
           ),
         ],
+      ),
+    );
+
+    if (!widget.enableEntranceAnimation) {
+      return nav;
+    }
+
+    return AnimatedSlide(
+      offset: _entered ? Offset.zero : const Offset(0, 0.15),
+      duration: const Duration(milliseconds: 520),
+      curve: Curves.easeOutCubic,
+      child: AnimatedOpacity(
+        opacity: _entered ? 1 : 0,
+        duration: const Duration(milliseconds: 520),
+        curve: Curves.easeOutCubic,
+        child: nav,
       ),
     );
   }

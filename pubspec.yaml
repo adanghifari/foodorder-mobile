@@ -30,9 +30,10 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
-
   assets:
     - assets/logo.png
     - assets/food.png
+    - assets/chat.png
+    - assets/kedaibot.png
     - assets/foto katalog/
     - assets/slices_ui/

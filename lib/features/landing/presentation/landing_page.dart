@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
 
 import '../../../app/app_routes.dart';
@@ -21,27 +21,64 @@ class LandingPage extends StatefulWidget {
 }
 
 class _LandingPageState extends State<LandingPage>
-    with WidgetsBindingObserver {
+    with WidgetsBindingObserver, TickerProviderStateMixin {
   final LandingTopMenuService _topMenuService = LandingTopMenuService();
+  static const double _chatShortcutWidth = 148;
+  static const double _chatShortcutHeight = 50;
+  static const double _chatShortcutEdgePadding = 12;
+  static const double _chatShortcutTopSafePadding = 10;
+  static const double _chatShortcutBottomSafePadding = 10;
+  static const Duration _welcomeDuration = Duration(milliseconds: 640);
+  static const Duration _welcomeTimeline = Duration(milliseconds: 2100);
+  static const Duration _loopTimeline = Duration(milliseconds: 4200);
+  static const double _chatBottomClearance = 92;
 
   late List<_LandingMenuCardData> _menuCards;
+  final ScrollController _scrollController = ScrollController();
+  late final AnimationController _welcomeController;
+  late final AnimationController _loopController;
   bool _isFromBackend = false;
   String? _loadError;
   bool _isLoggedIn = false;
   String _username = 'Pengguna';
+  String _name = 'Pengguna';
+  String? _avatarUrl;
+  Offset? _chatShortcutPosition;
+  bool _menuSectionRevealed = false;
+  bool _menuGridRevealed = false;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _welcomeController = AnimationController(
+      vsync: this,
+      duration: _welcomeTimeline,
+    );
+    _loopController = AnimationController(
+      vsync: this,
+      duration: _loopTimeline,
+    );
     _menuCards = _fallbackMenus;
     _loadTopMenus();
     _loadAuthState();
+    _scrollController.addListener(_handleScrollReveal);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _welcomeController.forward(from: 0);
+      if (!_reducedMotion) {
+        _loopController.repeat(reverse: true);
+      }
+    });
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _scrollController.removeListener(_handleScrollReveal);
+    _scrollController.dispose();
+    _welcomeController.dispose();
+    _loopController.dispose();
     super.dispose();
   }
 
@@ -49,6 +86,17 @@ class _LandingPageState extends State<LandingPage>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       _loadAuthState();
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_reducedMotion) {
+      _loopController.stop();
+      _loopController.value = 0;
+    } else if (!_loopController.isAnimating) {
+      _loopController.repeat(reverse: true);
     }
   }
 
@@ -130,6 +178,8 @@ class _LandingPageState extends State<LandingPage>
       setState(() {
         _isLoggedIn = false;
         _username = 'Pengguna';
+        _name = 'Pengguna';
+        _avatarUrl = null;
       });
       return;
     }
@@ -150,68 +200,349 @@ class _LandingPageState extends State<LandingPage>
       if (!mounted) return;
       final data = response.data?['data'] as Map<String, dynamic>? ?? const {};
       final username = (data['username'] ?? data['name'] ?? 'Pengguna').toString();
+      final name = (data['name'] ?? data['username'] ?? 'Pengguna').toString();
+      final avatarVal = data['avatar_url'] ?? data['photo'] ?? data['profile_picture'];
       setState(() {
         _isLoggedIn = true;
         _username = username;
+        _name = name;
+        _avatarUrl = (avatarVal == null || avatarVal.toString() == 'null') ? null : avatarVal.toString();
       });
     } catch (_) {
       if (!mounted) return;
       setState(() {
         _isLoggedIn = false;
         _username = 'Pengguna';
+        _name = 'Pengguna';
+        _avatarUrl = null;
       });
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final topInset = MediaQuery.of(context).padding.top;
+    final bottomInset = MediaQuery.of(context).padding.bottom;
+
     return Scaffold(
       backgroundColor: _bg,
-      bottomNavigationBar: AppBottomNavBar(
-        activeItem: AppBottomNavItem.home,
-        onHomeTap: () {},
-        onMenuTap: () => Navigator.pushNamed(context, AppRoutes.menu),
-        onScanTap: () => Navigator.pushNamed(context, AppRoutes.scan),
-        onHistoryTap: () =>
-            Navigator.pushNamed(context, AppRoutes.orderHistory),
-        onAccountTap: () => Navigator.pushNamed(context, AppRoutes.profile),
+      bottomNavigationBar: _staggeredEntrance(
+        delayMs: 1080,
+        offsetY: 24,
+        child: AppBottomNavBar(
+          activeItem: AppBottomNavItem.home,
+          onHomeTap: () {},
+          onMenuTap: () => Navigator.pushNamed(context, AppRoutes.menu),
+          onScanTap: () => Navigator.pushNamed(context, AppRoutes.scan),
+          onHistoryTap: () =>
+              Navigator.pushNamed(context, AppRoutes.orderHistory),
+          onAccountTap: () => Navigator.pushNamed(context, AppRoutes.profile),
+          enableEntranceAnimation: true,
+          enableScanPulse: !_reducedMotion,
+        ),
       ),
       body: AnnotatedRegion<SystemUiOverlayStyle>(
         value: SystemUiOverlayStyle.dark,
-        child: SafeArea(
-          bottom: false,
-          child: SingleChildScrollView(
-            child: Column(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final viewportSize = Size(
+              constraints.maxWidth,
+              constraints.maxHeight,
+            );
+            final defaultPosition = Offset(
+              viewportSize.width -
+                  _chatShortcutWidth -
+                  _chatShortcutEdgePadding,
+              viewportSize.height -
+                  _chatShortcutHeight -
+                  _chatShortcutBottomSafePadding -
+                  bottomInset,
+            );
+            final currentPosition = _clampChatShortcutPosition(
+              _chatShortcutPosition ?? defaultPosition,
+              viewportSize: viewportSize,
+              topInset: topInset,
+              bottomInset: bottomInset,
+            );
+
+            return Stack(
               children: [
-                _buildHero(context),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(22, 0, 22, 30),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                    Transform.translate(
-                     offset: const Offset(0, -30), // coba -12, -16, atau -20
-                     child: _buildTopOptionRow(context),
+                SafeArea(
+                  bottom: false,
+                  child: NotificationListener<ScrollNotification>(
+                    onNotification: (notification) {
+                      if (notification is ScrollUpdateNotification) {
+                        _handleScrollReveal();
+                      }
+                      return false;
+                    },
+                    child: SingleChildScrollView(
+                      controller: _scrollController,
+                    child: Column(
+                      children: [
+                        _buildHero(context),
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(22, 0, 22, 30),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _staggeredEntrance(
+                                delayMs: 80,
+                                offsetY: 22,
+                                child: Transform.translate(
+                                  offset: const Offset(0, -30),
+                                  child: _buildTopOptionRow(context),
+                                ),
+                              ),
+                              const SizedBox(height: 0),
+                              _staggeredEntrance(
+                                delayMs: 150,
+                                offsetY: 18,
+                                child: _buildSectionTitle(),
+                              ),
+                              const SizedBox(height: 18),
+                              _staggeredEntrance(
+                                delayMs: 230,
+                                offsetY: 16,
+                                child: _buildMenuGrid(context),
+                              ),
+                              const SizedBox(height: 26),
+                              _scrollReveal(
+                                revealed: _menuGridRevealed,
+                                delayMs: 180,
+                                offsetY: 18,
+                                child: _buildBottomInfo(),
+                              ),
+                              const SizedBox(height: 22),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  ),
+                ),
+                Positioned(
+                  left: currentPosition.dx,
+                  top: currentPosition.dy,
+                  child: AnimatedBuilder(
+                    animation: _loopController,
+                    builder: (context, child) {
+                      final loopY = _reducedMotion
+                          ? 0.0
+                          : (4 * (1 - _loopController.value));
+                      return Transform.translate(
+                        offset: Offset(0, loopY),
+                        child: child,
+                      );
+                    },
+                    child: _springEntrance(
+                      delayMs: 1240,
+                      child: _buildChatShortcut(
+                        context,
+                        viewportSize: viewportSize,
+                        topInset: topInset,
+                        bottomInset: bottomInset,
+                        currentPosition: currentPosition,
                       ),
-                      const SizedBox(height: 0),
-                      _buildSectionTitle(),
-                      const SizedBox(height: 18),
-                      _buildMenuGrid(context),
-                      const SizedBox(height: 26),
-                      _buildBottomInfo(),
-                      const SizedBox(height: 22),
-                    ],
+                    ),
                   ),
                 ),
               ],
-            ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _staggeredEntrance({
+    required Widget child,
+    required int delayMs,
+    double offsetY = 16,
+  }) {
+    return AnimatedBuilder(
+      animation: _welcomeController,
+      builder: (context, child) {
+        final value = _entranceProgress(delayMs);
+        return Transform.translate(
+          offset: Offset(0, (1 - value) * offsetY),
+          child: Opacity(opacity: value, child: child),
+        );
+      },
+      child: child,
+    );
+  }
+
+  Widget _springEntrance({required Widget child, required int delayMs}) {
+    return AnimatedBuilder(
+      animation: _welcomeController,
+      builder: (context, _) {
+        final timelineMs = _welcomeTimeline.inMilliseconds;
+        final begin = (delayMs / timelineMs).clamp(0.0, 1.0);
+        final end = ((delayMs + 680) / timelineMs).clamp(begin + 0.01, 1.0);
+        final curve = Interval(begin, end, curve: Curves.elasticOut);
+        final value = curve.transform(_welcomeController.value.clamp(0.0, 1.0));
+        return Opacity(
+          opacity: value.clamp(0.0, 1.0),
+          child: Transform.scale(
+            scale: 0.8 + (0.2 * value),
+            child: child,
           ),
+        );
+      },
+    );
+  }
+
+  Widget _scrollReveal({
+    required bool revealed,
+    required Widget child,
+    int delayMs = 0,
+    double offsetY = 16,
+  }) {
+    return AnimatedOpacity(
+      opacity: revealed ? 1 : 0,
+      duration: Duration(milliseconds: _reducedMotion ? 180 : 520),
+      curve: Curves.easeOutCubic,
+      child: AnimatedSlide(
+        offset: revealed ? Offset.zero : Offset(0, offsetY / 100),
+        duration: Duration(milliseconds: _reducedMotion ? 180 : 520),
+        curve: Curves.easeOutCubic,
+        child: TweenAnimationBuilder<double>(
+          tween: Tween<double>(begin: 0, end: revealed ? 1 : 0),
+          duration: Duration(milliseconds: _reducedMotion ? 120 : 420),
+          curve: Interval(
+            (delayMs / 600).clamp(0.0, 0.95),
+            1.0,
+            curve: Curves.easeOut,
+          ),
+          builder: (context, value, inner) => Opacity(opacity: value, child: inner),
+          child: child,
+        ),
+      ),
+    );
+  }
+
+  double _entranceProgress(int delayMs) {
+    final timelineMs = (_welcomeController.duration ?? _welcomeTimeline)
+        .inMilliseconds;
+    final begin = delayMs / timelineMs;
+    final end = (delayMs + _welcomeDuration.inMilliseconds) /
+        timelineMs;
+    final safeBegin = begin.clamp(0.0, 1.0);
+    final safeEnd = end.clamp(safeBegin + 0.01, 1.0);
+    final curve = Interval(safeBegin, safeEnd, curve: Curves.easeInOutCubic);
+    return curve.transform(_welcomeController.value.clamp(0.0, 1.0));
+  }
+
+  double _intervalProgress(int startMs, int endMs) {
+    final timelineMs = (_welcomeController.duration ?? _welcomeTimeline)
+        .inMilliseconds;
+    final begin = (startMs / timelineMs).clamp(0.0, 1.0);
+    final end = (endMs / timelineMs).clamp(begin + 0.01, 1.0);
+    final curve = Interval(begin, end, curve: Curves.easeOutCubic);
+    return curve.transform(_welcomeController.value.clamp(0.0, 1.0));
+  }
+
+  bool get _reducedMotion {
+    final media = MediaQuery.maybeOf(context);
+    return media?.disableAnimations == true ||
+        media?.accessibleNavigation == true;
+  }
+
+  void _handleScrollReveal() {
+    if (!_scrollController.hasClients || !mounted) return;
+    final offset = _scrollController.offset;
+    var changed = false;
+    if (!_menuSectionRevealed && offset > 90) {
+      _menuSectionRevealed = true;
+      changed = true;
+    }
+    if (!_menuGridRevealed && offset > 160) {
+      _menuGridRevealed = true;
+      changed = true;
+    }
+    if (changed) {
+      setState(() {});
+    }
+  }
+
+  Offset _clampChatShortcutPosition(
+    Offset position, {
+    required Size viewportSize,
+    required double topInset,
+    required double bottomInset,
+  }) {
+    final minX = _chatShortcutEdgePadding;
+    final maxX =
+        viewportSize.width - _chatShortcutWidth - _chatShortcutEdgePadding;
+    final minY = topInset + _chatShortcutTopSafePadding;
+    final maxY =
+        viewportSize.height -
+        _chatShortcutHeight -
+        _chatShortcutBottomSafePadding -
+        bottomInset -
+        _chatBottomClearance;
+
+    return Offset(position.dx.clamp(minX, maxX), position.dy.clamp(minY, maxY));
+  }
+
+  Widget _buildChatShortcut(
+    BuildContext context, {
+    required Size viewportSize,
+    required double topInset,
+    required double bottomInset,
+    required Offset currentPosition,
+  }) {
+    return GestureDetector(
+      dragStartBehavior: DragStartBehavior.down,
+      behavior: HitTestBehavior.opaque,
+      onPanUpdate: (details) {
+        final basePosition = _chatShortcutPosition ?? currentPosition;
+        final nextPosition = Offset(
+          basePosition.dx + details.delta.dx,
+          basePosition.dy + details.delta.dy,
+        );
+        setState(() {
+          _chatShortcutPosition = _clampChatShortcutPosition(
+            nextPosition,
+            viewportSize: viewportSize,
+            topInset: topInset,
+            bottomInset: bottomInset,
+          );
+        });
+      },
+      onPanEnd: (_) {
+        final position = _chatShortcutPosition ?? currentPosition;
+        final leftSnap = _chatShortcutEdgePadding;
+        final rightSnap =
+            viewportSize.width - _chatShortcutWidth - _chatShortcutEdgePadding;
+        final midpoint = viewportSize.width / 2;
+        final snapX = (position.dx + (_chatShortcutWidth / 2) < midpoint)
+            ? leftSnap
+            : rightSnap;
+
+        setState(() {
+          _chatShortcutPosition = Offset(snapX, position.dy);
+        });
+      },
+      child: Material(
+        color: Colors.transparent,
+        child: FloatingAssistiveButton(
+          width: _chatShortcutWidth,
+          height: _chatShortcutHeight,
+          imageAsset: 'assets/kedaibot.png',
+          badgePulse: _reducedMotion ? 1.0 : (0.9 + (_loopController.value * 0.14)),
+          onTap: () => Navigator.pushNamed(context, AppRoutes.chat),
         ),
       ),
     );
   }
 
   Widget _buildHero(BuildContext context) {
+    final foodFloatOffset = _reducedMotion ? 0.0 : 6 * (1 - _loopController.value);
+    final waveOffset = _reducedMotion ? 0.0 : (_loopController.value - 0.5) * 14;
+
     return SizedBox(
       height: 362,
       child: Stack(
@@ -220,42 +551,69 @@ class _LandingPageState extends State<LandingPage>
           Positioned(
             left: -10,
             bottom: 165,
-            child: SizedBox(
-              width: 240,
-              child: Image.asset(
-                'assets/foto katalog/logobaru.png',
-                fit: BoxFit.contain,
-              ),
-            ),
-          ),
-          const Positioned(
-            left: 24,
-            bottom: 140,
-            child: Text(
-              '100% Tasty',
-              style: TextStyle(
-                color: _textDark,
-                fontSize: 24,
-                fontWeight: FontWeight.w800,
-                letterSpacing: -0.4,
-              ),
-            ),
-          ),
-          const Positioned(
-            left: 24,
-            bottom: 120,
-            child: Text(
-              'Rasa Juara, Pesan Cuma Pakai Klik!',
-              style: TextStyle(
-                color: Color(0xFF575757),
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
+            child: _staggeredEntrance(
+              delayMs: 20,
+              offsetY: 16,
+              child: SizedBox(
+                width: 240,
+                child: Image.asset(
+                  'assets/logo.png',
+                  fit: BoxFit.contain,
+                ),
               ),
             ),
           ),
           Positioned(
-            right: -40,
-            bottom: 30,
+            left: 24,
+            bottom: 140,
+            child: _staggeredEntrance(
+              delayMs: 120,
+              offsetY: 14,
+              child: const Text(
+                '100% Tasty',
+                style: TextStyle(
+                  color: _textDark,
+                  fontSize: 24,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.4,
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            left: 24,
+            bottom: 118,
+            child: _staggeredEntrance(
+              delayMs: 220,
+              offsetY: 12,
+              child: const Text(
+                'Rasa Juara, Pesan Cuma Pakai Klik!',
+                style: TextStyle(
+                  color: Color(0xFF575757),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
+          AnimatedBuilder(
+            animation: _welcomeController,
+            builder: (context, child) {
+              final progress = Curves.easeOutCubic.transform(
+                _intervalProgress(160, 760),
+              );
+              return Positioned(
+                right: -40 + (1 - progress) * 24,
+                bottom: 30 + foodFloatOffset,
+                child: Opacity(
+                  opacity: progress,
+                  child: Transform.scale(
+                    scale: 0.95 + (0.05 * progress),
+                    child: child,
+                  ),
+                ),
+              );
+            },
             child: Transform.rotate(
               angle: -0.42,
               child: Image.asset(
@@ -265,21 +623,40 @@ class _LandingPageState extends State<LandingPage>
               ),
             ),
           ),
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 50,
+          AnimatedBuilder(
+            animation: _loopController,
+            builder: (context, child) {
+              return Positioned(
+                left: 0,
+                right: 0,
+                bottom: 50,
+                child: Transform.translate(
+                  offset: Offset(waveOffset, 0),
+                  child: child,
+                ),
+              );
+            },
             child: CustomPaint(
               size: const Size(double.infinity, 64),
               painter: _HeroWavePainter(),
             ),
           ),
-          Positioned(
-            top: 16,
-            left: 16,
+          AnimatedBuilder(
+            animation: _welcomeController,
+            builder: (context, child) {
+              final value = Curves.easeOut.transform(_intervalProgress(30, 420));
+              return Positioned(
+                top: 16 - (1 - value) * 10,
+                left: 16,
+                child: Opacity(opacity: value, child: child),
+              );
+            },
             child: _isLoggedIn
                 ? Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 8,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(12),
@@ -294,10 +671,29 @@ class _LandingPageState extends State<LandingPage>
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const CircleAvatar(
-                          radius: 14,
-                          backgroundImage: AssetImage('assets/slices_ui/fotoprofile.jpg'),
-                        ),
+                        _avatarUrl != null && _avatarUrl!.isNotEmpty
+                            ? CircleAvatar(
+                                radius: 14,
+                                backgroundImage: NetworkImage(_avatarUrl!),
+                              )
+                            : Container(
+                                width: 28,
+                                height: 28,
+                                decoration: const BoxDecoration(
+                                  color: Color(0xFFC7985F),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    _getInitials(_name),
+                                    style: const TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                              ),
                         const SizedBox(width: 8),
                         Text(
                           'Hai! $_username',
@@ -313,30 +709,32 @@ class _LandingPageState extends State<LandingPage>
                 : Material(
                     elevation: 5,
                     borderRadius: BorderRadius.circular(10),
-                    child: OutlinedButton(
-                      onPressed: () async {
-                        await Navigator.pushNamed(context, AppRoutes.login);
-                        if (!mounted) return;
-                        await _loadAuthState();
-                      },
-                      style: OutlinedButton.styleFrom(
-                        backgroundColor: _accent,
-                        foregroundColor: Colors.white,
-                        side: BorderSide.none,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
+                    child: _PressableScale(
+                      child: OutlinedButton(
+                        onPressed: () async {
+                          await Navigator.pushNamed(context, AppRoutes.login);
+                          if (!mounted) return;
+                          await _loadAuthState();
+                        },
+                        style: OutlinedButton.styleFrom(
+                          backgroundColor: _accent,
+                          foregroundColor: Colors.white,
+                          side: BorderSide.none,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 8,
+                          ),
+                          textStyle: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
                         ),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 8,
-                        ),
-                        textStyle: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white,
-                        ),
+                        child: const Text('Login'),
                       ),
-                      child: const Text('Login'),
                     ),
                   ),
           ),
@@ -346,6 +744,9 @@ class _LandingPageState extends State<LandingPage>
   }
 
   Widget _buildSectionTitle() {
+    final lineProgress = _reducedMotion
+        ? 1.0
+        : Curves.easeOutCubic.transform(_intervalProgress(360, 820));
     return Center(
       child: Column(
         children: [
@@ -359,14 +760,18 @@ class _LandingPageState extends State<LandingPage>
             ),
           ),
           const SizedBox(height: 8),
-          Container(width: 126, height: 5, color: _accentDark),
+          Container(width: 126 * lineProgress, height: 5, color: _accentDark),
           const SizedBox(height: 8),
-          Text(
-            _isFromBackend ? 'Sumber: Backend' : 'Sumber: Fallback',
-            style: const TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: Color(0xFF6C6C6C),
+          AnimatedOpacity(
+            opacity: _menuSectionRevealed ? 1 : 0.72,
+            duration: const Duration(milliseconds: 280),
+            child: Text(
+              _isFromBackend ? 'Sumber: Backend' : 'Sumber: Fallback',
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF6C6C6C),
+              ),
             ),
           ),
           if (_loadError != null) ...[
@@ -385,6 +790,10 @@ class _LandingPageState extends State<LandingPage>
   }
 
   Widget _buildMenuGrid(BuildContext context) {
+    final cards = <Widget>[
+      ..._menuCards.map((menu) => _menuCard(context, menu: menu)),
+      _othersCard(context),
+    ];
     return GridView.count(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
@@ -392,18 +801,21 @@ class _LandingPageState extends State<LandingPage>
       mainAxisSpacing: 12,
       crossAxisSpacing: 12,
       childAspectRatio: 0.64,
-      children: [
-        ..._menuCards.map(
-          (menu) => _menuCard(context, menu: menu),
-        ),
-        _othersCard(context),
-      ],
+      children: List.generate(cards.length, (index) {
+        return _staggeredEntrance(
+          delayMs: 260 + (index * 110),
+          offsetY: 24,
+          child: cards[index],
+        );
+      }),
     );
   }
 
   Widget _menuCard(BuildContext context, {required _LandingMenuCardData menu}) {
     final isOutOfStock = menu.stock < 1;
-    return Container(
+    return _PressableScale(
+      scale: 0.98,
+      child: Container(
       padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -486,14 +898,17 @@ class _LandingPageState extends State<LandingPage>
           ),
         ],
       ),
+    ),
     );
   }
 
   Widget _othersCard(BuildContext context) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(14),
-      onTap: () => _openOrderTypePicker(context),
-      child: Stack(
+    return _PressableScale(
+      scale: 0.98,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: () => _openOrderTypePicker(context),
+        child: Stack(
         children: [
           Container(
             padding: const EdgeInsets.all(18),
@@ -551,6 +966,7 @@ class _LandingPageState extends State<LandingPage>
           ),
         ],
       ),
+    ),
     );
   }
 
@@ -558,20 +974,28 @@ class _LandingPageState extends State<LandingPage>
     return Row(
       children: [
         Expanded(
-          child: _whyTile(
-            context,
-            icon: Icons.restaurant,
-            label: 'Booking\nmeja',
-            orderType: OrderType.bookingDineIn,
+          child: _staggeredEntrance(
+            delayMs: 440,
+            offsetY: 20,
+            child: _whyTile(
+              context,
+              icon: Icons.restaurant,
+              label: 'Booking\nmeja',
+              orderType: OrderType.bookingDineIn,
+            ),
           ),
         ),
         const SizedBox(width: 12),
         Expanded(
-          child: _whyTile(
-            context,
-            icon: Icons.storefront,
-            label: 'Pesan &\nambil',
-            orderType: OrderType.pickup,
+          child: _staggeredEntrance(
+            delayMs: 560,
+            offsetY: 20,
+            child: _whyTile(
+              context,
+              icon: Icons.storefront,
+              label: 'Pesan &\nambil',
+              orderType: OrderType.pickup,
+            ),
           ),
         ),
       ],
@@ -584,47 +1008,50 @@ class _LandingPageState extends State<LandingPage>
     required String label,
     required OrderType orderType,
   }) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(14),
-      onTap: () => _selectOrderTypeAndGo(context, orderType),
-      child: Container(
-        height: 86,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        decoration: BoxDecoration(
-          color: const Color(0xFFF8F8F8),
-          borderRadius: BorderRadius.circular(14),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x10000000),
-              blurRadius: 8,
-              offset: Offset(0, 3),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Container(
-              height: 44,
-              width: 44,
-              decoration: const BoxDecoration(
-                color: _accent,
-                shape: BoxShape.circle,
+    return _PressableScale(
+      scale: 0.97,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: () => _selectOrderTypeAndGo(context, orderType),
+        child: Container(
+          height: 86,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF8F8F8),
+            borderRadius: BorderRadius.circular(14),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x10000000),
+                blurRadius: 8,
+                offset: Offset(0, 3),
               ),
-              child: Icon(icon, color: Colors.white, size: 22),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                label,
-                style: const TextStyle(
-                  color: _textDark,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w800,
-                  height: 1.3,
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                height: 44,
+                width: 44,
+                decoration: const BoxDecoration(
+                  color: _accent,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, color: Colors.white, size: 22),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  label,
+                  style: const TextStyle(
+                    color: _textDark,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    height: 1.3,
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -787,6 +1214,17 @@ class _LandingPageState extends State<LandingPage>
       MaterialPageRoute<void>(builder: (_) => const OrderTypePickerPage()),
     );
   }
+
+  String _getInitials(String name) {
+    if (name.isEmpty || name == '-') return 'U';
+    final parts = name.trim().split(RegExp(r'\s+'));
+    if (parts.length > 1) {
+      final first = parts[0].isNotEmpty ? parts[0][0] : '';
+      final second = parts[1].isNotEmpty ? parts[1][0] : '';
+      return (first + second).toUpperCase();
+    }
+    return parts[0].isNotEmpty ? parts[0][0].toUpperCase() : 'U';
+  }
 }
 
 class _LandingMenuCardData {
@@ -803,6 +1241,161 @@ class _LandingMenuCardData {
   final String name;
   final String imageUrl;
   final String description;
+}
+
+class _PressableScale extends StatefulWidget {
+  const _PressableScale({
+    required this.child,
+    this.scale = 0.97,
+  });
+
+  final Widget child;
+  final double scale;
+
+  @override
+  State<_PressableScale> createState() => _PressableScaleState();
+}
+
+class _PressableScaleState extends State<_PressableScale> {
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Listener(
+      onPointerDown: (_) => setState(() => _pressed = true),
+      onPointerUp: (_) => setState(() => _pressed = false),
+      onPointerCancel: (_) => setState(() => _pressed = false),
+      child: AnimatedScale(
+        scale: _pressed ? widget.scale : 1,
+        duration: const Duration(milliseconds: 120),
+        curve: Curves.easeOut,
+        child: widget.child,
+      ),
+    );
+  }
+}
+
+class FloatingAssistiveButton extends StatelessWidget {
+  const FloatingAssistiveButton({
+    super.key,
+    required this.imageAsset,
+    required this.onTap,
+    this.badgePulse = 1,
+    this.width = 148,
+    this.height = 50,
+  });
+
+  final String imageAsset;
+  final VoidCallback onTap;
+  final double badgePulse;
+  final double width;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    final avatarSize = height - 6;
+    final radius = height / 2;
+
+    return Semantics(
+      button: true,
+      label: 'Assistive chat button',
+      child: GestureDetector(
+        onTap: onTap,
+        child: SizedBox(
+          width: width,
+          height: height,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Container(
+                width: width,
+                height: height,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(radius),
+                  border: Border.all(color: const Color(0xFFE5E7EB)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.08),
+                      blurRadius: 10,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: avatarSize,
+                      height: avatarSize,
+                      decoration: BoxDecoration(
+                        color: Color(0xFFEAEAEA),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      padding: const EdgeInsets.all(2),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        clipBehavior: Clip.antiAliasWithSaveLayer,
+                        child: Image.asset(
+                          imageAsset,
+                          fit: BoxFit.cover,
+                          filterQuality: FilterQuality.high,
+                          isAntiAlias: true,
+                          gaplessPlayback: true,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    const Expanded(
+                      child: Text(
+                        'KedaiBot',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: Colors.black,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Positioned(
+                right: -8,
+                top: -14,
+                child: IgnorePointer(
+                  child: Transform.scale(
+                    scale: badgePulse,
+                    child: Image.asset(
+                      'assets/chat.png',
+                      width: 35,
+                      height: 35,
+                      fit: BoxFit.contain,
+                      filterQuality: FilterQuality.high,
+                      isAntiAlias: true,
+                      errorBuilder: (_, __, ___) => const SizedBox(
+                        width: 35,
+                        height: 35,
+                        child: Icon(
+                          Icons.chat_bubble_outline_rounded,
+                          size: 20,
+                          color: Color(0xFFC6620C),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _SocialChip extends StatelessWidget {
@@ -840,6 +1433,7 @@ class _SocialChip extends StatelessWidget {
       ),
     );
   }
+
 }
 
 class _HeroWavePainter extends CustomPainter {

@@ -6,10 +6,8 @@ import '../../../../shared/widgets/app_bottom_nav_bar.dart';
 import '../../../../shared/widgets/app_notice.dart';
 import '../../auth/data/auth_session.dart';
 import '../../landing/data/order_type_session.dart';
-import 'favorit_page.dart';
 import 'pengaturan_page.dart';
 import '../data/profile_api_service.dart';
-import 'tentang_page.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -114,13 +112,16 @@ class _ProfilePageState extends State<ProfilePage> {
                           Icons.settings_outlined,
                           color: Colors.white,
                         ),
-                        onPressed: () {
-                          Navigator.push(
+                        onPressed: () async {
+                          final result = await Navigator.push(
                             context,
                             MaterialPageRoute(
                               builder: (context) => const PengaturanPage(),
                             ),
                           );
+                          if (result == true) {
+                            _loadProfile();
+                          }
                         },
                       ),
                     ],
@@ -199,10 +200,29 @@ class _ProfilePageState extends State<ProfilePage> {
       children: [
         Row(
           children: [
-            const CircleAvatar(
-              radius: 45,
-              backgroundImage: AssetImage('assets/slices_ui/fotoprofile.jpg'),
-            ),
+            user.avatarUrl != null && user.avatarUrl!.isNotEmpty
+                ? CircleAvatar(
+                    radius: 45,
+                    backgroundImage: NetworkImage(user.avatarUrl!),
+                  )
+                : Container(
+                    width: 90,
+                    height: 90,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFC7985F),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Center(
+                      child: Text(
+                        _getInitials(user.name),
+                        style: const TextStyle(
+                          fontSize: 32,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
             const SizedBox(width: 15),
             Expanded(
               child: Column(
@@ -234,10 +254,6 @@ class _ProfilePageState extends State<ProfilePage> {
                 ],
               ),
             ),
-            IconButton(
-              icon: const Icon(Icons.edit, size: 20, color: Colors.black),
-              onPressed: () {},
-            ),
           ],
         ),
         const SizedBox(height: 25),
@@ -260,18 +276,6 @@ class _ProfilePageState extends State<ProfilePage> {
         ),
         _buildMenuTile(
           context,
-          icon: Icons.bookmark_border,
-          title: 'Favorit',
-          destination: const FavoritPage(),
-        ),
-        _buildMenuTile(
-          context,
-          icon: Icons.info_outline,
-          title: 'Tentang',
-          destination: const TentangPage(),
-        ),
-        _buildMenuTile(
-          context,
           icon: Icons.smart_toy_outlined,
           title: 'KedaiBot',
           destination: null,
@@ -280,6 +284,17 @@ class _ProfilePageState extends State<ProfilePage> {
         ),
       ],
     );
+  }
+
+  String _getInitials(String name) {
+    if (name.isEmpty || name == '-') return 'U';
+    final parts = name.trim().split(RegExp(r'\s+'));
+    if (parts.length > 1) {
+      final first = parts[0].isNotEmpty ? parts[0][0] : '';
+      final second = parts[1].isNotEmpty ? parts[1][0] : '';
+      return (first + second).toUpperCase();
+    }
+    return parts[0].isNotEmpty ? parts[0][0].toUpperCase() : 'U';
   }
 
   bool _isUnauthorizedMessage(String message) {

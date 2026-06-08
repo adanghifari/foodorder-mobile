@@ -10,6 +10,7 @@ import '../features/history/presentation/history_page.dart';
 import '../features/payment/presentation/payment_page.dart';
 import '../features/profile/presentation/profile_page.dart';
 import '../features/scan/presentation/scan_page.dart';
+import '../features/splash/presentation/splash_intro_page.dart';
 import 'app_routes.dart';
 
 final GlobalKey<NavigatorState> appNavigatorKey = GlobalKey<NavigatorState>();
@@ -18,7 +19,7 @@ class KedaiKlikApp extends StatelessWidget {
   const KedaiKlikApp({super.key});
   static const String _defaultInitialRoute = String.fromEnvironment(
     'INITIAL_ROUTE',
-    defaultValue: AppRoutes.landing,
+    defaultValue: AppRoutes.splash,
   );
 
   @override
@@ -73,6 +74,7 @@ class KedaiKlikApp extends StatelessWidget {
       ),
       initialRoute: _defaultInitialRoute,
       routes: {
+        AppRoutes.splash: (_) => const SplashIntroPage(),
         AppRoutes.login: (_) => const LoginPage(),
         AppRoutes.register: (_) => const RegisterPage(),
         AppRoutes.landing: (_) => LandingPage(),
