@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../../shared/widgets/app_back_button.dart';
 import '../../../../shared/widgets/app_notice.dart';
 import '../data/profile_api_service.dart';
 
 class InformasiAkunPage extends StatefulWidget {
-  const InformasiAkunPage({super.key});
+  final VoidCallback? onProfileUpdated;
+  const InformasiAkunPage({super.key, this.onProfileUpdated});
 
   @override
   State<InformasiAkunPage> createState() => _InformasiAkunPageState();
@@ -16,6 +18,7 @@ class _InformasiAkunPageState extends State<InformasiAkunPage> {
 
   bool _isLoading = true;
   bool _isSaving = false;
+  bool _avatarUploaded = false;
   String? _error;
   ProfileUserDto? _user;
 
@@ -89,6 +92,8 @@ class _InformasiAkunPageState extends State<InformasiAkunPage> {
       if (!mounted) return;
       setState(() => _isSaving = false);
 
+      widget.onProfileUpdated?.call();
+
       AppNotice.show(
         context,
         'Informasi akun berhasil diperbarui.',
@@ -99,6 +104,98 @@ class _InformasiAkunPageState extends State<InformasiAkunPage> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _isSaving = false);
+      AppNotice.show(
+        context,
+        AppNotice.humanizeMessage(e),
+        type: AppNoticeType.error,
+      );
+    }
+  }
+
+  Future<void> _pickAndUploadAvatar() async {
+    showModalBottomSheet<void>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 16),
+                child: Text(
+                  'Ubah Foto Profil',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black,
+                  ),
+                ),
+              ),
+              const Divider(height: 1),
+              ListTile(
+                leading: const Icon(Icons.photo_library_outlined, color: Color(0xFFC6620C)),
+                title: const Text('Pilih dari Galeri'),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  _processAvatarPick(ImageSource.gallery);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.camera_alt_outlined, color: Color(0xFFC6620C)),
+                title: const Text('Ambil dengan Kamera'),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  _processAvatarPick(ImageSource.camera);
+                },
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _processAvatarPick(ImageSource source) async {
+    try {
+      final picker = ImagePicker();
+      final pickedFile = await picker.pickImage(
+        source: source,
+        maxWidth: 800,
+        maxHeight: 800,
+        imageQuality: 85,
+      );
+
+      if (pickedFile == null) return;
+
+      setState(() {
+        _isLoading = true;
+      });
+
+      final updatedUser = await _profileApiService.uploadAvatar(pickedFile.path);
+
+      if (!mounted) return;
+      setState(() {
+        _user = updatedUser;
+        _avatarUploaded = true;
+        _isLoading = false;
+      });
+
+      widget.onProfileUpdated?.call();
+
+      AppNotice.show(
+        context,
+        'Foto profil berhasil diperbarui.',
+        type: AppNoticeType.success,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+      });
       AppNotice.show(
         context,
         AppNotice.humanizeMessage(e),
@@ -125,9 +222,12 @@ class _InformasiAkunPageState extends State<InformasiAkunPage> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        leading: const AppBackButton(
+        leading: AppBackButton(
           color: Colors.black,
           size: 20,
+          onPressed: () {
+            Navigator.pop(context, _avatarUploaded);
+          },
         ),
         title: const Text(
           "Informasi Akun",
@@ -207,14 +307,7 @@ class _InformasiAkunPageState extends State<InformasiAkunPage> {
                                     color: Colors.white,
                                     size: 16,
                                   ),
-                                  onPressed: () {
-                                    // Trigger picture update flow UI/dialog
-                                    AppNotice.show(
-                                      context,
-                                      'Fitur ubah foto profil akan segera hadir.',
-                                      type: AppNoticeType.info,
-                                    );
-                                  },
+                                  onPressed: _pickAndUploadAvatar,
                                 ),
                               ),
                             ),
@@ -259,7 +352,7 @@ class _InformasiAkunPageState extends State<InformasiAkunPage> {
                             backgroundColor: const Color(0xFFC6620C),
                             foregroundColor: Colors.white,
                             elevation: 2,
-                            shadowColor: const Color(0xFFC6620C).withOpacity(0.4),
+                            shadowColor: const Color(0xFFC6620C).withValues(alpha: 0.4),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(10),
                             ),

@@ -116,7 +116,9 @@ class _ProfilePageState extends State<ProfilePage> {
                           final result = await Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => const PengaturanPage(),
+                              builder: (context) => PengaturanPage(
+                                onProfileUpdated: _loadProfile,
+                              ),
                             ),
                           );
                           if (result == true) {

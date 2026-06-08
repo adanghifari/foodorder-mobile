@@ -9,7 +9,8 @@ import 'informasi_akun_page.dart';
 import 'ganti_password_page.dart';
 
 class PengaturanPage extends StatefulWidget {
-  const PengaturanPage({super.key});
+  final VoidCallback? onProfileUpdated;
+  const PengaturanPage({super.key, this.onProfileUpdated});
 
   @override
   State<PengaturanPage> createState() => _PengaturanPageState();
@@ -126,7 +127,9 @@ class _PengaturanPageState extends State<PengaturanPage> {
                   final result = await Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => const InformasiAkunPage(),
+                      builder: (context) => InformasiAkunPage(
+                        onProfileUpdated: widget.onProfileUpdated,
+                      ),
                     ),
                   );
                   if (result == true && mounted) {
