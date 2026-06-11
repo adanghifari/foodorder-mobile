@@ -25,6 +25,24 @@ class _ChatPageState extends State<ChatPage> {
   static const String _chatHistorySavedAtKey = 'chat_history_saved_at_v1';
   static const Duration _chatTtl = Duration(days: 2);
   static const double _botBubbleTopOffset = 44;
+  static const List<_GreetingShortcut> _greetingShortcuts = [
+    _GreetingShortcut(
+      label: 'Pesan Makanan',
+      value: 'greeting_order',
+    ),
+    _GreetingShortcut(
+      label: 'Tracking Pesanan',
+      value: 'greeting_tracking',
+    ),
+    _GreetingShortcut(
+      label: 'Rekomendasi Menu',
+      value: 'greeting_recommendation',
+    ),
+    _GreetingShortcut(
+      label: 'Lihat Keranjang',
+      value: 'greeting_view_cart',
+    ),
+  ];
 
   final ChatbotApiService _chatbotApiService = ChatbotApiService();
   final ProfileApiService _profileApiService = ProfileApiService();
@@ -358,7 +376,10 @@ class _ChatPageState extends State<ChatPage> {
                     ],
                   ),
           ),
-          if (!_requireLogin) _chatInputWidget(),
+          if (!_requireLogin) ...[
+            if (_showGreetingShortcuts) _greetingShortcutPanel(),
+            _chatInputWidget(),
+          ],
         ],
       ),
     );
@@ -854,6 +875,65 @@ class _ChatPageState extends State<ChatPage> {
         raw.contains('unauth') ||
         raw.contains('belum login');
   }
+
+  bool get _showGreetingShortcuts => _entries.length > 1;
+
+  Widget _greetingShortcutPanel() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border(
+          top: BorderSide(color: Colors.grey.withOpacity(0.12)),
+        ),
+      ),
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Row(
+          children: _greetingShortcuts
+              .map(
+                (shortcut) => Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: OutlinedButton(
+                    onPressed: _sending
+                        ? null
+                        : () => _handleAction(
+                            ChatAction(
+                              uiBlockType: 'quick_reply',
+                              type: 'quick_reply',
+                              label: shortcut.label,
+                              value: shortcut.value,
+                              raw: const {},
+                            ),
+                          ),
+                    style: OutlinedButton.styleFrom(
+                      backgroundColor: const Color(0xFFFFEEE1),
+                      side: BorderSide.none,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 10,
+                      ),
+                    ),
+                    child: Text(
+                      shortcut.label,
+                      style: const TextStyle(
+                        color: Color(0xFFC6620C),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ),
+              )
+              .toList(growable: false),
+        ),
+      ),
+    );
+  }
 }
 
 class _ChatEntry {
@@ -894,4 +974,14 @@ class _ChatEntry {
           .toList(growable: false),
     );
   }
+}
+
+class _GreetingShortcut {
+  const _GreetingShortcut({
+    required this.label,
+    required this.value,
+  });
+
+  final String label;
+  final String value;
 }
