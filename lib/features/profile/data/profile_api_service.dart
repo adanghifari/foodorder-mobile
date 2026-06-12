@@ -97,6 +97,43 @@ class ProfileApiService {
     }
   }
 
+  Future<ProfileUserDto> uploadAvatar(String filePath) async {
+    final token = await AuthSession.getToken();
+    if (token == null || token.isEmpty) {
+      throw Exception('Belum login. Silakan login terlebih dahulu.');
+    }
+
+    try {
+      final fileName = filePath.split('/').last;
+      final formData = FormData.fromMap({
+        'avatar': await MultipartFile.fromFile(filePath, filename: fileName),
+      });
+
+      final response = await _dio.post<Map<String, dynamic>>(
+        '$_apiBaseUrl/v1/auth/upload-avatar',
+        data: formData,
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
+      );
+
+      final map = response.data ?? const <String, dynamic>{};
+      final data = map['data'] as Map<String, dynamic>? ?? const {};
+      final avatarVal = data['avatar_url'] ?? data['photo'] ?? data['profile_picture'];
+
+      return ProfileUserDto(
+        name: (data['name'] ?? '-').toString(),
+        username: (data['username'] ?? '-').toString(),
+        email: (data['email'] ?? '-').toString(),
+        phone: (data['no_telp'] ?? '-').toString(),
+        role: (data['role'] ?? '-').toString(),
+        avatarUrl: (avatarVal == null || avatarVal.toString() == 'null') ? null : avatarVal.toString(),
+      );
+    } on DioException catch (e) {
+      throw Exception(_extractDioMessage(e));
+    } catch (e) {
+      throw Exception('Gagal mengunggah foto profil: $e');
+    }
+  }
+
   Future<void> changePassword({
     required String currentPassword,
     required String newPassword,

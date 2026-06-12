@@ -555,6 +555,8 @@ class _MenuPageState extends State<MenuPage> {
               children: [
                 Text(
                   menu.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 16,
@@ -568,74 +570,88 @@ class _MenuPageState extends State<MenuPage> {
                 ),
                 const SizedBox(height: 8),
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Rp ${_idr(menu.price)}',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w900,
-                            color: Color(0xFFC8641E),
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          menu.stock > 0
-                              ? 'Stok tersedia: ${menu.stock}'
-                              : 'Stok habis',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: menu.stock > 0
-                                ? const Color(0xFF2E7D32)
-                                : Colors.redAccent,
-                          ),
-                        ),
-                      ],
-                    ),
-                    qty == 0
-                        ? IconButton.filled(
-                            onPressed: menu.stock > 0 && !isUpdating
-                                ? () => _tambahKeKeranjang(menu)
-                                : null,
-                            icon: const Icon(Icons.add),
-                            style: IconButton.styleFrom(
-                              backgroundColor: const Color(0xFFC8641E),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Rp ${_idr(menu.price)}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w900,
+                              color: Color(0xFFC8641E),
                             ),
-                          )
-                        : Row(
-                            children: [
-                              _qtyButton(
-                                icon: Icons.remove,
-                                onTap: isUpdating
-                                    ? null
-                                    : () => _kurangiDariKeranjang(menu),
-                              ),
-                              Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                ),
-                                child: Text(
-                                  '$qty',
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              ),
-                              _qtyButton(
-                                icon: Icons.add,
-                                onTap: menu.stock > qty && !isUpdating
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            menu.stock > 0
+                                ? 'Stok tersedia: ${menu.stock}'
+                                : 'Stok habis',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: menu.stock > 0
+                                  ? const Color(0xFF2E7D32)
+                                  : Colors.redAccent,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 128),
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerRight,
+                        child: qty == 0
+                            ? IconButton.filled(
+                                onPressed: menu.stock > 0 && !isUpdating
                                     ? () => _tambahKeKeranjang(menu)
                                     : null,
+                                icon: const Icon(Icons.add),
+                                style: IconButton.styleFrom(
+                                  backgroundColor: const Color(0xFFC8641E),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                              )
+                            : Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  _qtyButton(
+                                    icon: Icons.remove,
+                                    onTap: isUpdating
+                                        ? null
+                                        : () => _kurangiDariKeranjang(menu),
+                                  ),
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                    ),
+                                    child: Text(
+                                      '$qty',
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ),
+                                  _qtyButton(
+                                    icon: Icons.add,
+                                    onTap: menu.stock > qty && !isUpdating
+                                        ? () => _tambahKeKeranjang(menu)
+                                        : null,
+                                  ),
+                                ],
                               ),
-                            ],
-                          ),
+                        ),
+                      ),
                   ],
                 ),
               ],
