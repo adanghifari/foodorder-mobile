@@ -9,7 +9,6 @@ import '../../../shared/widgets/app_dropdown_field.dart';
 import '../../../shared/widgets/app_notice.dart';
 import '../../auth/data/auth_session.dart';
 import '../domain/history_models.dart';
-import 'widgets/order_history_list.dart';
 import 'widgets/payment_history_list.dart';
 import '../../../shared/config/api_config.dart';
 
@@ -36,10 +35,8 @@ class _HistoryPageState extends State<HistoryPage> {
   String? _error;
   bool _requireLogin = false;
   List<HistoryOrderItem> _orders = const [];
-  _HistoryTab _activeTab = _HistoryTab.order;
-  _PaymentSortFilter _paymentFilter = _PaymentSortFilter.newest;
-  _OrderSortFilter _orderFilter = _OrderSortFilter.latest;
-  bool _showPreviousHistory = false;
+  DateTime _selectedDate = DateTime.now();
+  _UnifiedFilter _filter = _UnifiedFilter.latest;
   bool _isInitialTabApplied = false;
 
   String get _apiBaseUrl => ApiConfig.apiBaseUrl;
@@ -59,10 +56,8 @@ class _HistoryPageState extends State<HistoryPage> {
     final args = ModalRoute.of(context)?.settings.arguments;
     if (args is! Map) return;
     final tab = (args['tab'] ?? '').toString().toLowerCase();
-    if (tab == 'order') {
-      _activeTab = _HistoryTab.order;
-    } else if (tab == 'payment') {
-      _activeTab = _HistoryTab.payment;
+    if (tab == 'payment') {
+      _filter = _UnifiedFilter.pending;
     }
   }
 
@@ -301,10 +296,8 @@ class _HistoryPageState extends State<HistoryPage> {
       );
     }
 
-    final allFilteredOrders = _filteredOrdersByActiveTab;
-    final todayOrders = _todayOrdersFrom(allFilteredOrders);
-    final previousOrders = _previousOrdersFrom(allFilteredOrders);
-    if (allFilteredOrders.isEmpty) {
+    final filtered = _filteredOrders;
+    if (filtered.isEmpty) {
       if (_requireLogin) {
         return Center(
           child: Padding(
@@ -339,7 +332,7 @@ class _HistoryPageState extends State<HistoryPage> {
       }
       return Column(
         children: [
-          _buildCategoryTabs(),
+          _buildDateFilter(),
           _buildSortDropdown(),
           const Expanded(
             child: Center(
@@ -355,7 +348,7 @@ class _HistoryPageState extends State<HistoryPage> {
                     ),
                     SizedBox(height: 10),
                     Text(
-                      'Belum ada riwayat',
+                      'Belum ada riwayat pada tanggal ini',
                       style: TextStyle(
                         color: Color(0xFF666666),
                         fontSize: 14,
@@ -373,290 +366,155 @@ class _HistoryPageState extends State<HistoryPage> {
 
     return Column(
       children: [
-        _buildCategoryTabs(),
+        _buildDateFilter(),
         _buildSortDropdown(),
         Expanded(
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(0, 0, 0, 12),
-            children: [
-              _buildUnifiedSection(
-                title: 'Riwayat Hari Ini',
-                subtitle: '${todayOrders.length} data untuk hari ini',
-                orders: todayOrders,
-                isExpandable: false,
-                isExpanded: true,
-                emptyMessage: 'Belum ada riwayat hari ini',
-              ),
-              _buildUnifiedSection(
-                title: 'Riwayat Sebelumnya',
-                subtitle: previousOrders.isEmpty
-                    ? 'Tidak ada riwayat hari sebelumnya'
-                    : '${previousOrders.length} data dari hari sebelumnya',
-                orders: previousOrders,
-                isExpandable: true,
-                isExpanded: _showPreviousHistory,
-                onTap: previousOrders.isEmpty
-                    ? null
-                    : () => setState(() => _showPreviousHistory = !_showPreviousHistory),
-                emptyMessage: 'Tidak ada riwayat hari sebelumnya',
-              ),
-            ],
+          child: PaymentHistoryList(
+            orders: filtered,
+            onRefreshRequested: _loadOrders,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           ),
         ),
       ],
     );
   }
 
-  Widget _buildHistorySectionList({
-    required List<HistoryOrderItem> orders,
-    EdgeInsetsGeometry padding = const EdgeInsets.fromLTRB(16, 12, 16, 24),
-  }) {
-    if (_activeTab == _HistoryTab.payment) {
-      return PaymentHistoryList(
-        orders: orders,
-        onRefreshRequested: _loadOrders,
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        padding: padding,
-      );
-    }
-    return OrderHistoryList(
-      orders: orders,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      padding: padding,
-    );
-  }
-
-  Widget _buildUnifiedSection({
-    required String title,
-    required String subtitle,
-    required List<HistoryOrderItem> orders,
-    required bool isExpandable,
-    required bool isExpanded,
-    VoidCallback? onTap,
-    String? emptyMessage,
-  }) {
-    final showContent = !isExpandable || isExpanded;
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-      decoration: BoxDecoration(
-        color: const Color(0xFFE2E8F0),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFCBD5E1)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          InkWell(
-            onTap: onTap,
-            borderRadius: BorderRadius.vertical(
-              top: const Radius.circular(15),
-              bottom: Radius.circular(showContent ? 0 : 15),
-            ),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(
-                color: const Color(0xFFCBD5E1),
-                borderRadius: BorderRadius.vertical(
-                  top: const Radius.circular(15),
-                  bottom: Radius.circular(showContent ? 0 : 15),
-                ),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          title,
-                          style: const TextStyle(
-                            color: Color(0xFF334155),
-                            fontSize: 14,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        const SizedBox(height: 3),
-                        Text(
-                          subtitle,
-                          style: const TextStyle(
-                            color: Color(0xFF64748B),
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (isExpandable && orders.isNotEmpty)
-                    Icon(
-                      isExpanded
-                          ? Icons.keyboard_arrow_up_rounded
-                          : Icons.keyboard_arrow_down_rounded,
-                      color: const Color(0xFF64748B),
-                    ),
-                ],
-              ),
-            ),
-          ),
-          if (showContent) ...[
-            if (orders.isEmpty)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-                child: Center(
-                  child: Text(
-                    emptyMessage ?? 'Belum ada data',
-                    style: const TextStyle(
-                      color: Color(0xFF64748B),
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              )
-            else
-              Padding(
-                padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-                child: _buildHistorySectionList(
-                  orders: orders,
-                  padding: EdgeInsets.zero,
-                ),
-              ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCategoryTabs() {
+  Widget _buildDateFilter() {
+    final formattedDate = DateFormat('dd MMMM yyyy').format(_selectedDate);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-      child: Container(
-        padding: const EdgeInsets.all(4),
-        decoration: BoxDecoration(
-          color: const Color(0xFFE9E9E9),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: _CategoryTabButton(
-                label: 'Riwayat Pesanan',
-                isActive: _activeTab == _HistoryTab.order,
-                onTap: () {
-                  setState(() => _activeTab = _HistoryTab.order);
-                },
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+      child: InkWell(
+        onTap: _selectDate,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFCBD5E1)),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x0A000000),
+                blurRadius: 4,
+                offset: Offset(0, 2),
               ),
-            ),
-            const SizedBox(width: 6),
-            Expanded(
-              child: _CategoryTabButton(
-                label: 'Riwayat Pembayaran',
-                isActive: _activeTab == _HistoryTab.payment,
-                onTap: () {
-                  setState(() => _activeTab = _HistoryTab.payment);
-                },
+            ],
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.calendar_today_rounded, color: Color(0xFFD45A00), size: 18),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Filter Tanggal',
+                      style: TextStyle(
+                        color: Color(0xFF64748B),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      formattedDate,
+                      style: const TextStyle(
+                        color: Color(0xFF1E293B),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
+              const Icon(Icons.arrow_drop_down_rounded, color: Color(0xFF64748B)),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  List<HistoryOrderItem> get _filteredOrdersByActiveTab {
-    final list = List<HistoryOrderItem>.from(_orders);
-    if (_activeTab == _HistoryTab.payment) {
-      final filtered = list.where((order) {
-        switch (_paymentFilter) {
-          case _PaymentSortFilter.newest:
-          case _PaymentSortFilter.oldest:
-            return true;
-          case _PaymentSortFilter.paid:
-            return _isPaidStatus(order.paymentMethodLabel);
-          case _PaymentSortFilter.pending:
-            return _isPendingStatus(order.paymentMethodLabel);
-          case _PaymentSortFilter.failed:
-            return _isFailedStatus(order.paymentMethodLabel);
-        }
-      }).toList();
-
-      filtered.sort((a, b) {
-        final ad = a.eventAt;
-        final bd = b.eventAt;
-        if (_paymentFilter == _PaymentSortFilter.oldest) {
-          return ad.compareTo(bd);
-        }
-        return bd.compareTo(ad);
+  Future<void> _selectDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: Color(0xFFD45A00),
+              onPrimary: Colors.white,
+              onSurface: Color(0xFF2E2E2E),
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+    if (picked != null && picked != _selectedDate) {
+      setState(() {
+        _selectedDate = picked;
       });
-      return filtered;
     }
+  }
 
-    final filtered = list.where((order) {
-      switch (_orderFilter) {
-        case _OrderSortFilter.latest:
-        case _OrderSortFilter.oldest:
+  List<HistoryOrderItem> get _filteredOrders {
+    final list = List<HistoryOrderItem>.from(_orders);
+    
+    // 1. Filter by Selected Date
+    var filtered = list.where((order) {
+      final d = order.eventAt;
+      return d.year == _selectedDate.year &&
+             d.month == _selectedDate.month &&
+             d.day == _selectedDate.day;
+    }).toList();
+
+    // 2. Filter by dropdown option
+    filtered = filtered.where((order) {
+      switch (_filter) {
+        case _UnifiedFilter.latest:
+        case _UnifiedFilter.oldest:
           return true;
-        case _OrderSortFilter.booking:
+        case _UnifiedFilter.paid:
+          return _isPaidStatus(order.paymentMethodLabel);
+        case _UnifiedFilter.pending:
+          return _isPendingStatus(order.paymentMethodLabel);
+        case _UnifiedFilter.booking:
           return order.orderTypeKey == 'booking';
-        case _OrderSortFilter.dineInDirect:
+        case _UnifiedFilter.dineInDirect:
           return order.orderTypeKey == 'dine_in';
-        case _OrderSortFilter.takeawayPickup:
+        case _UnifiedFilter.takeawayPickup:
           return order.orderTypeKey == 'pickup';
       }
     }).toList();
 
+    // 3. Sort
     filtered.sort((a, b) {
       final ad = a.eventAt;
       final bd = b.eventAt;
-      if (_orderFilter == _OrderSortFilter.oldest) {
+      if (_filter == _UnifiedFilter.oldest) {
         return ad.compareTo(bd);
       }
-      return bd.compareTo(ad);
+      return bd.compareTo(ad); // default: newest first
     });
+
     return filtered;
   }
 
-  List<HistoryOrderItem> _todayOrdersFrom(List<HistoryOrderItem> source) {
-    final now = DateTime.now();
-    return source.where((order) {
-      final d = order.eventAt;
-      return d.year == now.year && d.month == now.month && d.day == now.day;
-    }).toList();
-  }
-
-  List<HistoryOrderItem> _previousOrdersFrom(List<HistoryOrderItem> source) {
-    final now = DateTime.now();
-    return source.where((order) {
-      final d = order.eventAt;
-      final isToday = d.year == now.year && d.month == now.month && d.day == now.day;
-      return !isToday;
-    }).toList();
-  }
-
-
-
   Widget _buildSortDropdown() {
-    final isPayment = _activeTab == _HistoryTab.payment;
-    final options = isPayment
-        ? _paymentSortLabels.entries.toList()
-        : _orderSortLabels.entries.toList();
-    final selected = isPayment ? _paymentFilter.name : _orderFilter.name;
+    final options = _sortLabels.entries.toList();
+    final selected = _filter.name;
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
       child: Row(
         children: [
           const Text(
-            'Sort by:',
+            'Filter & Sort:',
             style: TextStyle(
               color: Color(0xFF666666),
               fontSize: 13,
@@ -667,7 +525,7 @@ class _HistoryPageState extends State<HistoryPage> {
           Expanded(
             child: AppDropdownField<String>(
               value: selected,
-              menuMaxHeight: 240,
+              menuMaxHeight: 280,
               dividerWidth: 2.2,
               borderRadius: 10,
               borderColor: const Color(0xFFE3E3E3),
@@ -682,17 +540,10 @@ class _HistoryPageState extends State<HistoryPage> {
               onChanged: (value) {
                 if (value == null) return;
                 setState(() {
-                  if (isPayment) {
-                    _paymentFilter = _PaymentSortFilter.values.firstWhere(
-                      (e) => e.name == value,
-                      orElse: () => _PaymentSortFilter.newest,
-                    );
-                  } else {
-                    _orderFilter = _OrderSortFilter.values.firstWhere(
-                      (e) => e.name == value,
-                      orElse: () => _OrderSortFilter.latest,
-                    );
-                  }
+                  _filter = _UnifiedFilter.values.firstWhere(
+                    (e) => e.name == value,
+                    orElse: () => _UnifiedFilter.latest,
+                  );
                 });
               },
             ),
@@ -702,20 +553,14 @@ class _HistoryPageState extends State<HistoryPage> {
     );
   }
 
-  Map<String, String> get _paymentSortLabels => const {
-    'newest': 'Terbaru',
-    'oldest': 'Terlama',
-    'paid': 'Lunas',
-    'pending': 'Menunggu',
-    'failed': 'Gagal',
-  };
-
-  Map<String, String> get _orderSortLabels => const {
+  Map<String, String> get _sortLabels => const {
     'latest': 'Terbaru',
     'oldest': 'Terlama',
-    'booking': 'Booking',
-    'dineInDirect': 'Dine In Langsung',
-    'takeawayPickup': 'Takeaway/Pickup',
+    'paid': 'Hanya Lunas',
+    'pending': 'Hanya Belum Bayar',
+    'booking': 'Hanya Booking Meja',
+    'dineInDirect': 'Hanya Dine In',
+    'takeawayPickup': 'Hanya Takeaway/Pickup',
   };
 
   bool _matchesAny(String raw, List<String> keys) {
@@ -732,8 +577,7 @@ class _HistoryPageState extends State<HistoryPage> {
   bool _isPendingStatus(String status) =>
       _matchesAny(status, const ['pending', 'unpaid', 'menunggu']);
 
-  bool _isFailedStatus(String status) =>
-      _matchesAny(status, const ['failed', 'expire', 'cancel', 'deny', 'gagal']);
+
 
   int _toInt(dynamic value) {
     if (value is int) return value;
@@ -807,52 +651,11 @@ class _HistoryPageState extends State<HistoryPage> {
   }
 }
 
-class _CategoryTabButton extends StatelessWidget {
-  const _CategoryTabButton({
-    required this.label,
-    required this.isActive,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool isActive;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(10),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 10),
-        decoration: BoxDecoration(
-          color: isActive ? Colors.white : Colors.transparent,
-          borderRadius: BorderRadius.circular(10),
-          border: isActive
-              ? Border.all(color: const Color(0xFFD45A00))
-              : Border.all(color: Colors.transparent),
-        ),
-        child: Text(
-          label,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: isActive ? const Color(0xFFD45A00) : const Color(0xFF666666),
-            fontSize: 12,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-enum _HistoryTab { order, payment }
-
-enum _PaymentSortFilter { newest, oldest, paid, pending, failed }
-
-enum _OrderSortFilter {
+enum _UnifiedFilter {
   latest,
   oldest,
+  paid,
+  pending,
   booking,
   dineInDirect,
   takeawayPickup,
