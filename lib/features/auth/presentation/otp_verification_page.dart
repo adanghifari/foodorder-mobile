@@ -250,6 +250,7 @@ class _OtpVerificationPageState extends State<OtpVerificationPage> {
               controller: _controllers[index],
               focusNode: _focusNodes[index],
               keyboardType: TextInputType.number,
+              textInputAction: index < 5 ? TextInputAction.next : TextInputAction.done,
               textAlign: TextAlign.center,
               maxLength: 1,
               style: const TextStyle(

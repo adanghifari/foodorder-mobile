@@ -54,11 +54,12 @@ class _LoginPageState extends State<LoginPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const SizedBox(height: 24),
-                  _buildLabel('Username'),
+                  _buildLabel('Username atau Email'),
                   const SizedBox(height: 6),
                   _buildInput(
-                    hint: 'username',
+                    hint: 'username atau email',
                     controller: _usernameController,
+                    keyboardType: TextInputType.emailAddress,
                   ),
                   const SizedBox(height: 18),
                   _buildLabel('Password'),
