@@ -35,7 +35,8 @@ class _HistoryPageState extends State<HistoryPage> {
   String? _error;
   bool _requireLogin = false;
   List<HistoryOrderItem> _orders = const [];
-  DateTime _selectedDate = DateTime.now();
+  _FilterMode _mode = _FilterMode.today;
+  DateTime? _selectedPastDate;
   _UnifiedFilter _filter = _UnifiedFilter.latest;
   bool _isInitialTabApplied = false;
 
@@ -332,7 +333,7 @@ class _HistoryPageState extends State<HistoryPage> {
       }
       return Column(
         children: [
-          _buildDateFilter(),
+          _buildFilterBar(),
           _buildSortDropdown(),
           const Expanded(
             child: Center(
@@ -366,7 +367,7 @@ class _HistoryPageState extends State<HistoryPage> {
 
     return Column(
       children: [
-        _buildDateFilter(),
+        _buildFilterBar(),
         _buildSortDropdown(),
         Expanded(
           child: PaymentHistoryList(
@@ -379,98 +380,129 @@ class _HistoryPageState extends State<HistoryPage> {
     );
   }
 
-  Widget _buildDateFilter() {
-    final formattedDate = DateFormat('dd MMMM yyyy').format(_selectedDate);
+  Widget _buildFilterBar() {
+    final todayStr = DateFormat('dd-MM-yyyy').format(DateTime.now());
+    final pastStr = _selectedPastDate != null
+        ? DateFormat('dd-MM-yyyy').format(_selectedPastDate!)
+        : '';
+
+    final dropdownOptions = [
+      AppDropdownOption<String>(
+        value: 'today',
+        label: 'Hari ini ($todayStr)',
+      ),
+      AppDropdownOption<String>(
+        value: 'past',
+        label: _selectedPastDate != null
+            ? 'Sebelum ($pastStr)'
+            : 'Sebelum Hari ini',
+      ),
+    ];
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-      child: InkWell(
-        onTap: _selectDate,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFFCBD5E1)),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x0A000000),
-                blurRadius: 4,
-                offset: Offset(0, 2),
+      child: Row(
+        children: [
+          Expanded(
+            child: AppDropdownField<String>(
+              value: _mode == _FilterMode.today ? 'today' : 'past',
+              borderRadius: 10,
+              borderColor: const Color(0xFFE3E3E3),
+              textStyle: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF4B5563),
               ),
-            ],
+              options: dropdownOptions,
+              onChanged: (value) {
+                if (value == null) return;
+                setState(() {
+                  _mode = value == 'today' ? _FilterMode.today : _FilterMode.past;
+                  if (_mode == _FilterMode.past) {
+                    _selectedPastDate = null;
+                  }
+                });
+              },
+            ),
           ),
-          child: Row(
-            children: [
-              const Icon(Icons.calendar_today_rounded, color: Color(0xFFD45A00), size: 18),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Filter Tanggal',
-                      style: TextStyle(
-                        color: Color(0xFF64748B),
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      formattedDate,
-                      style: const TextStyle(
-                        color: Color(0xFF1E293B),
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
+          if (_mode == _FilterMode.past) ...[
+            const SizedBox(width: 8),
+            SizedBox(
+              height: 40,
+              width: 40,
+              child: OutlinedButton(
+                onPressed: _selectPastDate,
+                style: OutlinedButton.styleFrom(
+                  padding: EdgeInsets.zero,
+                  side: const BorderSide(color: Color(0xFFD45A00)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                child: const Icon(
+                  Icons.calendar_month_rounded,
+                  color: Color(0xFFD45A00),
+                  size: 20,
                 ),
               ),
-              const Icon(Icons.arrow_drop_down_rounded, color: Color(0xFF64748B)),
-            ],
-          ),
-        ),
+            ),
+          ],
+        ],
       ),
     );
   }
 
-  Future<void> _selectDate() async {
-    final picked = await showDatePicker(
+  Future<void> _selectPastDate() async {
+    final yesterday = DateTime.now().subtract(const Duration(days: 1));
+    final initial = _selectedPastDate != null && !_selectedPastDate!.isAfter(yesterday)
+        ? _selectedPastDate!
+        : yesterday;
+
+    final picked = await showDialog<dynamic>(
       context: context,
-      initialDate: _selectedDate,
-      firstDate: DateTime(2020),
-      lastDate: DateTime.now().add(const Duration(days: 365)),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.light(
-              primary: Color(0xFFD45A00),
-              onPrimary: Colors.white,
-              onSurface: Color(0xFF2E2E2E),
-            ),
-          ),
-          child: child!,
+      builder: (context) {
+        return _CustomDatePickerDialog(
+          initialDate: initial,
+          firstDate: DateTime(2020),
+          lastDate: yesterday,
         );
       },
     );
-    if (picked != null && picked != _selectedDate) {
+
+    if (picked == 'all_past') {
       setState(() {
-        _selectedDate = picked;
+        _selectedPastDate = null;
+      });
+    } else if (picked is DateTime && picked != _selectedPastDate) {
+      setState(() {
+        _selectedPastDate = picked;
       });
     }
   }
 
   List<HistoryOrderItem> get _filteredOrders {
     final list = List<HistoryOrderItem>.from(_orders);
-    
+    final now = DateTime.now();
+
     // 1. Filter by Selected Date
     var filtered = list.where((order) {
       final d = order.eventAt;
-      return d.year == _selectedDate.year &&
-             d.month == _selectedDate.month &&
-             d.day == _selectedDate.day;
+      final isToday = d.year == now.year && d.month == now.month && d.day == now.day;
+
+      if (_mode == _FilterMode.today) {
+        return isToday;
+      } else {
+        if (_selectedPastDate == null) {
+          // Show all past orders (before today)
+          final todayStart = DateTime(now.year, now.month, now.day);
+          return d.isBefore(todayStart);
+        } else {
+          // Show orders on specific past date
+          return d.year == _selectedPastDate!.year &&
+                 d.month == _selectedPastDate!.month &&
+                 d.day == _selectedPastDate!.day;
+        }
+      }
     }).toList();
 
     // 2. Filter by dropdown option
@@ -510,7 +542,7 @@ class _HistoryPageState extends State<HistoryPage> {
     final selected = _filter.name;
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
       child: Row(
         children: [
           const Text(
@@ -576,8 +608,6 @@ class _HistoryPageState extends State<HistoryPage> {
 
   bool _isPendingStatus(String status) =>
       _matchesAny(status, const ['pending', 'unpaid', 'menunggu']);
-
-
 
   int _toInt(dynamic value) {
     if (value is int) return value;
@@ -651,6 +681,8 @@ class _HistoryPageState extends State<HistoryPage> {
   }
 }
 
+enum _FilterMode { today, past }
+
 enum _UnifiedFilter {
   latest,
   oldest,
@@ -659,4 +691,117 @@ enum _UnifiedFilter {
   booking,
   dineInDirect,
   takeawayPickup,
+}
+
+class _CustomDatePickerDialog extends StatefulWidget {
+  final DateTime initialDate;
+  final DateTime firstDate;
+  final DateTime lastDate;
+
+  const _CustomDatePickerDialog({
+    required this.initialDate,
+    required this.firstDate,
+    required this.lastDate,
+  });
+
+  @override
+  State<_CustomDatePickerDialog> createState() => _CustomDatePickerDialogState();
+}
+
+class _CustomDatePickerDialogState extends State<_CustomDatePickerDialog> {
+  late DateTime _selectedDate;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedDate = widget.initialDate;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+      clipBehavior: Clip.antiAlias,
+      backgroundColor: Colors.white,
+      child: Container(
+        width: 328,
+        padding: const EdgeInsets.fromLTRB(12, 16, 12, 12),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SizedBox(
+              height: 300,
+              child: Theme(
+                data: Theme.of(context).copyWith(
+                  colorScheme: const ColorScheme.light(
+                    primary: Color(0xFFD45A00),
+                    onPrimary: Colors.white,
+                    onSurface: Color(0xFF2E2E2E),
+                  ),
+                ),
+                child: CalendarDatePicker(
+                  initialDate: _selectedDate,
+                  firstDate: widget.firstDate,
+                  lastDate: widget.lastDate,
+                  onDateChanged: (date) {
+                    setState(() {
+                      _selectedDate = date;
+                    });
+                  },
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.of(context).pop('all_past');
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFD45A00),
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  child: const Text(
+                    'Tampilkan semua dimasa lalu',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                const Spacer(),
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  style: TextButton.styleFrom(
+                    foregroundColor: const Color(0xFF666666),
+                  ),
+                  child: const Text(
+                    'Batal',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(_selectedDate),
+                  style: TextButton.styleFrom(
+                    foregroundColor: const Color(0xFFD45A00),
+                  ),
+                  child: const Text(
+                    'OK',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
