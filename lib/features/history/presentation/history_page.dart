@@ -9,6 +9,7 @@ import '../../../shared/widgets/app_dropdown_field.dart';
 import '../../../shared/widgets/app_notice.dart';
 import '../../auth/data/auth_session.dart';
 import '../domain/history_models.dart';
+import 'widgets/order_history_list.dart';
 import 'widgets/payment_history_list.dart';
 import '../../../shared/config/api_config.dart';
 
@@ -35,9 +36,11 @@ class _HistoryPageState extends State<HistoryPage> {
   String? _error;
   bool _requireLogin = false;
   List<HistoryOrderItem> _orders = const [];
+  _HistoryTab _activeTab = _HistoryTab.order;
+  _PaymentSortFilter _paymentFilter = _PaymentSortFilter.newest;
+  _OrderSortFilter _orderFilter = _OrderSortFilter.latest;
   _FilterMode _mode = _FilterMode.today;
   DateTime? _selectedPastDate;
-  _UnifiedFilter _filter = _UnifiedFilter.latest;
   bool _isInitialTabApplied = false;
 
   String get _apiBaseUrl => ApiConfig.apiBaseUrl;
@@ -57,8 +60,10 @@ class _HistoryPageState extends State<HistoryPage> {
     final args = ModalRoute.of(context)?.settings.arguments;
     if (args is! Map) return;
     final tab = (args['tab'] ?? '').toString().toLowerCase();
-    if (tab == 'payment') {
-      _filter = _UnifiedFilter.pending;
+    if (tab == 'order') {
+      _activeTab = _HistoryTab.order;
+    } else if (tab == 'payment') {
+      _activeTab = _HistoryTab.payment;
     }
   }
 
@@ -333,6 +338,7 @@ class _HistoryPageState extends State<HistoryPage> {
       }
       return Column(
         children: [
+          _buildCategoryTabs(),
           _buildFilterBar(),
           _buildSortDropdown(),
           const Expanded(
@@ -367,16 +373,50 @@ class _HistoryPageState extends State<HistoryPage> {
 
     return Column(
       children: [
+        _buildCategoryTabs(),
         _buildFilterBar(),
         _buildSortDropdown(),
         Expanded(
-          child: PaymentHistoryList(
-            orders: filtered,
-            onRefreshRequested: _loadOrders,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          ),
+          child: _activeTab == _HistoryTab.payment
+              ? PaymentHistoryList(
+                  orders: filtered,
+                  onRefreshRequested: _loadOrders,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                )
+              : RefreshIndicator(
+                  onRefresh: _loadOrders,
+                  child: OrderHistoryList(
+                    orders: filtered,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  ),
+                ),
         ),
       ],
+    );
+  }
+
+  Widget _buildCategoryTabs() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        children: [
+          Expanded(
+            child: _CategoryTabButton(
+              label: 'Riwayat Pesanan',
+              isActive: _activeTab == _HistoryTab.order,
+              onTap: () => setState(() => _activeTab = _HistoryTab.order),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: _CategoryTabButton(
+              label: 'Riwayat Pembayaran',
+              isActive: _activeTab == _HistoryTab.payment,
+              onTap: () => setState(() => _activeTab = _HistoryTab.payment),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -485,7 +525,7 @@ class _HistoryPageState extends State<HistoryPage> {
     final now = DateTime.now();
 
     // 1. Filter by Selected Date
-    var filtered = list.where((order) {
+    var dateFiltered = list.where((order) {
       final d = order.eventAt;
       final isToday = d.year == now.year && d.month == now.month && d.day == now.day;
 
@@ -505,48 +545,71 @@ class _HistoryPageState extends State<HistoryPage> {
       }
     }).toList();
 
-    // 2. Filter by dropdown option
-    filtered = filtered.where((order) {
-      switch (_filter) {
-        case _UnifiedFilter.latest:
-        case _UnifiedFilter.oldest:
-          return true;
-        case _UnifiedFilter.paid:
-          return _isPaidStatus(order.paymentMethodLabel);
-        case _UnifiedFilter.pending:
-          return _isPendingStatus(order.paymentMethodLabel);
-        case _UnifiedFilter.booking:
-          return order.orderTypeKey == 'booking';
-        case _UnifiedFilter.dineInDirect:
-          return order.orderTypeKey == 'dine_in';
-        case _UnifiedFilter.takeawayPickup:
-          return order.orderTypeKey == 'pickup';
-      }
-    }).toList();
+    // 2. Tab-specific filtering & sorting
+    if (_activeTab == _HistoryTab.payment) {
+      var filtered = dateFiltered.where((order) {
+        switch (_paymentFilter) {
+          case _PaymentSortFilter.newest:
+          case _PaymentSortFilter.oldest:
+            return true;
+          case _PaymentSortFilter.paid:
+            return _isPaidStatus(order.paymentMethodLabel);
+          case _PaymentSortFilter.pending:
+            return _isPendingStatus(order.paymentMethodLabel);
+          case _PaymentSortFilter.failed:
+            return _isFailedStatus(order.paymentMethodLabel);
+        }
+      }).toList();
 
-    // 3. Sort
-    filtered.sort((a, b) {
-      final ad = a.eventAt;
-      final bd = b.eventAt;
-      if (_filter == _UnifiedFilter.oldest) {
-        return ad.compareTo(bd);
-      }
-      return bd.compareTo(ad); // default: newest first
-    });
+      filtered.sort((a, b) {
+        final ad = a.eventAt;
+        final bd = b.eventAt;
+        if (_paymentFilter == _PaymentSortFilter.oldest) {
+          return ad.compareTo(bd);
+        }
+        return bd.compareTo(ad);
+      });
+      return filtered;
+    } else {
+      var filtered = dateFiltered.where((order) {
+        switch (_orderFilter) {
+          case _OrderSortFilter.latest:
+          case _OrderSortFilter.oldest:
+            return true;
+          case _OrderSortFilter.booking:
+            return order.orderTypeKey == 'booking';
+          case _OrderSortFilter.dineInDirect:
+            return order.orderTypeKey == 'dine_in';
+          case _OrderSortFilter.takeawayPickup:
+            return order.orderTypeKey == 'pickup';
+        }
+      }).toList();
 
-    return filtered;
+      filtered.sort((a, b) {
+        final ad = a.eventAt;
+        final bd = b.eventAt;
+        if (_orderFilter == _OrderSortFilter.oldest) {
+          return ad.compareTo(bd);
+        }
+        return bd.compareTo(ad);
+      });
+      return filtered;
+    }
   }
 
   Widget _buildSortDropdown() {
-    final options = _sortLabels.entries.toList();
-    final selected = _filter.name;
+    final isPayment = _activeTab == _HistoryTab.payment;
+    final options = isPayment
+        ? _paymentSortLabels.entries.toList()
+        : _orderSortLabels.entries.toList();
+    final selected = isPayment ? _paymentFilter.name : _orderFilter.name;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
       child: Row(
         children: [
           const Text(
-            'Filter & Sort:',
+            'Sort by:',
             style: TextStyle(
               color: Color(0xFF666666),
               fontSize: 13,
@@ -572,10 +635,17 @@ class _HistoryPageState extends State<HistoryPage> {
               onChanged: (value) {
                 if (value == null) return;
                 setState(() {
-                  _filter = _UnifiedFilter.values.firstWhere(
-                    (e) => e.name == value,
-                    orElse: () => _UnifiedFilter.latest,
-                  );
+                  if (isPayment) {
+                    _paymentFilter = _PaymentSortFilter.values.firstWhere(
+                      (e) => e.name == value,
+                      orElse: () => _PaymentSortFilter.newest,
+                    );
+                  } else {
+                    _orderFilter = _OrderSortFilter.values.firstWhere(
+                      (e) => e.name == value,
+                      orElse: () => _OrderSortFilter.latest,
+                    );
+                  }
                 });
               },
             ),
@@ -585,14 +655,20 @@ class _HistoryPageState extends State<HistoryPage> {
     );
   }
 
-  Map<String, String> get _sortLabels => const {
+  Map<String, String> get _paymentSortLabels => const {
+    'newest': 'Terbaru',
+    'oldest': 'Terlama',
+    'paid': 'Lunas',
+    'pending': 'Menunggu',
+    'failed': 'Gagal',
+  };
+
+  Map<String, String> get _orderSortLabels => const {
     'latest': 'Terbaru',
     'oldest': 'Terlama',
-    'paid': 'Hanya Lunas',
-    'pending': 'Hanya Belum Bayar',
-    'booking': 'Hanya Booking Meja',
-    'dineInDirect': 'Hanya Dine In',
-    'takeawayPickup': 'Hanya Takeaway/Pickup',
+    'booking': 'Booking',
+    'dineInDirect': 'Dine In Langsung',
+    'takeawayPickup': 'Takeaway/Pickup',
   };
 
   bool _matchesAny(String raw, List<String> keys) {
@@ -608,6 +684,9 @@ class _HistoryPageState extends State<HistoryPage> {
 
   bool _isPendingStatus(String status) =>
       _matchesAny(status, const ['pending', 'unpaid', 'menunggu']);
+
+  bool _isFailedStatus(String status) =>
+      _matchesAny(status, const ['failed', 'expire', 'cancel', 'deny', 'gagal']);
 
   int _toInt(dynamic value) {
     if (value is int) return value;
@@ -683,14 +762,55 @@ class _HistoryPageState extends State<HistoryPage> {
 
 enum _FilterMode { today, past }
 
-enum _UnifiedFilter {
+enum _HistoryTab { order, payment }
+
+enum _PaymentSortFilter { newest, oldest, paid, pending, failed }
+
+enum _OrderSortFilter {
   latest,
   oldest,
-  paid,
-  pending,
   booking,
   dineInDirect,
   takeawayPickup,
+}
+
+class _CategoryTabButton extends StatelessWidget {
+  const _CategoryTabButton({
+    required this.label,
+    required this.isActive,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool isActive;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 10),
+        decoration: BoxDecoration(
+          color: isActive ? Colors.white : Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
+          border: isActive
+              ? Border.all(color: const Color(0xFFD45A00))
+              : Border.all(color: Colors.transparent),
+        ),
+        child: Text(
+          label,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: isActive ? const Color(0xFFD45A00) : const Color(0xFF666666),
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _CustomDatePickerDialog extends StatefulWidget {
