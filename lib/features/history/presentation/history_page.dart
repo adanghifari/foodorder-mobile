@@ -1,6 +1,5 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 
 import '../../../app/app_routes.dart';
 import '../../../shared/widgets/app_back_button.dart';
@@ -12,6 +11,7 @@ import '../domain/history_models.dart';
 import 'widgets/order_history_list.dart';
 import 'widgets/payment_history_list.dart';
 import '../../../shared/config/api_config.dart';
+import '../../../shared/utils/indonesian_date_formatter.dart';
 import '../../../shared/utils/status_localizer.dart';
 
 class HistoryPage extends StatefulWidget {
@@ -143,12 +143,13 @@ class _HistoryPageState extends State<HistoryPage> {
           final menuName = menu is Map<String, dynamic>
               ? (menu['name'] ?? '').toString()
               : '';
-          final name = (e['name'] ??
-                  e['menuName'] ??
-                  e['itemName'] ??
-                  e['foodName'] ??
-                  menuName)
-              .toString();
+          final name =
+              (e['name'] ??
+                      e['menuName'] ??
+                      e['itemName'] ??
+                      e['foodName'] ??
+                      menuName)
+                  .toString();
           final qty = _toInt(e['quantity']);
           final unitPriceRaw = _toInt(e['unitPrice']);
           final priceRaw = _toInt(e['price']);
@@ -156,7 +157,9 @@ class _HistoryPageState extends State<HistoryPage> {
           final unitPrice = unitPriceRaw > 0
               ? unitPriceRaw
               : (qty > 0 ? (priceRaw / qty).round() : priceRaw);
-          final subtotal = subtotalRaw > 0 ? subtotalRaw : (priceRaw > 0 ? priceRaw : unitPrice * qty);
+          final subtotal = subtotalRaw > 0
+              ? subtotalRaw
+              : (priceRaw > 0 ? priceRaw : unitPrice * qty);
           orderItems.add(
             HistoryLineItem(
               name: name.isEmpty ? 'Item' : name,
@@ -166,7 +169,10 @@ class _HistoryPageState extends State<HistoryPage> {
             ),
           );
         }
-        final totalItems = orderItems.fold<int>(0, (sum, e) => sum + e.quantity);
+        final totalItems = orderItems.fold<int>(
+          0,
+          (sum, e) => sum + e.quantity,
+        );
 
         final orderTypeKey = switch (orderTypeRaw) {
           'booking_dine_in' => 'booking',
@@ -200,7 +206,9 @@ class _HistoryPageState extends State<HistoryPage> {
           paymentMethodLabel: paymentStatus,
           paymentMethod: paymentMethod.isEmpty ? '-' : paymentMethod,
           vaNumber: vaNumber.isEmpty ? '-' : vaNumber,
-          paymentExpiry: paymentExpiry.isEmpty ? '-' : paymentExpiry.replaceFirst('T', ' '),
+          paymentExpiry: paymentExpiry.isEmpty
+              ? '-'
+              : formatIndonesianDateTimeFromRaw(paymentExpiry),
           qrisImageUrl: qrisImageUrl,
           paymentUrl: paymentUrl,
           midtransOrderId: midtransOrderId,
@@ -293,7 +301,9 @@ class _HistoryPageState extends State<HistoryPage> {
             children: [
               Icon(
                 _requireLogin ? Icons.lock_outline : Icons.error_outline,
-                color: _requireLogin ? const Color(0xFF9C9C9C) : Colors.redAccent,
+                color: _requireLogin
+                    ? const Color(0xFF9C9C9C)
+                    : Colors.redAccent,
                 size: 40,
               ),
               const SizedBox(height: 10),
@@ -301,7 +311,8 @@ class _HistoryPageState extends State<HistoryPage> {
               const SizedBox(height: 12),
               if (_requireLogin)
                 ElevatedButton(
-                  onPressed: () => Navigator.pushNamed(context, AppRoutes.login),
+                  onPressed: () =>
+                      Navigator.pushNamed(context, AppRoutes.login),
                   child: const Text('Masuk'),
                 )
               else
@@ -341,7 +352,8 @@ class _HistoryPageState extends State<HistoryPage> {
                 ),
                 const SizedBox(height: 12),
                 ElevatedButton(
-                  onPressed: () => Navigator.pushNamed(context, AppRoutes.login),
+                  onPressed: () =>
+                      Navigator.pushNamed(context, AppRoutes.login),
                   child: const Text('Masuk'),
                 ),
               ],
@@ -394,13 +406,19 @@ class _HistoryPageState extends State<HistoryPage> {
               ? PaymentHistoryList(
                   orders: filtered,
                   onRefreshRequested: _loadOrders,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
                 )
               : RefreshIndicator(
                   onRefresh: _loadOrders,
                   child: OrderHistoryList(
                     orders: filtered,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
                   ),
                 ),
         ),
@@ -434,21 +452,16 @@ class _HistoryPageState extends State<HistoryPage> {
   }
 
   Widget _buildFilterBar() {
-    final todayStr = DateFormat('dd-MM-yyyy').format(DateTime.now());
+    final todayStr = formatIndonesianDate(DateTime.now());
     final pastStr = _selectedPastDate != null
-        ? DateFormat('dd-MM-yyyy').format(_selectedPastDate!)
+        ? formatIndonesianDate(_selectedPastDate!)
         : '';
 
     final dropdownOptions = [
-      AppDropdownOption<String>(
-        value: 'today',
-        label: 'Hari ini ($todayStr)',
-      ),
+      AppDropdownOption<String>(value: 'today', label: 'Hari ini ($todayStr)'),
       AppDropdownOption<String>(
         value: 'past',
-        label: _selectedPastDate != null
-            ? pastStr
-            : 'Sebelum hari ini',
+        label: _selectedPastDate != null ? pastStr : 'Sebelum hari ini',
       ),
     ];
 
@@ -470,7 +483,9 @@ class _HistoryPageState extends State<HistoryPage> {
               onChanged: (value) {
                 if (value == null) return;
                 setState(() {
-                  _mode = value == 'today' ? _FilterMode.today : _FilterMode.past;
+                  _mode = value == 'today'
+                      ? _FilterMode.today
+                      : _FilterMode.past;
                   if (_mode == _FilterMode.past) {
                     _selectedPastDate = null;
                   }
@@ -507,7 +522,8 @@ class _HistoryPageState extends State<HistoryPage> {
 
   Future<void> _selectPastDate() async {
     final yesterday = DateTime.now().subtract(const Duration(days: 1));
-    final initial = _selectedPastDate != null && !_selectedPastDate!.isAfter(yesterday)
+    final initial =
+        _selectedPastDate != null && !_selectedPastDate!.isAfter(yesterday)
         ? _selectedPastDate!
         : yesterday;
 
@@ -540,7 +556,8 @@ class _HistoryPageState extends State<HistoryPage> {
     // 1. Filter berdasarkan tanggal yang dipilih
     var dateFiltered = list.where((order) {
       final d = order.eventAt;
-      final isToday = d.year == now.year && d.month == now.month && d.day == now.day;
+      final isToday =
+          d.year == now.year && d.month == now.month && d.day == now.day;
 
       if (_mode == _FilterMode.today) {
         return isToday;
@@ -552,8 +569,8 @@ class _HistoryPageState extends State<HistoryPage> {
         } else {
           // Tampilkan riwayat pada tanggal tertentu
           return d.year == _selectedPastDate!.year &&
-                 d.month == _selectedPastDate!.month &&
-                 d.day == _selectedPastDate!.day;
+              d.month == _selectedPastDate!.month &&
+              d.day == _selectedPastDate!.day;
         }
       }
     }).toList();
@@ -643,7 +660,10 @@ class _HistoryPageState extends State<HistoryPage> {
                 color: Color(0xFF4B5563),
               ),
               options: options
-                  .map((e) => AppDropdownOption<String>(value: e.key, label: e.value))
+                  .map(
+                    (e) =>
+                        AppDropdownOption<String>(value: e.key, label: e.value),
+                  )
                   .toList(),
               onChanged: (value) {
                 if (value == null) return;
@@ -698,8 +718,13 @@ class _HistoryPageState extends State<HistoryPage> {
   bool _isPendingStatus(String status) =>
       _matchesAny(status, const ['pending', 'unpaid', 'menunggu']);
 
-  bool _isFailedStatus(String status) =>
-      _matchesAny(status, const ['failed', 'expire', 'cancel', 'deny', 'gagal']);
+  bool _isFailedStatus(String status) => _matchesAny(status, const [
+    'failed',
+    'expire',
+    'cancel',
+    'deny',
+    'gagal',
+  ]);
 
   int _toInt(dynamic value) {
     if (value is int) return value;
@@ -743,8 +768,9 @@ class _HistoryPageState extends State<HistoryPage> {
     if (parsed == null) return '';
 
     final local = parsed.toLocal();
-    final date = DateFormat('dd/MM/yyyy').format(local);
-    final startTime = DateFormat('HH:mm').format(local);
+    final date = formatIndonesianDate(local);
+    final startTime =
+        '${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
     return '$date $startTime • $durationHours jam';
   }
 
@@ -769,7 +795,7 @@ class _HistoryPageState extends State<HistoryPage> {
 
   String _formatEventDateLabel(DateTime eventAt) {
     if (eventAt.millisecondsSinceEpoch == 0) return '-';
-    return DateFormat('dd-MM-yyyy (HH:mm:ss)').format(eventAt);
+    return formatIndonesianDateTime(eventAt);
   }
 }
 
@@ -779,13 +805,7 @@ enum _HistoryTab { order, payment }
 
 enum _PaymentSortFilter { newest, oldest, paid, pending, failed }
 
-enum _OrderSortFilter {
-  latest,
-  oldest,
-  booking,
-  dineInDirect,
-  takeawayPickup,
-}
+enum _OrderSortFilter { latest, oldest, booking, dineInDirect, takeawayPickup }
 
 class _CategoryTabButton extends StatelessWidget {
   const _CategoryTabButton({
@@ -838,7 +858,8 @@ class _CustomDatePickerDialog extends StatefulWidget {
   });
 
   @override
-  State<_CustomDatePickerDialog> createState() => _CustomDatePickerDialogState();
+  State<_CustomDatePickerDialog> createState() =>
+      _CustomDatePickerDialogState();
 }
 
 class _CustomDatePickerDialogState extends State<_CustomDatePickerDialog> {
@@ -896,17 +917,17 @@ class _CustomDatePickerDialogState extends State<_CustomDatePickerDialog> {
                     backgroundColor: const Color(0xFFD45A00),
                     foregroundColor: Colors.white,
                     elevation: 0,
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 8,
+                    ),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),
                   ),
                   child: const Text(
                     'Tampilkan semua dimasa lalu',
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w800,
-                    ),
+                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800),
                   ),
                 ),
                 const Spacer(),

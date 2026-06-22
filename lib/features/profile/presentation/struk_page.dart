@@ -1,6 +1,5 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 
 import '../../../../shared/config/api_config.dart';
 import '../../../../shared/widgets/app_back_button.dart';
@@ -10,6 +9,7 @@ import '../../../../app/app_routes.dart';
 import '../../history/domain/history_models.dart';
 import 'payment_receipt_page.dart';
 import '../../../../shared/widgets/app_dropdown_field.dart';
+import '../../../../shared/utils/indonesian_date_formatter.dart';
 import '../../../../shared/utils/status_localizer.dart';
 
 class StrukPage extends StatefulWidget {
@@ -76,12 +76,23 @@ class _StrukPageState extends State<StrukPage> {
         final customerEmail = (customerMap['email'] ?? '').toString();
         final status = (item['status'] ?? '-').toString();
         final paymentStatus = (item['paymentStatus'] ?? '-').toString();
-        final paymentMethod = (item['paymentMethod'] ?? item['method'] ?? item['paymentType'] ?? '').toString();
+        final paymentMethod =
+            (item['paymentMethod'] ??
+                    item['method'] ??
+                    item['paymentType'] ??
+                    '')
+                .toString();
         final paymentUrl = (item['paymentUrl'] ?? '').toString();
         final midtransOrderId = (item['midtransOrderId'] ?? '').toString();
         final paymentExpiry = (item['paymentExpiry'] ?? '').toString();
         final qrisImageUrl = (item['qrisImageUrl'] ?? '').toString();
-        final vaNumber = (item['vaNumber'] ?? item['virtualAccountNumber'] ?? item['nomorVa'] ?? item['nomorVA'] ?? '').toString();
+        final vaNumber =
+            (item['vaNumber'] ??
+                    item['virtualAccountNumber'] ??
+                    item['nomorVa'] ??
+                    item['nomorVA'] ??
+                    '')
+                .toString();
         final orderTypeRaw = (item['orderType'] ?? 'dine_in').toString();
         final bookingStartAtRaw = (item['bookingStartAt'] ?? '').toString();
         final durationHours = _toInt(item['durationHours']);
@@ -103,14 +114,26 @@ class _StrukPageState extends State<StrukPage> {
         for (final e in items) {
           if (e is! Map<String, dynamic>) continue;
           final menu = e['menu'];
-          final menuName = menu is Map<String, dynamic> ? (menu['name'] ?? '').toString() : '';
-          final name = (e['name'] ?? e['menuName'] ?? e['itemName'] ?? e['foodName'] ?? menuName).toString();
+          final menuName = menu is Map<String, dynamic>
+              ? (menu['name'] ?? '').toString()
+              : '';
+          final name =
+              (e['name'] ??
+                      e['menuName'] ??
+                      e['itemName'] ??
+                      e['foodName'] ??
+                      menuName)
+                  .toString();
           final qty = _toInt(e['quantity']);
           final unitPriceRaw = _toInt(e['unitPrice']);
           final priceRaw = _toInt(e['price']);
           final subtotalRaw = _toInt(e['subtotal']);
-          final unitPrice = unitPriceRaw > 0 ? unitPriceRaw : (qty > 0 ? (priceRaw / qty).round() : priceRaw);
-          final subtotal = subtotalRaw > 0 ? subtotalRaw : (priceRaw > 0 ? priceRaw : unitPrice * qty);
+          final unitPrice = unitPriceRaw > 0
+              ? unitPriceRaw
+              : (qty > 0 ? (priceRaw / qty).round() : priceRaw);
+          final subtotal = subtotalRaw > 0
+              ? subtotalRaw
+              : (priceRaw > 0 ? priceRaw : unitPrice * qty);
           orderItems.add(
             HistoryLineItem(
               name: name.isEmpty ? 'Item' : name,
@@ -120,8 +143,13 @@ class _StrukPageState extends State<StrukPage> {
             ),
           );
         }
-        final totalItems = orderItems.fold<int>(0, (sum, e) => sum + e.quantity);
-        final orderTypeKey = orderTypeRaw == 'booking_dine_in' ? 'booking' : (orderTypeRaw == 'dine_in' ? 'dine_in' : 'pickup');
+        final totalItems = orderItems.fold<int>(
+          0,
+          (sum, e) => sum + e.quantity,
+        );
+        final orderTypeKey = orderTypeRaw == 'booking_dine_in'
+            ? 'booking'
+            : (orderTypeRaw == 'dine_in' ? 'dine_in' : 'pickup');
         final bookingScheduleLabel = _formatBookingSchedule(
           bookingStartAtRaw: bookingStartAtRaw,
           durationHours: durationHours,
@@ -135,7 +163,9 @@ class _StrukPageState extends State<StrukPage> {
 
         return HistoryOrderItem(
           orderId: orderId,
-          orderCode: orderId.isEmpty ? '-' : 'ORD-${orderId.substring(orderId.length > 6 ? orderId.length - 6 : 0).toUpperCase()}',
+          orderCode: orderId.isEmpty
+              ? '-'
+              : 'ORD-${orderId.substring(orderId.length > 6 ? orderId.length - 6 : 0).toUpperCase()}',
           dateLabel: displayDateLabel,
           eventAt: eventAt,
           orderTypeLabel: orderTypeLabel,
@@ -147,7 +177,9 @@ class _StrukPageState extends State<StrukPage> {
           paymentMethodLabel: paymentStatus,
           paymentMethod: paymentMethod.isEmpty ? '-' : paymentMethod,
           vaNumber: vaNumber.isEmpty ? '-' : vaNumber,
-          paymentExpiry: paymentExpiry.isEmpty ? '-' : paymentExpiry.replaceFirst('T', ' '),
+          paymentExpiry: paymentExpiry.isEmpty
+              ? '-'
+              : formatIndonesianDateTimeFromRaw(paymentExpiry),
           qrisImageUrl: qrisImageUrl,
           paymentUrl: paymentUrl,
           midtransOrderId: midtransOrderId,
@@ -160,7 +192,9 @@ class _StrukPageState extends State<StrukPage> {
 
       final paidOrders = allOrders.where((order) {
         final statusUp = order.paymentMethodLabel.toUpperCase();
-        return statusUp == 'PAID' || statusUp == 'SUCCESS' || statusUp == 'SETTLEMENT';
+        return statusUp == 'PAID' ||
+            statusUp == 'SUCCESS' ||
+            statusUp == 'SETTLEMENT';
       }).toList();
 
       if (!mounted) return;
@@ -189,7 +223,8 @@ class _StrukPageState extends State<StrukPage> {
     required String paidAtRaw,
     required String createdAtRaw,
   }) {
-    final isPaid = paymentStatus.toUpperCase() == 'PAID' ||
+    final isPaid =
+        paymentStatus.toUpperCase() == 'PAID' ||
         paymentStatus.toUpperCase() == 'SUCCESS' ||
         paymentStatus.toUpperCase() == 'SETTLEMENT';
     final selectedRaw = isPaid
@@ -206,7 +241,7 @@ class _StrukPageState extends State<StrukPage> {
 
   String _formatEventDateLabel(DateTime eventAt) {
     if (eventAt.millisecondsSinceEpoch == 0) return '-';
-    return DateFormat('dd-MM-yyyy (HH:mm:ss)').format(eventAt);
+    return formatIndonesianDateTime(eventAt);
   }
 
   String _formatBookingSchedule({
@@ -217,8 +252,9 @@ class _StrukPageState extends State<StrukPage> {
     final parsed = DateTime.tryParse(bookingStartAtRaw);
     if (parsed == null) return '';
     final local = parsed.toLocal();
-    final date = DateFormat('dd/MM/yyyy').format(local);
-    final startTime = DateFormat('HH:mm').format(local);
+    final date = formatIndonesianDate(local);
+    final startTime =
+        '${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
     return '$date $startTime • $durationHours jam';
   }
 
@@ -229,16 +265,10 @@ class _StrukPageState extends State<StrukPage> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        leading: const AppBackButton(
-          color: Colors.black,
-          size: 20,
-        ),
+        leading: const AppBackButton(color: Colors.black, size: 20),
         title: const Text(
           'Struk Saya',
-          style: TextStyle(
-            color: Colors.black,
-            fontWeight: FontWeight.bold,
-          ),
+          style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
         ),
         centerTitle: true,
       ),
@@ -271,10 +301,7 @@ class _StrukPageState extends State<StrukPage> {
             ),
             child: const Text(
               'Kembali ke Beranda',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w800,
-              ),
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
             ),
           ),
         ),
@@ -321,11 +348,7 @@ class _StrukPageState extends State<StrukPage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                Icons.receipt_outlined,
-                color: Colors.grey,
-                size: 48,
-              ),
+              Icon(Icons.receipt_outlined, color: Colors.grey, size: 48),
               SizedBox(height: 12),
               Text(
                 'Belum ada struk pembayaran yang berhasil.',
@@ -350,11 +373,7 @@ class _StrukPageState extends State<StrukPage> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(
-                      Icons.receipt_outlined,
-                      color: Colors.grey,
-                      size: 48,
-                    ),
+                    Icon(Icons.receipt_outlined, color: Colors.grey, size: 48),
                     SizedBox(height: 12),
                     Text(
                       'Belum ada struk pembayaran pada tanggal ini.',
@@ -373,9 +392,7 @@ class _StrukPageState extends State<StrukPage> {
     return Column(
       children: [
         _buildFilterBar(),
-        Expanded(
-          child: _buildReceiptsList(filtered),
-        ),
+        Expanded(child: _buildReceiptsList(filtered)),
       ],
     );
   }
@@ -386,7 +403,8 @@ class _StrukPageState extends State<StrukPage> {
 
     return list.where((order) {
       final d = order.eventAt;
-      final isToday = d.year == now.year && d.month == now.month && d.day == now.day;
+      final isToday =
+          d.year == now.year && d.month == now.month && d.day == now.day;
 
       if (_mode == _FilterMode.today) {
         return isToday;
@@ -398,29 +416,24 @@ class _StrukPageState extends State<StrukPage> {
         } else {
           // Show orders on specific past date
           return d.year == _selectedPastDate!.year &&
-                 d.month == _selectedPastDate!.month &&
-                 d.day == _selectedPastDate!.day;
+              d.month == _selectedPastDate!.month &&
+              d.day == _selectedPastDate!.day;
         }
       }
     }).toList();
   }
 
   Widget _buildFilterBar() {
-    final todayStr = DateFormat('dd-MM-yyyy').format(DateTime.now());
+    final todayStr = formatIndonesianDate(DateTime.now());
     final pastStr = _selectedPastDate != null
-        ? DateFormat('dd-MM-yyyy').format(_selectedPastDate!)
+        ? formatIndonesianDate(_selectedPastDate!)
         : '';
 
     final dropdownOptions = [
-      AppDropdownOption<String>(
-        value: 'today',
-        label: 'Hari ini ($todayStr)',
-      ),
+      AppDropdownOption<String>(value: 'today', label: 'Hari ini ($todayStr)'),
       AppDropdownOption<String>(
         value: 'past',
-        label: _selectedPastDate != null
-            ? pastStr
-            : 'Sebelum Hari ini',
+        label: _selectedPastDate != null ? pastStr : 'Sebelum Hari ini',
       ),
     ];
 
@@ -442,7 +455,9 @@ class _StrukPageState extends State<StrukPage> {
               onChanged: (value) {
                 if (value == null) return;
                 setState(() {
-                  _mode = value == 'today' ? _FilterMode.today : _FilterMode.past;
+                  _mode = value == 'today'
+                      ? _FilterMode.today
+                      : _FilterMode.past;
                   if (_mode == _FilterMode.past) {
                     _selectedPastDate = null;
                   }
@@ -479,7 +494,8 @@ class _StrukPageState extends State<StrukPage> {
 
   Future<void> _selectPastDate() async {
     final yesterday = DateTime.now().subtract(const Duration(days: 1));
-    final initial = _selectedPastDate != null && !_selectedPastDate!.isAfter(yesterday)
+    final initial =
+        _selectedPastDate != null && !_selectedPastDate!.isAfter(yesterday)
         ? _selectedPastDate!
         : yesterday;
 
@@ -566,17 +582,17 @@ class _StrukPageState extends State<StrukPage> {
                   backgroundColor: const Color(0xFFD45A00),
                   foregroundColor: Colors.white,
                   elevation: 0,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 10,
+                  ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10),
                   ),
                 ),
                 child: const Text(
                   'Buka Struk',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w800,
-                  ),
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
                 ),
               ),
             ],
@@ -601,7 +617,8 @@ class _CustomDatePickerDialog extends StatefulWidget {
   });
 
   @override
-  State<_CustomDatePickerDialog> createState() => _CustomDatePickerDialogState();
+  State<_CustomDatePickerDialog> createState() =>
+      _CustomDatePickerDialogState();
 }
 
 class _CustomDatePickerDialogState extends State<_CustomDatePickerDialog> {
@@ -659,17 +676,17 @@ class _CustomDatePickerDialogState extends State<_CustomDatePickerDialog> {
                     backgroundColor: const Color(0xFFD45A00),
                     foregroundColor: Colors.white,
                     elevation: 0,
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 8,
+                    ),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),
                   ),
                   child: const Text(
                     'Tampilkan semua dimasa lalu',
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w800,
-                    ),
+                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800),
                   ),
                 ),
                 const Spacer(),

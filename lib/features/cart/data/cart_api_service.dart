@@ -1,10 +1,10 @@
 import 'package:dio/dio.dart';
-import 'package:intl/intl.dart';
 
 import '../../auth/data/auth_session.dart';
 import '../../../shared/config/api_config.dart';
 import '../../history/domain/history_models.dart';
 import '../../../shared/utils/status_localizer.dart';
+import '../../../shared/utils/indonesian_date_formatter.dart';
 
 class CartItemDto {
   const CartItemDto({
@@ -93,12 +93,13 @@ class CartApiService {
       final rows = map['data'] as List<dynamic>? ?? const [];
       return rows.map((row) {
         final item = row as Map<String, dynamic>;
-        final rawImage = (item['imageUrl'] ??
-                item['image_url'] ??
-                item['image'] ??
-                item['photo'] ??
-                '')
-            .toString();
+        final rawImage =
+            (item['imageUrl'] ??
+                    item['image_url'] ??
+                    item['image'] ??
+                    item['photo'] ??
+                    '')
+                .toString();
         return CartItemDto(
           menuId: (item['menuId'] ?? '').toString(),
           name: (item['name'] ?? '').toString(),
@@ -245,8 +246,8 @@ class CartApiService {
         message: (data['message'] ?? '').toString(),
         nextBookingStartAt: (data['nextBookingStartAt'] ?? '').toString(),
         blockedStartAt: (data['blockedStartAt'] ?? '').toString(),
-        availableDurationLabel:
-            (data['availableDurationLabel'] ?? '').toString(),
+        availableDurationLabel: (data['availableDurationLabel'] ?? '')
+            .toString(),
         minutesUntilBlocked: _toInt(data['minutesUntilBlocked']),
       );
     } on DioException catch (e) {
@@ -342,12 +343,23 @@ class CartApiService {
         final customerEmail = (customerMap['email'] ?? '').toString();
         final status = (item['status'] ?? '-').toString();
         final paymentStatus = (item['paymentStatus'] ?? '-').toString();
-        final paymentMethod = (item['paymentMethod'] ?? item['method'] ?? item['paymentType'] ?? '').toString();
+        final paymentMethod =
+            (item['paymentMethod'] ??
+                    item['method'] ??
+                    item['paymentType'] ??
+                    '')
+                .toString();
         final paymentUrl = (item['paymentUrl'] ?? '').toString();
         final midtransOrderId = (item['midtransOrderId'] ?? '').toString();
         final paymentExpiry = (item['paymentExpiry'] ?? '').toString();
         final qrisImageUrl = (item['qrisImageUrl'] ?? '').toString();
-        final vaNumber = (item['vaNumber'] ?? item['virtualAccountNumber'] ?? item['nomorVa'] ?? item['nomorVA'] ?? '').toString();
+        final vaNumber =
+            (item['vaNumber'] ??
+                    item['virtualAccountNumber'] ??
+                    item['nomorVa'] ??
+                    item['nomorVA'] ??
+                    '')
+                .toString();
         final orderTypeRaw = (item['orderType'] ?? 'dine_in').toString();
         final bookingStartAtRaw = (item['bookingStartAt'] ?? '').toString();
         final durationHours = _toInt(item['durationHours']);
@@ -369,14 +381,26 @@ class CartApiService {
         for (final e in items) {
           if (e is! Map<String, dynamic>) continue;
           final menu = e['menu'];
-          final menuName = menu is Map<String, dynamic> ? (menu['name'] ?? '').toString() : '';
-          final name = (e['name'] ?? e['menuName'] ?? e['itemName'] ?? e['foodName'] ?? menuName).toString();
+          final menuName = menu is Map<String, dynamic>
+              ? (menu['name'] ?? '').toString()
+              : '';
+          final name =
+              (e['name'] ??
+                      e['menuName'] ??
+                      e['itemName'] ??
+                      e['foodName'] ??
+                      menuName)
+                  .toString();
           final qty = _toInt(e['quantity']);
           final unitPriceRaw = _toInt(e['unitPrice']);
           final priceRaw = _toInt(e['price']);
           final subtotalRaw = _toInt(e['subtotal']);
-          final unitPrice = unitPriceRaw > 0 ? unitPriceRaw : (qty > 0 ? (priceRaw / qty).round() : priceRaw);
-          final subtotal = subtotalRaw > 0 ? subtotalRaw : (priceRaw > 0 ? priceRaw : unitPrice * qty);
+          final unitPrice = unitPriceRaw > 0
+              ? unitPriceRaw
+              : (qty > 0 ? (priceRaw / qty).round() : priceRaw);
+          final subtotal = subtotalRaw > 0
+              ? subtotalRaw
+              : (priceRaw > 0 ? priceRaw : unitPrice * qty);
           orderItems.add(
             HistoryLineItem(
               name: name.isEmpty ? 'Item' : name,
@@ -386,8 +410,13 @@ class CartApiService {
             ),
           );
         }
-        final totalItems = orderItems.fold<int>(0, (sum, e) => sum + e.quantity);
-        final orderTypeKey = orderTypeRaw == 'booking_dine_in' ? 'booking' : (orderTypeRaw == 'dine_in' ? 'dine_in' : 'pickup');
+        final totalItems = orderItems.fold<int>(
+          0,
+          (sum, e) => sum + e.quantity,
+        );
+        final orderTypeKey = orderTypeRaw == 'booking_dine_in'
+            ? 'booking'
+            : (orderTypeRaw == 'dine_in' ? 'dine_in' : 'pickup');
         final bookingScheduleLabel = _formatBookingSchedule(
           bookingStartAtRaw: bookingStartAtRaw,
           durationHours: durationHours,
@@ -401,7 +430,9 @@ class CartApiService {
 
         return HistoryOrderItem(
           orderId: curOrderId,
-          orderCode: curOrderId.isEmpty ? '-' : 'ORD-${curOrderId.substring(curOrderId.length > 6 ? curOrderId.length - 6 : 0).toUpperCase()}',
+          orderCode: curOrderId.isEmpty
+              ? '-'
+              : 'ORD-${curOrderId.substring(curOrderId.length > 6 ? curOrderId.length - 6 : 0).toUpperCase()}',
           dateLabel: displayDateLabel,
           eventAt: eventAt,
           orderTypeLabel: orderTypeLabel,
@@ -413,7 +444,9 @@ class CartApiService {
           paymentMethodLabel: paymentStatus,
           paymentMethod: paymentMethod.isEmpty ? '-' : paymentMethod,
           vaNumber: vaNumber.isEmpty ? '-' : vaNumber,
-          paymentExpiry: paymentExpiry.isEmpty ? '-' : paymentExpiry.replaceFirst('T', ' '),
+          paymentExpiry: paymentExpiry.isEmpty
+              ? '-'
+              : formatIndonesianDateTimeFromRaw(paymentExpiry),
           qrisImageUrl: qrisImageUrl,
           paymentUrl: paymentUrl,
           midtransOrderId: midtransOrderId,
@@ -434,7 +467,8 @@ class CartApiService {
     required String paidAtRaw,
     required String createdAtRaw,
   }) {
-    final isPaid = paymentStatus.toUpperCase() == 'PAID' ||
+    final isPaid =
+        paymentStatus.toUpperCase() == 'PAID' ||
         paymentStatus.toUpperCase() == 'SUCCESS' ||
         paymentStatus.toUpperCase() == 'SETTLEMENT';
     final selectedRaw = isPaid
@@ -451,7 +485,7 @@ class CartApiService {
 
   String _formatEventDateLabel(DateTime eventAt) {
     if (eventAt.millisecondsSinceEpoch == 0) return '-';
-    return DateFormat('dd-MM-yyyy (HH:mm:ss)').format(eventAt);
+    return formatIndonesianDateTime(eventAt);
   }
 
   String _formatBookingSchedule({
@@ -462,8 +496,9 @@ class CartApiService {
     final parsed = DateTime.tryParse(bookingStartAtRaw);
     if (parsed == null) return '';
     final local = parsed.toLocal();
-    final date = DateFormat('dd/MM/yyyy').format(local);
-    final startTime = DateFormat('HH:mm').format(local);
+    final date = formatIndonesianDate(local);
+    final startTime =
+        '${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
     return '$date $startTime • $durationHours jam';
   }
 }
