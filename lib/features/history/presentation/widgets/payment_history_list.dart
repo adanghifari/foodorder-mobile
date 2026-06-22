@@ -461,6 +461,43 @@ class _PaymentHistoryCard extends StatelessWidget {
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
+                    onPressed: () async {
+                      Navigator.of(sheetContext).pop();
+                      if (order.paymentUrl.isNotEmpty && order.paymentUrl != '-') {
+                        try {
+                          await _openMidtrans(context, order.paymentUrl);
+                        } catch (e) {
+                          if (context.mounted) {
+                            AppNotice.show(
+                              context,
+                              AppNotice.humanizeMessage(e),
+                              type: AppNoticeType.error,
+                            );
+                          }
+                        }
+                      } else {
+                        await _continuePayment(context);
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF1D4ED8),
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(vertical: 11),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    child: const Text(
+                      'Ke Midtrans Payment',
+                      style: TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
                     onPressed: () => Navigator.of(sheetContext).pop(),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: _accent,
