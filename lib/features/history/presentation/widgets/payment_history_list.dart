@@ -105,10 +105,10 @@ class _PaymentHistoryCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 10),
-          _kv('Order ID', order.orderCode),
+          _kv('ID Pesanan', order.orderCode),
           _kv('Metode/Status', order.paymentMethodLabel),
           _kv('Metode Bayar', order.paymentMethod),
-          _kv('Status Order', order.status),
+          _kv('Status Pesanan', order.status),
           const SizedBox(height: 10),
           Row(
             children: [
@@ -244,9 +244,9 @@ class _PaymentHistoryCard extends StatelessWidget {
                       _detailRow('Kode', order.orderCode),
                       _detailRow('Tanggal Bayar', order.dateLabel),
                       _detailRow('Metode/Status', order.paymentMethodLabel),
-                      _detailRow('Payment Method', order.paymentMethod),
+                      _detailRow('Metode Bayar', order.paymentMethod),
                       _detailRow('Nomor VA', order.vaNumber),
-                      _detailRow('Status Order', order.status),
+                      _detailRow('Status Pesanan', order.status),
                       _detailRow('Nominal', idr(order.totalPrice), isLast: true),
                     ],
                   ),
@@ -293,7 +293,7 @@ class _PaymentHistoryCard extends StatelessWidget {
       buttons.add(const SizedBox(height: 8));
       buttons.add(
         _actionButton(
-          label: 'Pilih Payment Method',
+          label: 'Pilih Metode Bayar',
           onTap: () => _continuePayment(context),
         ),
       );
@@ -489,7 +489,7 @@ class _PaymentHistoryCard extends StatelessWidget {
                       ),
                     ),
                     child: const Text(
-                      'Ke Midtrans Payment',
+                      'Lanjut ke Pembayaran Midtrans',
                       style: TextStyle(fontWeight: FontWeight.w700),
                     ),
                   ),
@@ -827,6 +827,14 @@ class _PaymentStatusChip extends StatelessWidget {
     final bg = isPaid ? const Color(0xFFE8F7EC) : const Color(0xFFFFF4E8);
     final fg = isPaid ? const Color(0xFF2E7D32) : const Color(0xFFAF5A00);
 
+    final label = switch (statusUp) {
+      'PAID' || 'SUCCESS' || 'SETTLEMENT' => 'LUNAS',
+      'PENDING' || 'UNPAID' => 'MENUNGGU',
+      'FAILED' || 'DENY' => 'GAGAL',
+      'CANCEL' || 'CANCELLED' || 'CANCELED' => 'DIBATALKAN',
+      'EXPIRE' || 'EXPIRED' => 'KEDALUWARSA',
+      _ => statusUp,
+    };
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
@@ -834,7 +842,7 @@ class _PaymentStatusChip extends StatelessWidget {
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
-        status,
+        label,
         style: TextStyle(color: fg, fontSize: 11, fontWeight: FontWeight.w800),
       ),
     );

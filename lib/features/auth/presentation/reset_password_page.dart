@@ -112,7 +112,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                 children: [
                   const SizedBox(height: 24),
                   const Text(
-                    'Reset Password',
+                    'Atur Ulang Password',
                     style: TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.bold,

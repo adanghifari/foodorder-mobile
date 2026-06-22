@@ -457,7 +457,7 @@ class _PaymentReceiptPageState extends State<PaymentReceiptPage> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'STATUS PAYMENT',
+                                'STATUS PEMBAYARAN',
                                 style: TextStyle(
                                   color: paymentTextColor,
                                   fontSize: 12,
@@ -755,7 +755,7 @@ class _PaymentReceiptPageState extends State<PaymentReceiptPage> {
                                   ),
                                 ),
                                 child: const Text(
-                                  'Download PDF',
+                                  'Unduh PDF',
                                   style: TextStyle(
                                     fontWeight: FontWeight.bold,
                                     fontSize: 14,

@@ -84,7 +84,7 @@ class _LoginPageState extends State<LoginPage> {
                       ),
                       const SizedBox(width: 8),
                       const Text(
-                        'Remember me',
+                        'Ingat saya',
                         style: TextStyle(fontSize: 13, color: Colors.black54),
                       ),
                       const Spacer(),
@@ -93,7 +93,7 @@ class _LoginPageState extends State<LoginPage> {
                           Navigator.pushNamed(context, AppRoutes.forgotPassword);
                         },
                         child: const Text(
-                          'Forgot Password ?',
+                          'Lupa Password?',
                           style: TextStyle(
                             fontSize: 13,
                             color: Color(0xFF1565C0),
@@ -273,7 +273,7 @@ class _LoginPageState extends State<LoginPage> {
           ),
         ),
         child: Text(
-          _isSubmitting ? 'Loading...' : 'Log In',
+          _isSubmitting ? 'Masuk...' : 'Masuk',
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w600,

@@ -71,7 +71,7 @@ class _OrderHistoryCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 10),
-          _kv('Order ID', order.orderCode),
+          _kv('ID Pesanan', order.orderCode),
           _kv('Tipe', order.orderTypeLabel),
           _kv('Jumlah Item', '${order.totalItems} item'),
           _kv('Status Bayar', order.paymentMethodLabel),
@@ -221,7 +221,7 @@ class _OrderHistoryCard extends StatelessWidget {
         _detailRow('Tipe', order.orderTypeLabel),
         _detailItemRow(context),
         _detailRow('Status Bayar', order.paymentMethodLabel),
-        _detailRow('Status Order', order.status),
+        _detailRow('Status Pesanan', order.status),
         _detailRow('Total', idr(order.totalPrice), isLast: true),
       ],
     );
@@ -507,6 +507,16 @@ class _StatusChip extends StatelessWidget {
     final bg = isDone ? const Color(0xFFE8F7EC) : const Color(0xFFFFF4E8);
     final fg = isDone ? const Color(0xFF2E7D32) : const Color(0xFFAF5A00);
 
+    final label = switch (statusUp) {
+      'CONFIRMED' => 'DIKONFIRMASI',
+      'PENDING' || 'PENDING_PAYMENT' => 'MENUNGGU',
+      'PROCESSING' => 'DIPROSES',
+      'READY' => 'SIAP',
+      'DELIVERED' => 'SELESAI',
+      'SUCCESS' => 'SELESAI',
+      'CANCELED' || 'CANCELLED' || 'PAYMENT_FAILED' => 'DIBATALKAN',
+      _ => status,
+    };
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
@@ -514,7 +524,7 @@ class _StatusChip extends StatelessWidget {
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
-        status,
+        label,
         style: TextStyle(color: fg, fontSize: 11, fontWeight: FontWeight.w800),
       ),
     );
