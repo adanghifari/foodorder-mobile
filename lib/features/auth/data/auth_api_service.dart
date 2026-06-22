@@ -25,7 +25,7 @@ class AuthApiService {
     } on DioException catch (e) {
       throw Exception(_extractDioMessage(e));
     } catch (e) {
-      throw Exception('Register gagal: $e');
+      throw Exception('Pendaftaran gagal: $e');
     }
   }
 
@@ -53,7 +53,7 @@ class AuthApiService {
     } on DioException catch (e) {
       throw Exception(_extractDioMessage(e));
     } catch (e) {
-      throw Exception('Login gagal: $e');
+      throw Exception('Masuk gagal: $e');
     }
   }
 

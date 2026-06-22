@@ -32,8 +32,8 @@ class TentangPage extends StatelessWidget {
           const SizedBox(height: 10),
 
           // Menu Informasi Utama
-          _buildAboutTile("FAQ"),
-          _buildAboutTile("Masukan Aplikasi"),
+          _buildAboutTile("Tanya jawab"),
+          _buildAboutTile("Saran aplikasi"),
           _buildAboutTile("Kebijakan Privasi"),
           _buildAboutTile("Syarat & Ketentuan"),
 

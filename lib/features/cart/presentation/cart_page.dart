@@ -642,7 +642,7 @@ class _CartPageState extends State<CartPage> {
             const SizedBox(height: 12),
             ElevatedButton(
               onPressed: _goToMenuAndResetOrderType,
-              child: const Text('Pilih Menu'),
+              child: const Text('Pilih menu'),
             ),
           ],
         ),
@@ -664,7 +664,7 @@ class _CartPageState extends State<CartPage> {
                 border: Border.all(color: const Color(0xFFF0D7BB)),
               ),
               child: const Text(
-                'Ini keranjang anda!',
+                'Ini keranjangmu!',
                 style: TextStyle(
                   fontSize: 12,
                   color: Color(0xFF8A5A2B),
@@ -707,7 +707,7 @@ class _CartPageState extends State<CartPage> {
                   Expanded(
                     child: Text(
                       _orderType == OrderType.onSpotDineIn
-                          ? 'Dine-in'
+                      ? 'Makan di tempat'
                           : 'Booking meja',
                       style: const TextStyle(
                         color: Color(0xFF6B7280),
@@ -741,7 +741,7 @@ class _CartPageState extends State<CartPage> {
                   ),
                   AppDropdownOption<OrderType>(
                     value: OrderType.pickup,
-                    label: 'Pickup (tanpa QR)',
+                    label: 'Ambil sendiri (tanpa QR)',
                     icon: Icons.storefront,
                   ),
                 ],
@@ -820,7 +820,7 @@ class _CartPageState extends State<CartPage> {
                       ),
                     ),
                     child: const Text(
-                      'Tambah Item',
+                      'Tambah menu',
                       style: TextStyle(
                         color: _lightBrownColor,
                         fontWeight: FontWeight.bold,
@@ -934,7 +934,7 @@ class _CartPageState extends State<CartPage> {
           Expanded(
             child: Text(
               tableNumber == null
-                  ? 'Belum ada meja. Scan QR meja dulu.'
+                  ? 'Belum ada meja. Pindai QR meja dulu.'
                   : 'Meja $tableNumber',
               style: TextStyle(
                 color: tableNumber == null
@@ -955,7 +955,7 @@ class _CartPageState extends State<CartPage> {
                   size: 20,
                   color: Color(0xFFC7985F),
                 ),
-                tooltip: 'Scan QR Meja',
+                tooltip: 'Pindai QR meja',
                 padding: EdgeInsets.zero,
               ),
             ),

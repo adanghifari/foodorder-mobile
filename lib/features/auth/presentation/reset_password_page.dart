@@ -40,17 +40,17 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
     final confirm = _confirmPasswordController.text;
 
     if (password.isEmpty || confirm.isEmpty) {
-      AppNotice.show(context, 'Silakan isi kedua kolom password.', type: AppNoticeType.error);
+      AppNotice.show(context, 'Silakan isi kedua kolom kata sandi.', type: AppNoticeType.error);
       return;
     }
 
     if (password.length < 6) {
-      AppNotice.show(context, 'Password minimal terdiri dari 6 karakter.', type: AppNoticeType.error);
+      AppNotice.show(context, 'Kata sandi minimal terdiri dari 6 karakter.', type: AppNoticeType.error);
       return;
     }
 
     if (password != confirm) {
-      AppNotice.show(context, 'Konfirmasi password tidak cocok.', type: AppNoticeType.error);
+      AppNotice.show(context, 'Konfirmasi kata sandi tidak cocok.', type: AppNoticeType.error);
       return;
     }
 
@@ -67,7 +67,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
       if (mounted) {
         await AppNotice.confirm(
           context,
-          message: 'Password Anda berhasil diubah. Silakan masuk dengan password baru Anda.',
+          message: 'Kata sandi Anda berhasil diubah. Silakan masuk dengan kata sandi baru Anda.',
           type: AppNoticeType.success,
         );
         if (mounted) {
@@ -112,7 +112,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                 children: [
                   const SizedBox(height: 24),
                   const Text(
-                    'Atur Ulang Password',
+                    'Atur ulang kata sandi',
                     style: TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.bold,
@@ -121,14 +121,14 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                   ),
                   const SizedBox(height: 8),
                   const Text(
-                    'Masukkan password baru Anda di bawah ini.',
+                    'Masukkan kata sandi baru Anda di bawah ini.',
                     style: TextStyle(
                       fontSize: 14,
                       color: Colors.black54,
                     ),
                   ),
                   const SizedBox(height: 28),
-                  _buildLabel('Password Baru'),
+                  _buildLabel('Kata sandi baru'),
                   const SizedBox(height: 6),
                   _buildPasswordInput(
                     controller: _passwordController,
@@ -136,7 +136,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                     onToggle: () => setState(() => _isObscurePassword = !_isObscurePassword),
                   ),
                   const SizedBox(height: 18),
-                  _buildLabel('Konfirmasi Password Baru'),
+                  _buildLabel('Konfirmasi kata sandi baru'),
                   const SizedBox(height: 6),
                   _buildPasswordInput(
                     controller: _confirmPasswordController,
@@ -263,7 +263,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
           ),
         ),
         child: Text(
-          _isSubmitting ? 'Menyimpan...' : 'Ubah Password',
+          _isSubmitting ? 'Menyimpan...' : 'Ubah kata sandi',
           style: const TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w600,

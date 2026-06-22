@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../domain/history_models.dart';
+import '../../../../shared/utils/status_localizer.dart';
 
 class OrderHistoryList extends StatelessWidget {
   const OrderHistoryList({
@@ -74,7 +75,7 @@ class _OrderHistoryCard extends StatelessWidget {
           _kv('ID Pesanan', order.orderCode),
           _kv('Tipe', order.orderTypeLabel),
           _kv('Jumlah Item', '${order.totalItems} item'),
-          _kv('Status Bayar', order.paymentMethodLabel),
+          _kv('Status Pembayaran', localizedPaymentStatusLabel(order.paymentMethodLabel)),
           const SizedBox(height: 10),
           Row(
             children: [
@@ -220,8 +221,8 @@ class _OrderHistoryCard extends StatelessWidget {
         _detailRow('Tanggal', order.dateLabel),
         _detailRow('Tipe', order.orderTypeLabel),
         _detailItemRow(context),
-        _detailRow('Status Bayar', order.paymentMethodLabel),
-        _detailRow('Status Pesanan', order.status),
+        _detailRow('Status Pembayaran', localizedPaymentStatusLabel(order.paymentMethodLabel)),
+        _detailRow('Status Pesanan', localizedOrderStatusLabel(order.status)),
         _detailRow('Total', idr(order.totalPrice), isLast: true),
       ],
     );
@@ -236,7 +237,7 @@ class _OrderHistoryCard extends StatelessWidget {
           const SizedBox(
             width: 92,
             child: Text(
-              'Jumlah Item',
+          'Jumlah item',
               style: TextStyle(
                 color: Color(0xFF666666),
                 fontSize: 12.5,
@@ -263,7 +264,7 @@ class _OrderHistoryCard extends StatelessWidget {
                 borderRadius: BorderRadius.circular(8),
               ),
               child: const Text(
-                'Detail Item',
+                'Rincian Item',
                 style: TextStyle(
                   color: _accent,
                   fontSize: 10.5,
@@ -507,16 +508,7 @@ class _StatusChip extends StatelessWidget {
     final bg = isDone ? const Color(0xFFE8F7EC) : const Color(0xFFFFF4E8);
     final fg = isDone ? const Color(0xFF2E7D32) : const Color(0xFFAF5A00);
 
-    final label = switch (statusUp) {
-      'CONFIRMED' => 'DIKONFIRMASI',
-      'PENDING' || 'PENDING_PAYMENT' => 'MENUNGGU',
-      'PROCESSING' => 'DIPROSES',
-      'READY' => 'SIAP',
-      'DELIVERED' => 'SELESAI',
-      'SUCCESS' => 'SELESAI',
-      'CANCELED' || 'CANCELLED' || 'PAYMENT_FAILED' => 'DIBATALKAN',
-      _ => status,
-    };
+    final label = localizedOrderStatusLabel(status);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(

@@ -105,7 +105,7 @@ class _ScanPageState extends State<ScanPage> {
       appBar: AppBar(
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
-        title: const Text('Scan QR'),
+        title: const Text('Pindai QR'),
       ),
       body: Stack(
         fit: StackFit.expand,

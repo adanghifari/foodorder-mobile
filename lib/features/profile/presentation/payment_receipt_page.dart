@@ -10,6 +10,7 @@ import '../../../../shared/widgets/app_notice.dart';
 import '../../auth/data/auth_session.dart';
 import '../../history/domain/history_models.dart';
 import '../../payment/presentation/midtrans_webview_page.dart';
+import '../../../../shared/utils/status_localizer.dart';
 
 class PaymentReceiptPage extends StatefulWidget {
   const PaymentReceiptPage({super.key, required this.order});
@@ -242,30 +243,6 @@ class _PaymentReceiptPageState extends State<PaymentReceiptPage> {
     }
   }
 
-  String _getPaymentStatusLabel(String paymentStatus) {
-    final status = paymentStatus.toUpperCase();
-    return switch (status) {
-      'PAID' || 'SUCCESS' || 'SETTLEMENT' => 'LUNAS',
-      'FAILED' => 'GAGAL',
-      'CANCELED' => 'DIBATALKAN',
-      'EXPIRED' => 'KEDALUWARSA',
-      _ => 'MENUNGGU',
-    };
-  }
-
-  String _getOrderStatusLabel(String status) {
-    final orderStatus = status.toUpperCase();
-    return switch (orderStatus) {
-      'PENDING_PAYMENT' => 'Menunggu Pembayaran',
-      'PAYMENT_FAILED' => 'Pembayaran Gagal',
-      'CONFIRMED' => 'Terkonfirmasi',
-      'IN_QUEUE' => 'Dalam Antrean',
-      'IN_PROGRESS' => 'Sedang Diproses',
-      'DELIVERED' => 'Disajikan',
-      _ => status.replaceAll('_', ' '),
-    };
-  }
-
   Widget _receiptRow(String key, String value,
       {bool isLast = false, FontWeight fontWeight = FontWeight.w600, Color textColor = const Color(0xFF374151)}) {
     return Padding(
@@ -348,7 +325,7 @@ class _PaymentReceiptPageState extends State<PaymentReceiptPage> {
     final Color paymentBgColor = isPaid ? const Color(0xFFD1FAE5) : const Color(0xFFFEF3C7);
     final Color paymentBorderColor = isPaid ? const Color(0xFFA7F3D0) : const Color(0xFFFDE68A);
     final Color paymentTextColor = isPaid ? const Color(0xFF047857) : const Color(0xFFB45309);
-    final String paymentLabel = _getPaymentStatusLabel(_order.paymentMethodLabel);
+    final String paymentLabel = localizedPaymentStatusLabel(_order.paymentMethodLabel);
 
     final canResumePaymentMethod = isPending;
     final canCancelPayment = isPending;
@@ -427,15 +404,15 @@ class _PaymentReceiptPageState extends State<PaymentReceiptPage> {
                     ),
                     child: Column(
                       children: [
-                        _receiptRow('Order ID', _order.orderCode,
+                        _receiptRow('ID Pesanan', _order.orderCode,
                             fontWeight: FontWeight.w800, textColor: const Color(0xFF1F2937)),
                         _receiptRow('Nama Pemesan', _order.customerName),
                         _receiptRow('Email Pemesan', _order.customerEmail),
-                        _receiptRow('Midtrans ID', _order.midtransOrderId.isEmpty ? '-' : _order.midtransOrderId),
+                        _receiptRow('ID Midtrans', _order.midtransOrderId.isEmpty ? '-' : _order.midtransOrderId),
                         _receiptRow('Meja', _order.tableLabel,
                             fontWeight: FontWeight.bold, textColor: const Color(0xFF1F2937)),
-                        _receiptRow('Waktu Bayar', _order.dateLabel),
-                        _receiptRow('Metode Bayar', _order.paymentMethod),
+                        _receiptRow('Waktu Pembayaran', _order.dateLabel),
+                        _receiptRow('Metode Pembayaran', _order.paymentMethod),
                         _receiptRow('Nomor VA', _order.vaNumber.isEmpty ? '-' : _order.vaNumber, isLast: true),
                       ],
                     ),
@@ -499,7 +476,7 @@ class _PaymentReceiptPageState extends State<PaymentReceiptPage> {
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                _getOrderStatusLabel(_order.status),
+                                localizedOrderStatusLabel(_order.status),
                                 style: const TextStyle(
                                   color: Color(0xFF1D4ED8),
                                   fontSize: 14,
@@ -536,7 +513,7 @@ class _PaymentReceiptPageState extends State<PaymentReceiptPage> {
                             ),
                           ),
                           child: const Text(
-                            'Detail Item',
+                            'Rincian Item',
                             style: TextStyle(
                               color: Color(0xFF1F2937),
                               fontWeight: FontWeight.bold,

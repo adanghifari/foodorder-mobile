@@ -50,7 +50,7 @@ class _RegisterPageState extends State<RegisterPage> {
                     _input('Username', _usernameController),
                     _input('Email', _emailController),
                     _input('No. Telepon', _phoneController),
-                    _input('Password', _passwordController, obscure: true),
+                    _input('Kata sandi', _passwordController, obscure: true),
                     const SizedBox(height: 20),
                     _button(),
                     const SizedBox(height: 40),

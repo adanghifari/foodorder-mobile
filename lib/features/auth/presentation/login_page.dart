@@ -62,7 +62,7 @@ class _LoginPageState extends State<LoginPage> {
                     keyboardType: TextInputType.emailAddress,
                   ),
                   const SizedBox(height: 18),
-                  _buildLabel('Password'),
+                  _buildLabel('Kata sandi'),
                   const SizedBox(height: 6),
                   _buildPasswordInput(controller: _passwordController),
                   const SizedBox(height: 12),
@@ -93,7 +93,7 @@ class _LoginPageState extends State<LoginPage> {
                           Navigator.pushNamed(context, AppRoutes.forgotPassword);
                         },
                         child: const Text(
-                          'Lupa Password?',
+                          'Lupa kata sandi?',
                           style: TextStyle(
                             fontSize: 13,
                             color: Color(0xFF1565C0),
@@ -318,7 +318,7 @@ class _LoginPageState extends State<LoginPage> {
       if (!mounted) return;
       AppNotice.show(
         context,
-        'Login gagal: ${AppNotice.humanizeMessage(e)}',
+        'Masuk gagal: ${AppNotice.humanizeMessage(e)}',
         type: AppNoticeType.error,
       );
     } finally {

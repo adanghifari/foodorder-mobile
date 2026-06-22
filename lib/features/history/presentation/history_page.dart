@@ -12,6 +12,7 @@ import '../domain/history_models.dart';
 import 'widgets/order_history_list.dart';
 import 'widgets/payment_history_list.dart';
 import '../../../shared/config/api_config.dart';
+import '../../../shared/utils/status_localizer.dart';
 
 class HistoryPage extends StatefulWidget {
   const HistoryPage({super.key});
@@ -176,13 +177,11 @@ class _HistoryPageState extends State<HistoryPage> {
           bookingStartAtRaw: bookingStartAtRaw,
           durationHours: durationHours,
         );
-        final orderTypeLabel = switch (orderTypeKey) {
-          'booking' =>
-            'Booking${tableNumber != null ? ' • Meja $tableNumber' : ''}${bookingScheduleLabel.isNotEmpty ? ' • $bookingScheduleLabel' : ''}',
-          'dine_in' =>
-            'Dine In Langsung${tableNumber != null ? ' • Meja $tableNumber' : ''}',
-          _ => 'Takeaway/Pickup',
-        };
+        final orderTypeLabel = localizedOrderTypeLabel(
+          orderTypeKey,
+          tableNumber: tableNumber,
+          bookingScheduleLabel: bookingScheduleLabel,
+        );
         final tableLabel = tableNumber == null ? '-' : '$tableNumber';
 
         return HistoryOrderItem(
@@ -303,7 +302,7 @@ class _HistoryPageState extends State<HistoryPage> {
               if (_requireLogin)
                 ElevatedButton(
                   onPressed: () => Navigator.pushNamed(context, AppRoutes.login),
-                  child: const Text('Login'),
+                  child: const Text('Masuk'),
                 )
               else
                 ElevatedButton(
@@ -343,7 +342,7 @@ class _HistoryPageState extends State<HistoryPage> {
                 const SizedBox(height: 12),
                 ElevatedButton(
                   onPressed: () => Navigator.pushNamed(context, AppRoutes.login),
-                  child: const Text('Login'),
+                  child: const Text('Masuk'),
                 ),
               ],
             ),
@@ -449,7 +448,7 @@ class _HistoryPageState extends State<HistoryPage> {
         value: 'past',
         label: _selectedPastDate != null
             ? pastStr
-            : 'Sebelum Hari ini',
+            : 'Sebelum hari ini',
       ),
     ];
 
@@ -538,7 +537,7 @@ class _HistoryPageState extends State<HistoryPage> {
     final list = List<HistoryOrderItem>.from(_orders);
     final now = DateTime.now();
 
-    // 1. Filter by Selected Date
+    // 1. Filter berdasarkan tanggal yang dipilih
     var dateFiltered = list.where((order) {
       final d = order.eventAt;
       final isToday = d.year == now.year && d.month == now.month && d.day == now.day;
@@ -547,11 +546,11 @@ class _HistoryPageState extends State<HistoryPage> {
         return isToday;
       } else {
         if (_selectedPastDate == null) {
-          // Show all past orders (before today)
+          // Tampilkan semua riwayat sebelum hari ini
           final todayStart = DateTime(now.year, now.month, now.day);
           return d.isBefore(todayStart);
         } else {
-          // Show orders on specific past date
+          // Tampilkan riwayat pada tanggal tertentu
           return d.year == _selectedPastDate!.year &&
                  d.month == _selectedPastDate!.month &&
                  d.day == _selectedPastDate!.day;
@@ -559,7 +558,7 @@ class _HistoryPageState extends State<HistoryPage> {
       }
     }).toList();
 
-    // 2. Tab-specific filtering & sorting
+    // 2. Filter dan urutkan sesuai tab aktif
     if (_activeTab == _HistoryTab.payment) {
       var filtered = dateFiltered.where((order) {
         switch (_paymentFilter) {
@@ -623,7 +622,7 @@ class _HistoryPageState extends State<HistoryPage> {
       child: Row(
         children: [
           const Text(
-            'Sort by:',
+            'Urutkan:',
             style: TextStyle(
               color: Color(0xFF666666),
               fontSize: 13,
@@ -673,16 +672,16 @@ class _HistoryPageState extends State<HistoryPage> {
     'newest': 'Terbaru',
     'oldest': 'Terlama',
     'paid': 'Lunas',
-    'pending': 'Menunggu',
+    'pending': 'Menunggu pembayaran',
     'failed': 'Gagal',
   };
 
   Map<String, String> get _orderSortLabels => const {
     'latest': 'Terbaru',
     'oldest': 'Terlama',
-    'booking': 'Booking',
-    'dineInDirect': 'Dine In Langsung',
-    'takeawayPickup': 'Takeaway/Pickup',
+    'booking': 'Booking meja',
+    'dineInDirect': 'Makan di tempat',
+    'takeawayPickup': 'Ambil sendiri',
   };
 
   bool _matchesAny(String raw, List<String> keys) {

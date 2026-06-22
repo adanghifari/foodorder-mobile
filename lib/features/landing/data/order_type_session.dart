@@ -1,3 +1,4 @@
+import '../../../shared/utils/status_localizer.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 enum OrderType { bookingDineIn, onSpotDineIn, pickup, takeAway }
@@ -17,10 +18,10 @@ class OrderTypeSession {
 
   static String toLabel(OrderType type) {
     return switch (type) {
-      OrderType.bookingDineIn => 'Booking dine-in',
-      OrderType.onSpotDineIn => 'Dine-in',
-      OrderType.pickup => 'Pickup',
-      OrderType.takeAway => 'Take away (QR)',
+      OrderType.bookingDineIn => localizedOrderTypePickerLabel('booking_dine_in'),
+      OrderType.onSpotDineIn => localizedOrderTypePickerLabel('dine_in'),
+      OrderType.pickup => localizedOrderTypePickerLabel('pickup'),
+      OrderType.takeAway => localizedOrderTypePickerLabel('take_away'),
     };
   }
 

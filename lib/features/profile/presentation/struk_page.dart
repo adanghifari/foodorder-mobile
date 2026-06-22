@@ -10,6 +10,7 @@ import '../../../../app/app_routes.dart';
 import '../../history/domain/history_models.dart';
 import 'payment_receipt_page.dart';
 import '../../../../shared/widgets/app_dropdown_field.dart';
+import '../../../../shared/utils/status_localizer.dart';
 
 class StrukPage extends StatefulWidget {
   const StrukPage({super.key});
@@ -125,11 +126,11 @@ class _StrukPageState extends State<StrukPage> {
           bookingStartAtRaw: bookingStartAtRaw,
           durationHours: durationHours,
         );
-        final orderTypeLabel = orderTypeKey == 'booking'
-            ? 'Booking${tableNumber != null ? ' • Meja $tableNumber' : ''}${bookingScheduleLabel.isNotEmpty ? ' • $bookingScheduleLabel' : ''}'
-            : (orderTypeKey == 'dine_in'
-                ? 'Dine In Langsung${tableNumber != null ? ' • Meja $tableNumber' : ''}'
-                : 'Takeaway/Pickup');
+        final orderTypeLabel = localizedOrderTypeLabel(
+          orderTypeKey,
+          tableNumber: tableNumber,
+          bookingScheduleLabel: bookingScheduleLabel,
+        );
         final tableLabel = tableNumber == null ? '-' : '$tableNumber';
 
         return HistoryOrderItem(

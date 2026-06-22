@@ -152,7 +152,7 @@ class _OtpVerificationPageState extends State<OtpVerificationPage> {
                 children: [
                   const SizedBox(height: 24),
                   const Text(
-                    'Verifikasi OTP',
+                      'Verifikasi OTP',
                     style: TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.bold,

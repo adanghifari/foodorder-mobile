@@ -12,6 +12,7 @@ import '../../scan/presentation/scan_page.dart';
 import '../../profile/data/profile_api_service.dart';
 import '../data/chatbot_api_service.dart';
 import '../data/chatbot_models.dart';
+import '../../../shared/utils/status_localizer.dart';
 
 class ChatPage extends StatefulWidget {
   const ChatPage({super.key});
@@ -126,7 +127,7 @@ class _ChatPageState extends State<ChatPage> {
           : response.reply;
       final displayReply =
           response.intent == 'unknown_or_ambiguous' && fallbackReason.isNotEmpty
-          ? '$reply\n\n(reason: $fallbackReason)'
+          ? '$reply\n\n(alasan: $fallbackReason)'
           : reply;
       if (!mounted) return;
       setState(() {
@@ -341,7 +342,7 @@ class _ChatPageState extends State<ChatPage> {
                           ElevatedButton(
                             onPressed: () =>
                                 Navigator.pushNamed(context, AppRoutes.login),
-                            child: const Text('Login'),
+              child: const Text('Masuk'),
                           ),
                         ],
                       ),
@@ -853,14 +854,14 @@ class _ChatPageState extends State<ChatPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Order #${card.orderId.length > 6 ? card.orderId.substring(card.orderId.length - 6).toUpperCase() : card.orderId.toUpperCase()}',
+            'Pesanan #${card.orderId.length > 6 ? card.orderId.substring(card.orderId.length - 6).toUpperCase() : card.orderId.toUpperCase()}',
             style: const TextStyle(fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 4),
           if (card.trackingDateLabel.isNotEmpty)
             Text('Tanggal: ${card.trackingDateLabel}'),
-          Text('Status: ${card.statusLabel}'),
-          Text('Pembayaran: ${card.paymentStatus}'),
+          Text('Status: ${localizedOrderStatusLabel(card.statusLabel)}'),
+          Text('Pembayaran: ${localizedPaymentStatusLabel(card.paymentStatus)}'),
           Text('Nomor antrean: ${card.queueNumber}'),
           Text('Total: Rp${card.totalPrice}'),
         ],

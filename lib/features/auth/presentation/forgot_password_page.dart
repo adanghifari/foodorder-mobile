@@ -88,7 +88,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                 children: [
                   const SizedBox(height: 24),
                   const Text(
-                    'Lupa Password',
+                    'Lupa kata sandi',
                     style: TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.bold,

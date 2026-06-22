@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../../auth/data/auth_session.dart';
 import '../../../shared/config/api_config.dart';
 import '../../history/domain/history_models.dart';
+import '../../../shared/utils/status_localizer.dart';
 
 class CartItemDto {
   const CartItemDto({
@@ -391,11 +392,11 @@ class CartApiService {
           bookingStartAtRaw: bookingStartAtRaw,
           durationHours: durationHours,
         );
-        final orderTypeLabel = orderTypeKey == 'booking'
-            ? 'Booking${tableNumber != null ? ' • Meja $tableNumber' : ''}${bookingScheduleLabel.isNotEmpty ? ' • $bookingScheduleLabel' : ''}'
-            : (orderTypeKey == 'dine_in'
-                ? 'Dine In Langsung${tableNumber != null ? ' • Meja $tableNumber' : ''}'
-                : 'Takeaway/Pickup');
+        final orderTypeLabel = localizedOrderTypeLabel(
+          orderTypeKey,
+          tableNumber: tableNumber,
+          bookingScheduleLabel: bookingScheduleLabel,
+        );
         final tableLabel = tableNumber == null ? '-' : '$tableNumber';
 
         return HistoryOrderItem(

@@ -98,7 +98,7 @@ class OrderTypePickerPage extends StatelessWidget {
             const SizedBox(width: 18),
             const Expanded(
               child: Text(
-                'Scan\nQR',
+                'Pindai\nQR',
                 style: TextStyle(
                   color: _textDark,
                   fontSize: 20,
@@ -171,4 +171,3 @@ class OrderTypePickerPage extends StatelessWidget {
     );
   }
 }
-

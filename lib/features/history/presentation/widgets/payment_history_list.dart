@@ -8,6 +8,7 @@ import '../../../../shared/config/api_config.dart';
 import '../../../../shared/widgets/app_notice.dart';
 import '../../domain/history_models.dart';
 import '../../../profile/presentation/payment_receipt_page.dart';
+import '../../../../shared/utils/status_localizer.dart';
 
 class PaymentHistoryList extends StatelessWidget {
   const PaymentHistoryList({
@@ -106,9 +107,9 @@ class _PaymentHistoryCard extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           _kv('ID Pesanan', order.orderCode),
-          _kv('Metode/Status', order.paymentMethodLabel),
+          _kv('Status Pembayaran', localizedPaymentStatusLabel(order.paymentMethodLabel)),
           _kv('Metode Bayar', order.paymentMethod),
-          _kv('Status Pesanan', order.status),
+          _kv('Status Pesanan', localizedOrderStatusLabel(order.status)),
           const SizedBox(height: 10),
           Row(
             children: [
@@ -243,10 +244,10 @@ class _PaymentHistoryCard extends StatelessWidget {
                     children: [
                       _detailRow('Kode', order.orderCode),
                       _detailRow('Tanggal Bayar', order.dateLabel),
-                      _detailRow('Metode/Status', order.paymentMethodLabel),
+                      _detailRow('Status Pembayaran', localizedPaymentStatusLabel(order.paymentMethodLabel)),
                       _detailRow('Metode Bayar', order.paymentMethod),
                       _detailRow('Nomor VA', order.vaNumber),
-                      _detailRow('Status Pesanan', order.status),
+                      _detailRow('Status Pesanan', localizedOrderStatusLabel(order.status)),
                       _detailRow('Nominal', idr(order.totalPrice), isLast: true),
                     ],
                   ),
@@ -826,15 +827,7 @@ class _PaymentStatusChip extends StatelessWidget {
         statusUp == 'PAID' || statusUp == 'SUCCESS' || statusUp == 'SETTLEMENT';
     final bg = isPaid ? const Color(0xFFE8F7EC) : const Color(0xFFFFF4E8);
     final fg = isPaid ? const Color(0xFF2E7D32) : const Color(0xFFAF5A00);
-
-    final label = switch (statusUp) {
-      'PAID' || 'SUCCESS' || 'SETTLEMENT' => 'LUNAS',
-      'PENDING' || 'UNPAID' => 'MENUNGGU',
-      'FAILED' || 'DENY' => 'GAGAL',
-      'CANCEL' || 'CANCELLED' || 'CANCELED' => 'DIBATALKAN',
-      'EXPIRE' || 'EXPIRED' => 'KEDALUWARSA',
-      _ => statusUp,
-    };
+    final label = localizedPaymentStatusLabel(status);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(

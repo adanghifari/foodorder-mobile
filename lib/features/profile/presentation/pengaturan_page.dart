@@ -46,7 +46,7 @@ class _PengaturanPageState extends State<PengaturanPage> {
 
           // List Menu Pengaturan
           _buildMenuSetting("Informasi akun", isSwitch: false),
-          _buildMenuSetting("Ganti Password", isSwitch: false),
+          _buildMenuSetting("Ubah kata sandi", isSwitch: false),
 
           // Menu Notifikasi dengan Switch Oranye
           _buildMenuSetting(
@@ -135,7 +135,7 @@ class _PengaturanPageState extends State<PengaturanPage> {
                   if (result == true && mounted) {
                     Navigator.pop(context, true);
                   }
-                } else if (title == "Ganti Password") {
+                } else if (title == "Ubah kata sandi") {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
