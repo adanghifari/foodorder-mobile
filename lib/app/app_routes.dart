@@ -11,4 +11,7 @@ abstract final class AppRoutes {
   static const orderHistory = '/order-history';
   static const scan = '/scan';
   static const struk = '/struk';
+  static const forgotPassword = '/forgot-password';
+  static const otpVerification = '/otp-verification';
+  static const resetPassword = '/reset-password';
 }

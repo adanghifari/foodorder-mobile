@@ -71,6 +71,57 @@ class AuthApiService {
     }
     return e.message ?? 'Tidak bisa terhubung ke server';
   }
+
+  Future<void> requestOtp(String email) async {
+    try {
+      await _dio.post<Map<String, dynamic>>(
+        '$_apiBaseUrl/v1/auth/forgot-password',
+        data: {'email': email},
+      );
+    } on DioException catch (e) {
+      throw Exception(_extractDioMessage(e));
+    } catch (e) {
+      throw Exception('Gagal mengirim OTP: $e');
+    }
+  }
+
+  Future<String> verifyOtp(String email, String otp) async {
+    try {
+      final response = await _dio.post<Map<String, dynamic>>(
+        '$_apiBaseUrl/v1/auth/verify-otp',
+        data: {'email': email, 'otp': otp},
+      );
+      final map = response.data ?? const <String, dynamic>{};
+      final data = map['data'] as Map<String, dynamic>? ?? const {};
+      return (data['token'] ?? '').toString();
+    } on DioException catch (e) {
+      throw Exception(_extractDioMessage(e));
+    } catch (e) {
+      throw Exception('Verifikasi OTP gagal: $e');
+    }
+  }
+
+  Future<void> resetPassword({
+    required String email,
+    required String token,
+    required String password,
+  }) async {
+    try {
+      await _dio.post<Map<String, dynamic>>(
+        '$_apiBaseUrl/v1/auth/reset-password',
+        data: {
+          'email': email,
+          'token': token,
+          'password': password,
+          'password_confirmation': password,
+        },
+      );
+    } on DioException catch (e) {
+      throw Exception(_extractDioMessage(e));
+    } catch (e) {
+      throw Exception('Gagal mengubah password: $e');
+    }
+  }
 }
 
 final Dio _dio = Dio(

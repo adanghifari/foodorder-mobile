@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../features/auth/presentation/login_page.dart';
 import '../features/auth/presentation/register_page.dart';
+import '../features/auth/presentation/forgot_password_page.dart';
+import '../features/auth/presentation/otp_verification_page.dart';
+import '../features/auth/presentation/reset_password_page.dart';
 import '../features/cart/presentation/cart_page.dart';
 import '../features/chat/presentation/chat_page.dart';
 import '../features/landing/presentation/landing_page.dart';
@@ -87,6 +90,18 @@ class KedaiKlikApp extends StatelessWidget {
         AppRoutes.orderHistory: (_) => const HistoryPage(),
         AppRoutes.scan: (_) => const ScanPage(),
         AppRoutes.struk: (_) => const StrukPage(),
+        AppRoutes.forgotPassword: (_) => const ForgotPasswordPage(),
+        AppRoutes.otpVerification: (context) {
+          final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+          return OtpVerificationPage(email: args['email'] as String);
+        },
+        AppRoutes.resetPassword: (context) {
+          final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+          return ResetPasswordPage(
+            email: args['email'] as String,
+            token: args['token'] as String,
+          );
+        },
       },
     );
   }

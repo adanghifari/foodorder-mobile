@@ -87,12 +87,17 @@ class _LoginPageState extends State<LoginPage> {
                         style: TextStyle(fontSize: 13, color: Colors.black54),
                       ),
                       const Spacer(),
-                      const Text(
-                        'Forgot Password ?',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Color(0xFF1565C0),
-                          fontWeight: FontWeight.w500,
+                      GestureDetector(
+                        onTap: () {
+                          Navigator.pushNamed(context, AppRoutes.forgotPassword);
+                        },
+                        child: const Text(
+                          'Forgot Password ?',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Color(0xFF1565C0),
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                       ),
                     ],
