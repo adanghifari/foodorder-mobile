@@ -434,7 +434,7 @@ class _HistoryPageState extends State<HistoryPage> {
       AppDropdownOption<String>(
         value: 'past',
         label: _selectedPastDate != null
-            ? 'Sebelum ($pastStr)'
+            ? pastStr
             : 'Sebelum Hari ini',
       ),
     ];
