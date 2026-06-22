@@ -14,8 +14,8 @@ class OtpVerificationPage extends StatefulWidget {
 }
 
 class _OtpVerificationPageState extends State<OtpVerificationPage> {
-  final List<TextEditingController> _controllers = List.generate(6, (_) => TextEditingController());
-  final List<FocusNode> _focusNodes = List.generate(6, (_) => FocusNode());
+  final TextEditingController _otpController = TextEditingController();
+  final FocusNode _otpFocusNode = FocusNode();
   final _authApiService = AuthApiService();
   
   bool _isSubmitting = false;
@@ -34,12 +34,8 @@ class _OtpVerificationPageState extends State<OtpVerificationPage> {
   @override
   void dispose() {
     _timer?.cancel();
-    for (var controller in _controllers) {
-      controller.dispose();
-    }
-    for (var node in _focusNodes) {
-      node.dispose();
-    }
+    _otpController.dispose();
+    _otpFocusNode.dispose();
     super.dispose();
   }
 
@@ -94,7 +90,7 @@ class _OtpVerificationPageState extends State<OtpVerificationPage> {
   }
 
   Future<void> _submitOtp() async {
-    String otp = _controllers.map((c) => c.text).join();
+    String otp = _otpController.text;
     if (otp.length < 6) {
       AppNotice.show(context, 'Silakan isi seluruh 6 digit kode OTP.', type: AppNoticeType.error);
       return;
@@ -234,52 +230,74 @@ class _OtpVerificationPageState extends State<OtpVerificationPage> {
   }
 
   Widget _buildOtpInputRow() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: List.generate(6, (index) {
-        return SizedBox(
-          width: 46,
-          height: 52,
-          child: Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.grey.shade400),
+    return SizedBox(
+      height: 52,
+      child: Stack(
+        children: [
+          // Single hidden TextField to manage focus and keyboard
+          TextField(
+            controller: _otpController,
+            focusNode: _otpFocusNode,
+            keyboardType: TextInputType.number,
+            maxLength: 6,
+            showCursor: false,
+            style: const TextStyle(color: Colors.transparent),
+            decoration: const InputDecoration(
+              counterText: "",
+              border: InputBorder.none,
+              contentPadding: EdgeInsets.zero,
             ),
-            child: TextField(
-              controller: _controllers[index],
-              focusNode: _focusNodes[index],
-              keyboardType: TextInputType.number,
-              textInputAction: index < 5 ? TextInputAction.next : TextInputAction.done,
-              textAlign: TextAlign.center,
-              maxLength: 1,
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: primaryBrown,
-              ),
-              decoration: const InputDecoration(
-                counterText: "",
-                border: InputBorder.none,
-                contentPadding: EdgeInsets.symmetric(vertical: 10),
-              ),
-              onChanged: (value) {
-                if (value.isNotEmpty) {
-                  if (index < 5) {
-                    _focusNodes[index + 1].requestFocus();
-                  } else {
-                    _focusNodes[index].unfocus();
-                  }
-                } else {
-                  if (index > 0) {
-                    _focusNodes[index - 1].requestFocus();
-                  }
+            onChanged: (value) {
+              setState(() {});
+              if (value.length == 6) {
+                _otpFocusNode.unfocus();
+                _submitOtp();
+              }
+            },
+          ),
+          // Visual overlay of 6 styled boxes
+          IgnorePointer(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: List.generate(6, (index) {
+                String char = "";
+                if (_otpController.text.length > index) {
+                  char = _otpController.text[index];
                 }
-              },
+
+                // Highlight box if focused and active
+                bool isFocused = _otpFocusNode.hasFocus &&
+                    (_otpController.text.length == index ||
+                     (_otpController.text.length == 6 && index == 5));
+
+                return SizedBox(
+                  width: 46,
+                  height: 52,
+                  child: Container(
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: isFocused ? primaryBrown : Colors.grey.shade400,
+                        width: isFocused ? 2 : 1,
+                      ),
+                    ),
+                    child: Text(
+                      char,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: primaryBrown,
+                      ),
+                    ),
+                  ),
+                );
+              }),
             ),
           ),
-        );
-      }),
+        ],
+      ),
     );
   }
 
