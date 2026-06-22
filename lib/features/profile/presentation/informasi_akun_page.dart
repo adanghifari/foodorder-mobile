@@ -24,6 +24,7 @@ class _InformasiAkunPageState extends State<InformasiAkunPage> {
 
   final _nameController = TextEditingController();
   final _usernameController = TextEditingController();
+  final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
 
   @override
@@ -45,6 +46,7 @@ class _InformasiAkunPageState extends State<InformasiAkunPage> {
         _user = user;
         _nameController.text = user.name;
         _usernameController.text = user.username;
+        _emailController.text = user.email;
         _phoneController.text = user.phone;
         _isLoading = false;
       });
@@ -61,6 +63,7 @@ class _InformasiAkunPageState extends State<InformasiAkunPage> {
   void dispose() {
     _nameController.dispose();
     _usernameController.dispose();
+    _emailController.dispose();
     _phoneController.dispose();
     super.dispose();
   }
@@ -68,9 +71,10 @@ class _InformasiAkunPageState extends State<InformasiAkunPage> {
   Future<void> _saveChanges() async {
     final name = _nameController.text.trim();
     final username = _usernameController.text.trim();
+    final email = _emailController.text.trim();
     final phone = _phoneController.text.trim();
 
-    if (name.isEmpty || username.isEmpty || phone.isEmpty) {
+    if (name.isEmpty || username.isEmpty || email.isEmpty || phone.isEmpty) {
       AppNotice.show(
         context,
         'Semua field wajib diisi.',
@@ -85,6 +89,7 @@ class _InformasiAkunPageState extends State<InformasiAkunPage> {
       await _profileApiService.updateProfile(
         name: name,
         username: username,
+        email: email,
         phone: phone,
         avatarUrl: _user?.avatarUrl,
       );
@@ -330,6 +335,15 @@ class _InformasiAkunPageState extends State<InformasiAkunPage> {
                       _buildInput(
                         hint: 'Masukkan username',
                         controller: _usernameController,
+                      ),
+                      const SizedBox(height: 18),
+
+                      _buildLabel('Email'),
+                      const SizedBox(height: 6),
+                      _buildInput(
+                        hint: 'Masukkan alamat email',
+                        controller: _emailController,
+                        keyboardType: TextInputType.emailAddress,
                       ),
                       const SizedBox(height: 18),
 

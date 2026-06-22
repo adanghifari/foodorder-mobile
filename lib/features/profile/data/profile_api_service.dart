@@ -58,6 +58,7 @@ class ProfileApiService {
   Future<ProfileUserDto> updateProfile({
     required String name,
     required String username,
+    required String email,
     required String phone,
     String? avatarUrl,
   }) async {
@@ -72,6 +73,7 @@ class ProfileApiService {
         data: {
           'name': name,
           'username': username,
+          'email': email,
           'no_telp': phone,
           'avatar_url': avatarUrl,
         },
