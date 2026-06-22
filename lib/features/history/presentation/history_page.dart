@@ -42,6 +42,7 @@ class _HistoryPageState extends State<HistoryPage> {
   _FilterMode _mode = _FilterMode.today;
   DateTime? _selectedPastDate;
   bool _isInitialTabApplied = false;
+  bool _isDefaultTabSet = false;
 
   String get _apiBaseUrl => ApiConfig.apiBaseUrl;
 
@@ -62,8 +63,10 @@ class _HistoryPageState extends State<HistoryPage> {
     final tab = (args['tab'] ?? '').toString().toLowerCase();
     if (tab == 'order') {
       _activeTab = _HistoryTab.order;
+      _isDefaultTabSet = true;
     } else if (tab == 'payment') {
       _activeTab = _HistoryTab.payment;
+      _isDefaultTabSet = true;
     }
   }
 
@@ -213,6 +216,17 @@ class _HistoryPageState extends State<HistoryPage> {
       setState(() {
         _orders = orders;
         _isLoading = false;
+
+        if (!_isDefaultTabSet) {
+          _isDefaultTabSet = true;
+          final hasPendingPayment = orders.any((order) {
+            final s = order.paymentMethodLabel.toUpperCase();
+            return s == 'PENDING' || s == 'UNPAID';
+          });
+          if (hasPendingPayment) {
+            _activeTab = _HistoryTab.payment;
+          }
+        }
       });
     } on DioException catch (e) {
       if (!mounted) return;

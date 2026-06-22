@@ -1,5 +1,8 @@
+import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../../../app/app_routes.dart';
 import '../../../../shared/config/api_config.dart';
@@ -20,6 +23,7 @@ class PaymentReceiptPage extends StatefulWidget {
 class _PaymentReceiptPageState extends State<PaymentReceiptPage> {
   late HistoryOrderItem _order;
   bool _isLoadingAction = false;
+  bool _isDownloading = false;
   bool _hasChanges = false;
 
   static const Color _accent = Color(0xFFC8641E);
@@ -174,6 +178,65 @@ class _PaymentReceiptPageState extends State<PaymentReceiptPage> {
       if (mounted) {
         setState(() {
           _isLoadingAction = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _downloadPdf() async {
+    if (_isDownloading) return;
+    setState(() {
+      _isDownloading = true;
+    });
+
+    final token = await AuthSession.getToken();
+    if (token == null || token.isEmpty) {
+      if (mounted) {
+        AppNotice.show(context, 'Sesi telah berakhir, silakan login kembali.', type: AppNoticeType.error);
+        setState(() {
+          _isDownloading = false;
+        });
+      }
+      return;
+    }
+
+    try {
+      final dio = Dio();
+      final url = '${ApiConfig.apiBaseUrl}/v1/orders/${_order.orderId}/receipt/pdf';
+      final response = await dio.get<List<int>>(
+        url,
+        options: Options(
+          headers: {'Authorization': 'Bearer $token'},
+          responseType: ResponseType.bytes,
+        ),
+      );
+
+      final bytes = response.data;
+      if (bytes == null || bytes.isEmpty) {
+        throw Exception('Gagal mengunduh file PDF atau file kosong.');
+      }
+
+      final tempDir = await getTemporaryDirectory();
+      final displayId = 'ORD-${_order.orderId.length > 6 ? _order.orderId.substring(_order.orderId.length - 6).toUpperCase() : _order.orderId.toUpperCase()}';
+      final filePath = '${tempDir.path}/struk-$displayId.pdf';
+      final file = File(filePath);
+      await file.writeAsBytes(bytes);
+
+      if (!mounted) return;
+      
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [XFile(filePath, mimeType: 'application/pdf')],
+          subject: 'Struk Pembelian $displayId',
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      AppNotice.show(context, 'Gagal mengunduh PDF: ${e.toString()}', type: AppNoticeType.error);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isDownloading = false;
         });
       }
     }
@@ -663,6 +726,42 @@ class _PaymentReceiptPageState extends State<PaymentReceiptPage> {
                             ),
                           ),
                         ),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+                    if (isPaid) ...[
+                      SizedBox(
+                        width: double.infinity,
+                        height: 48,
+                        child: _isDownloading
+                            ? const Center(
+                                child: SizedBox(
+                                  width: 24,
+                                  height: 24,
+                                  child: CircularProgressIndicator(
+                                    color: Color(0xFF1D4ED8),
+                                    strokeWidth: 2.5,
+                                  ),
+                                ),
+                              )
+                            : OutlinedButton(
+                                onPressed: _downloadPdf,
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: const Color(0xFF1D4ED8),
+                                  side: const BorderSide(color: Color(0xFF1D4ED8)),
+                                  backgroundColor: const Color(0xFFEFF6FF),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                ),
+                                child: const Text(
+                                  'Download PDF',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ),
                       ),
                       const SizedBox(height: 12),
                     ],
