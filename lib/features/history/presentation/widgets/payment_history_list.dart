@@ -584,6 +584,9 @@ class _PaymentHistoryCard extends StatelessWidget {
     );
 
     if (result == true) {
+      // Sync status from Midtrans BEFORE refreshing the list
+      final api = _HistoryPaymentApi();
+      await api.checkStatus(orderId: order.orderId);
       await onRefreshRequested?.call();
     }
   }
@@ -736,8 +739,8 @@ class _PaymentHistoryCard extends StatelessWidget {
 class _HistoryPaymentApi {
   final Dio _dio = Dio(
     BaseOptions(
-      connectTimeout: const Duration(seconds: 10),
-      receiveTimeout: const Duration(seconds: 15),
+      connectTimeout: const Duration(seconds: 15),
+      receiveTimeout: const Duration(seconds: 60),
       headers: const {
         'Accept': 'application/json',
         'Content-Type': 'application/json',
@@ -771,6 +774,14 @@ class _HistoryPaymentApi {
 
   Future<void> cancel({required String orderId}) async {
     await _postPaymentAction(path: '/v1/payments/cancel/$orderId');
+  }
+
+  Future<void> checkStatus({required String orderId}) async {
+    // Best-effort: sync payment status from Midtrans after returning from webview.
+    // Ignore errors — list will still refresh.
+    try {
+      await _postPaymentAction(path: '/v1/payments/check-status/$orderId');
+    } catch (_) {}
   }
 
   Future<Map<String, dynamic>> _postPaymentAction({
