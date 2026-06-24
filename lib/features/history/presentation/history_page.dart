@@ -1,6 +1,5 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 
 import '../../../app/app_routes.dart';
 import '../../../shared/widgets/app_back_button.dart';
@@ -12,6 +11,8 @@ import '../domain/history_models.dart';
 import 'widgets/order_history_list.dart';
 import 'widgets/payment_history_list.dart';
 import '../../../shared/config/api_config.dart';
+import '../../../shared/utils/indonesian_date_formatter.dart';
+import '../../../shared/utils/status_localizer.dart';
 
 class HistoryPage extends StatefulWidget {
   const HistoryPage({super.key});
@@ -39,8 +40,10 @@ class _HistoryPageState extends State<HistoryPage> {
   _HistoryTab _activeTab = _HistoryTab.order;
   _PaymentSortFilter _paymentFilter = _PaymentSortFilter.newest;
   _OrderSortFilter _orderFilter = _OrderSortFilter.latest;
-  bool _showPreviousHistory = false;
+  _FilterMode _mode = _FilterMode.today;
+  DateTime? _selectedPastDate;
   bool _isInitialTabApplied = false;
+  bool _isDefaultTabSet = false;
 
   String get _apiBaseUrl => ApiConfig.apiBaseUrl;
 
@@ -61,8 +64,10 @@ class _HistoryPageState extends State<HistoryPage> {
     final tab = (args['tab'] ?? '').toString().toLowerCase();
     if (tab == 'order') {
       _activeTab = _HistoryTab.order;
+      _isDefaultTabSet = true;
     } else if (tab == 'payment') {
       _activeTab = _HistoryTab.payment;
+      _isDefaultTabSet = true;
     }
   }
 
@@ -138,12 +143,13 @@ class _HistoryPageState extends State<HistoryPage> {
           final menuName = menu is Map<String, dynamic>
               ? (menu['name'] ?? '').toString()
               : '';
-          final name = (e['name'] ??
-                  e['menuName'] ??
-                  e['itemName'] ??
-                  e['foodName'] ??
-                  menuName)
-              .toString();
+          final name =
+              (e['name'] ??
+                      e['menuName'] ??
+                      e['itemName'] ??
+                      e['foodName'] ??
+                      menuName)
+                  .toString();
           final qty = _toInt(e['quantity']);
           final unitPriceRaw = _toInt(e['unitPrice']);
           final priceRaw = _toInt(e['price']);
@@ -151,7 +157,9 @@ class _HistoryPageState extends State<HistoryPage> {
           final unitPrice = unitPriceRaw > 0
               ? unitPriceRaw
               : (qty > 0 ? (priceRaw / qty).round() : priceRaw);
-          final subtotal = subtotalRaw > 0 ? subtotalRaw : (priceRaw > 0 ? priceRaw : unitPrice * qty);
+          final subtotal = subtotalRaw > 0
+              ? subtotalRaw
+              : (priceRaw > 0 ? priceRaw : unitPrice * qty);
           orderItems.add(
             HistoryLineItem(
               name: name.isEmpty ? 'Item' : name,
@@ -161,7 +169,10 @@ class _HistoryPageState extends State<HistoryPage> {
             ),
           );
         }
-        final totalItems = orderItems.fold<int>(0, (sum, e) => sum + e.quantity);
+        final totalItems = orderItems.fold<int>(
+          0,
+          (sum, e) => sum + e.quantity,
+        );
 
         final orderTypeKey = switch (orderTypeRaw) {
           'booking_dine_in' => 'booking',
@@ -172,13 +183,11 @@ class _HistoryPageState extends State<HistoryPage> {
           bookingStartAtRaw: bookingStartAtRaw,
           durationHours: durationHours,
         );
-        final orderTypeLabel = switch (orderTypeKey) {
-          'booking' =>
-            'Booking${tableNumber != null ? ' • Meja $tableNumber' : ''}${bookingScheduleLabel.isNotEmpty ? ' • $bookingScheduleLabel' : ''}',
-          'dine_in' =>
-            'Dine In Langsung${tableNumber != null ? ' • Meja $tableNumber' : ''}',
-          _ => 'Takeaway/Pickup',
-        };
+        final orderTypeLabel = localizedOrderTypeLabel(
+          orderTypeKey,
+          tableNumber: tableNumber,
+          bookingScheduleLabel: bookingScheduleLabel,
+        );
         final tableLabel = tableNumber == null ? '-' : '$tableNumber';
 
         return HistoryOrderItem(
@@ -197,7 +206,9 @@ class _HistoryPageState extends State<HistoryPage> {
           paymentMethodLabel: paymentStatus,
           paymentMethod: paymentMethod.isEmpty ? '-' : paymentMethod,
           vaNumber: vaNumber.isEmpty ? '-' : vaNumber,
-          paymentExpiry: paymentExpiry.isEmpty ? '-' : paymentExpiry.replaceFirst('T', ' '),
+          paymentExpiry: paymentExpiry.isEmpty
+              ? '-'
+              : formatIndonesianDateTimeFromRaw(paymentExpiry),
           qrisImageUrl: qrisImageUrl,
           paymentUrl: paymentUrl,
           midtransOrderId: midtransOrderId,
@@ -212,6 +223,17 @@ class _HistoryPageState extends State<HistoryPage> {
       setState(() {
         _orders = orders;
         _isLoading = false;
+
+        if (!_isDefaultTabSet) {
+          _isDefaultTabSet = true;
+          final hasPendingPayment = orders.any((order) {
+            final s = order.paymentMethodLabel.toUpperCase();
+            return s == 'PENDING' || s == 'UNPAID';
+          });
+          if (hasPendingPayment) {
+            _activeTab = _HistoryTab.payment;
+          }
+        }
       });
     } on DioException catch (e) {
       if (!mounted) return;
@@ -279,7 +301,9 @@ class _HistoryPageState extends State<HistoryPage> {
             children: [
               Icon(
                 _requireLogin ? Icons.lock_outline : Icons.error_outline,
-                color: _requireLogin ? const Color(0xFF9C9C9C) : Colors.redAccent,
+                color: _requireLogin
+                    ? const Color(0xFF9C9C9C)
+                    : Colors.redAccent,
                 size: 40,
               ),
               const SizedBox(height: 10),
@@ -287,8 +311,9 @@ class _HistoryPageState extends State<HistoryPage> {
               const SizedBox(height: 12),
               if (_requireLogin)
                 ElevatedButton(
-                  onPressed: () => Navigator.pushNamed(context, AppRoutes.login),
-                  child: const Text('Login'),
+                  onPressed: () =>
+                      Navigator.pushNamed(context, AppRoutes.login),
+                  child: const Text('Masuk'),
                 )
               else
                 ElevatedButton(
@@ -301,10 +326,8 @@ class _HistoryPageState extends State<HistoryPage> {
       );
     }
 
-    final allFilteredOrders = _filteredOrdersByActiveTab;
-    final todayOrders = _todayOrdersFrom(allFilteredOrders);
-    final previousOrders = _previousOrdersFrom(allFilteredOrders);
-    if (allFilteredOrders.isEmpty) {
+    final filtered = _filteredOrders;
+    if (filtered.isEmpty) {
       if (_requireLogin) {
         return Center(
           child: Padding(
@@ -329,8 +352,9 @@ class _HistoryPageState extends State<HistoryPage> {
                 ),
                 const SizedBox(height: 12),
                 ElevatedButton(
-                  onPressed: () => Navigator.pushNamed(context, AppRoutes.login),
-                  child: const Text('Login'),
+                  onPressed: () =>
+                      Navigator.pushNamed(context, AppRoutes.login),
+                  child: const Text('Masuk'),
                 ),
               ],
             ),
@@ -340,6 +364,7 @@ class _HistoryPageState extends State<HistoryPage> {
       return Column(
         children: [
           _buildCategoryTabs(),
+          _buildFilterBar(),
           _buildSortDropdown(),
           const Expanded(
             child: Center(
@@ -355,7 +380,7 @@ class _HistoryPageState extends State<HistoryPage> {
                     ),
                     SizedBox(height: 10),
                     Text(
-                      'Belum ada riwayat',
+                      'Belum ada riwayat pada tanggal ini',
                       style: TextStyle(
                         color: Color(0xFF666666),
                         fontSize: 14,
@@ -374,208 +399,185 @@ class _HistoryPageState extends State<HistoryPage> {
     return Column(
       children: [
         _buildCategoryTabs(),
+        _buildFilterBar(),
         _buildSortDropdown(),
         Expanded(
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(0, 0, 0, 12),
-            children: [
-              _buildUnifiedSection(
-                title: 'Riwayat Hari Ini',
-                subtitle: '${todayOrders.length} data untuk hari ini',
-                orders: todayOrders,
-                isExpandable: false,
-                isExpanded: true,
-                emptyMessage: 'Belum ada riwayat hari ini',
-              ),
-              _buildUnifiedSection(
-                title: 'Riwayat Sebelumnya',
-                subtitle: previousOrders.isEmpty
-                    ? 'Tidak ada riwayat hari sebelumnya'
-                    : '${previousOrders.length} data dari hari sebelumnya',
-                orders: previousOrders,
-                isExpandable: true,
-                isExpanded: _showPreviousHistory,
-                onTap: previousOrders.isEmpty
-                    ? null
-                    : () => setState(() => _showPreviousHistory = !_showPreviousHistory),
-                emptyMessage: 'Tidak ada riwayat hari sebelumnya',
-              ),
-            ],
-          ),
+          child: _activeTab == _HistoryTab.payment
+              ? PaymentHistoryList(
+                  orders: filtered,
+                  onRefreshRequested: _loadOrders,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                )
+              : RefreshIndicator(
+                  onRefresh: _loadOrders,
+                  child: OrderHistoryList(
+                    orders: filtered,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                  ),
+                ),
         ),
       ],
     );
   }
 
-  Widget _buildHistorySectionList({
-    required List<HistoryOrderItem> orders,
-    EdgeInsetsGeometry padding = const EdgeInsets.fromLTRB(16, 12, 16, 24),
-  }) {
-    if (_activeTab == _HistoryTab.payment) {
-      return PaymentHistoryList(
-        orders: orders,
-        onRefreshRequested: _loadOrders,
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        padding: padding,
-      );
-    }
-    return OrderHistoryList(
-      orders: orders,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      padding: padding,
-    );
-  }
-
-  Widget _buildUnifiedSection({
-    required String title,
-    required String subtitle,
-    required List<HistoryOrderItem> orders,
-    required bool isExpandable,
-    required bool isExpanded,
-    VoidCallback? onTap,
-    String? emptyMessage,
-  }) {
-    final showContent = !isExpandable || isExpanded;
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-      decoration: BoxDecoration(
-        color: const Color(0xFFE2E8F0),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFCBD5E1)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          InkWell(
-            onTap: onTap,
-            borderRadius: BorderRadius.vertical(
-              top: const Radius.circular(15),
-              bottom: Radius.circular(showContent ? 0 : 15),
-            ),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(
-                color: const Color(0xFFCBD5E1),
-                borderRadius: BorderRadius.vertical(
-                  top: const Radius.circular(15),
-                  bottom: Radius.circular(showContent ? 0 : 15),
-                ),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          title,
-                          style: const TextStyle(
-                            color: Color(0xFF334155),
-                            fontSize: 14,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        const SizedBox(height: 3),
-                        Text(
-                          subtitle,
-                          style: const TextStyle(
-                            color: Color(0xFF64748B),
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (isExpandable && orders.isNotEmpty)
-                    Icon(
-                      isExpanded
-                          ? Icons.keyboard_arrow_up_rounded
-                          : Icons.keyboard_arrow_down_rounded,
-                      color: const Color(0xFF64748B),
-                    ),
-                ],
-              ),
-            ),
-          ),
-          if (showContent) ...[
-            if (orders.isEmpty)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-                child: Center(
-                  child: Text(
-                    emptyMessage ?? 'Belum ada data',
-                    style: const TextStyle(
-                      color: Color(0xFF64748B),
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              )
-            else
-              Padding(
-                padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-                child: _buildHistorySectionList(
-                  orders: orders,
-                  padding: EdgeInsets.zero,
-                ),
-              ),
-          ],
-        ],
-      ),
-    );
-  }
-
   Widget _buildCategoryTabs() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-      child: Container(
-        padding: const EdgeInsets.all(4),
-        decoration: BoxDecoration(
-          color: const Color(0xFFE9E9E9),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: _CategoryTabButton(
-                label: 'Riwayat Pesanan',
-                isActive: _activeTab == _HistoryTab.order,
-                onTap: () {
-                  setState(() => _activeTab = _HistoryTab.order);
-                },
-              ),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        children: [
+          Expanded(
+            child: _CategoryTabButton(
+              label: 'Riwayat Pesanan',
+              isActive: _activeTab == _HistoryTab.order,
+              onTap: () => setState(() => _activeTab = _HistoryTab.order),
             ),
-            const SizedBox(width: 6),
-            Expanded(
-              child: _CategoryTabButton(
-                label: 'Riwayat Pembayaran',
-                isActive: _activeTab == _HistoryTab.payment,
-                onTap: () {
-                  setState(() => _activeTab = _HistoryTab.payment);
-                },
-              ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: _CategoryTabButton(
+              label: 'Riwayat Pembayaran',
+              isActive: _activeTab == _HistoryTab.payment,
+              onTap: () => setState(() => _activeTab = _HistoryTab.payment),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
-  List<HistoryOrderItem> get _filteredOrdersByActiveTab {
+  Widget _buildFilterBar() {
+    final todayStr = formatIndonesianDate(DateTime.now());
+    final pastStr = _selectedPastDate != null
+        ? formatIndonesianDate(_selectedPastDate!)
+        : '';
+
+    final dropdownOptions = [
+      AppDropdownOption<String>(value: 'today', label: 'Hari ini ($todayStr)'),
+      AppDropdownOption<String>(
+        value: 'past',
+        label: _selectedPastDate != null ? pastStr : 'Sebelum hari ini',
+      ),
+    ];
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+      child: Row(
+        children: [
+          Expanded(
+            child: AppDropdownField<String>(
+              value: _mode == _FilterMode.today ? 'today' : 'past',
+              borderRadius: 10,
+              borderColor: const Color(0xFFE3E3E3),
+              textStyle: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF4B5563),
+              ),
+              options: dropdownOptions,
+              onChanged: (value) {
+                if (value == null) return;
+                setState(() {
+                  _mode = value == 'today'
+                      ? _FilterMode.today
+                      : _FilterMode.past;
+                  if (_mode == _FilterMode.past) {
+                    _selectedPastDate = null;
+                  }
+                });
+              },
+            ),
+          ),
+          if (_mode == _FilterMode.past) ...[
+            const SizedBox(width: 8),
+            SizedBox(
+              height: 40,
+              width: 40,
+              child: OutlinedButton(
+                onPressed: _selectPastDate,
+                style: OutlinedButton.styleFrom(
+                  padding: EdgeInsets.zero,
+                  side: const BorderSide(color: Color(0xFFD45A00)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                child: const Icon(
+                  Icons.calendar_month_rounded,
+                  color: Color(0xFFD45A00),
+                  size: 20,
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Future<void> _selectPastDate() async {
+    final yesterday = DateTime.now().subtract(const Duration(days: 1));
+    final initial =
+        _selectedPastDate != null && !_selectedPastDate!.isAfter(yesterday)
+        ? _selectedPastDate!
+        : yesterday;
+
+    final picked = await showDialog<dynamic>(
+      context: context,
+      builder: (context) {
+        return _CustomDatePickerDialog(
+          initialDate: initial,
+          firstDate: DateTime(2020),
+          lastDate: yesterday,
+        );
+      },
+    );
+
+    if (picked == 'all_past') {
+      setState(() {
+        _selectedPastDate = null;
+      });
+    } else if (picked is DateTime && picked != _selectedPastDate) {
+      setState(() {
+        _selectedPastDate = picked;
+      });
+    }
+  }
+
+  List<HistoryOrderItem> get _filteredOrders {
     final list = List<HistoryOrderItem>.from(_orders);
+    final now = DateTime.now();
+
+    // 1. Filter berdasarkan tanggal yang dipilih
+    var dateFiltered = list.where((order) {
+      final d = order.eventAt;
+      final isToday =
+          d.year == now.year && d.month == now.month && d.day == now.day;
+
+      if (_mode == _FilterMode.today) {
+        return isToday;
+      } else {
+        if (_selectedPastDate == null) {
+          // Tampilkan semua riwayat sebelum hari ini
+          final todayStart = DateTime(now.year, now.month, now.day);
+          return d.isBefore(todayStart);
+        } else {
+          // Tampilkan riwayat pada tanggal tertentu
+          return d.year == _selectedPastDate!.year &&
+              d.month == _selectedPastDate!.month &&
+              d.day == _selectedPastDate!.day;
+        }
+      }
+    }).toList();
+
+    // 2. Filter dan urutkan sesuai tab aktif
     if (_activeTab == _HistoryTab.payment) {
-      final filtered = list.where((order) {
+      var filtered = dateFiltered.where((order) {
         switch (_paymentFilter) {
           case _PaymentSortFilter.newest:
           case _PaymentSortFilter.oldest:
@@ -598,51 +600,32 @@ class _HistoryPageState extends State<HistoryPage> {
         return bd.compareTo(ad);
       });
       return filtered;
+    } else {
+      var filtered = dateFiltered.where((order) {
+        switch (_orderFilter) {
+          case _OrderSortFilter.latest:
+          case _OrderSortFilter.oldest:
+            return true;
+          case _OrderSortFilter.booking:
+            return order.orderTypeKey == 'booking';
+          case _OrderSortFilter.dineInDirect:
+            return order.orderTypeKey == 'dine_in';
+          case _OrderSortFilter.takeawayPickup:
+            return order.orderTypeKey == 'pickup';
+        }
+      }).toList();
+
+      filtered.sort((a, b) {
+        final ad = a.eventAt;
+        final bd = b.eventAt;
+        if (_orderFilter == _OrderSortFilter.oldest) {
+          return ad.compareTo(bd);
+        }
+        return bd.compareTo(ad);
+      });
+      return filtered;
     }
-
-    final filtered = list.where((order) {
-      switch (_orderFilter) {
-        case _OrderSortFilter.latest:
-        case _OrderSortFilter.oldest:
-          return true;
-        case _OrderSortFilter.booking:
-          return order.orderTypeKey == 'booking';
-        case _OrderSortFilter.dineInDirect:
-          return order.orderTypeKey == 'dine_in';
-        case _OrderSortFilter.takeawayPickup:
-          return order.orderTypeKey == 'pickup';
-      }
-    }).toList();
-
-    filtered.sort((a, b) {
-      final ad = a.eventAt;
-      final bd = b.eventAt;
-      if (_orderFilter == _OrderSortFilter.oldest) {
-        return ad.compareTo(bd);
-      }
-      return bd.compareTo(ad);
-    });
-    return filtered;
   }
-
-  List<HistoryOrderItem> _todayOrdersFrom(List<HistoryOrderItem> source) {
-    final now = DateTime.now();
-    return source.where((order) {
-      final d = order.eventAt;
-      return d.year == now.year && d.month == now.month && d.day == now.day;
-    }).toList();
-  }
-
-  List<HistoryOrderItem> _previousOrdersFrom(List<HistoryOrderItem> source) {
-    final now = DateTime.now();
-    return source.where((order) {
-      final d = order.eventAt;
-      final isToday = d.year == now.year && d.month == now.month && d.day == now.day;
-      return !isToday;
-    }).toList();
-  }
-
-
 
   Widget _buildSortDropdown() {
     final isPayment = _activeTab == _HistoryTab.payment;
@@ -652,11 +635,11 @@ class _HistoryPageState extends State<HistoryPage> {
     final selected = isPayment ? _paymentFilter.name : _orderFilter.name;
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
       child: Row(
         children: [
           const Text(
-            'Sort by:',
+            'Urutkan:',
             style: TextStyle(
               color: Color(0xFF666666),
               fontSize: 13,
@@ -667,7 +650,7 @@ class _HistoryPageState extends State<HistoryPage> {
           Expanded(
             child: AppDropdownField<String>(
               value: selected,
-              menuMaxHeight: 240,
+              menuMaxHeight: 280,
               dividerWidth: 2.2,
               borderRadius: 10,
               borderColor: const Color(0xFFE3E3E3),
@@ -677,7 +660,10 @@ class _HistoryPageState extends State<HistoryPage> {
                 color: Color(0xFF4B5563),
               ),
               options: options
-                  .map((e) => AppDropdownOption<String>(value: e.key, label: e.value))
+                  .map(
+                    (e) =>
+                        AppDropdownOption<String>(value: e.key, label: e.value),
+                  )
                   .toList(),
               onChanged: (value) {
                 if (value == null) return;
@@ -706,16 +692,16 @@ class _HistoryPageState extends State<HistoryPage> {
     'newest': 'Terbaru',
     'oldest': 'Terlama',
     'paid': 'Lunas',
-    'pending': 'Menunggu',
+    'pending': 'Menunggu pembayaran',
     'failed': 'Gagal',
   };
 
   Map<String, String> get _orderSortLabels => const {
     'latest': 'Terbaru',
     'oldest': 'Terlama',
-    'booking': 'Booking',
-    'dineInDirect': 'Dine In Langsung',
-    'takeawayPickup': 'Takeaway/Pickup',
+    'booking': 'Booking meja',
+    'dineInDirect': 'Makan di tempat',
+    'takeawayPickup': 'Ambil sendiri',
   };
 
   bool _matchesAny(String raw, List<String> keys) {
@@ -732,8 +718,13 @@ class _HistoryPageState extends State<HistoryPage> {
   bool _isPendingStatus(String status) =>
       _matchesAny(status, const ['pending', 'unpaid', 'menunggu']);
 
-  bool _isFailedStatus(String status) =>
-      _matchesAny(status, const ['failed', 'expire', 'cancel', 'deny', 'gagal']);
+  bool _isFailedStatus(String status) => _matchesAny(status, const [
+    'failed',
+    'expire',
+    'cancel',
+    'deny',
+    'gagal',
+  ]);
 
   int _toInt(dynamic value) {
     if (value is int) return value;
@@ -777,8 +768,9 @@ class _HistoryPageState extends State<HistoryPage> {
     if (parsed == null) return '';
 
     final local = parsed.toLocal();
-    final date = DateFormat('dd/MM/yyyy').format(local);
-    final startTime = DateFormat('HH:mm').format(local);
+    final date = formatIndonesianDate(local);
+    final startTime =
+        '${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
     return '$date $startTime • $durationHours jam';
   }
 
@@ -803,9 +795,17 @@ class _HistoryPageState extends State<HistoryPage> {
 
   String _formatEventDateLabel(DateTime eventAt) {
     if (eventAt.millisecondsSinceEpoch == 0) return '-';
-    return DateFormat('dd-MM-yyyy (HH:mm:ss)').format(eventAt);
+    return formatIndonesianDateTime(eventAt);
   }
 }
+
+enum _FilterMode { today, past }
+
+enum _HistoryTab { order, payment }
+
+enum _PaymentSortFilter { newest, oldest, paid, pending, failed }
+
+enum _OrderSortFilter { latest, oldest, booking, dineInDirect, takeawayPickup }
 
 class _CategoryTabButton extends StatelessWidget {
   const _CategoryTabButton({
@@ -846,14 +846,116 @@ class _CategoryTabButton extends StatelessWidget {
   }
 }
 
-enum _HistoryTab { order, payment }
+class _CustomDatePickerDialog extends StatefulWidget {
+  final DateTime initialDate;
+  final DateTime firstDate;
+  final DateTime lastDate;
 
-enum _PaymentSortFilter { newest, oldest, paid, pending, failed }
+  const _CustomDatePickerDialog({
+    required this.initialDate,
+    required this.firstDate,
+    required this.lastDate,
+  });
 
-enum _OrderSortFilter {
-  latest,
-  oldest,
-  booking,
-  dineInDirect,
-  takeawayPickup,
+  @override
+  State<_CustomDatePickerDialog> createState() =>
+      _CustomDatePickerDialogState();
+}
+
+class _CustomDatePickerDialogState extends State<_CustomDatePickerDialog> {
+  late DateTime _selectedDate;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedDate = widget.initialDate;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+      clipBehavior: Clip.antiAlias,
+      backgroundColor: Colors.white,
+      child: Container(
+        width: 328,
+        padding: const EdgeInsets.fromLTRB(12, 16, 12, 12),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SizedBox(
+              height: 300,
+              child: Theme(
+                data: Theme.of(context).copyWith(
+                  colorScheme: const ColorScheme.light(
+                    primary: Color(0xFFD45A00),
+                    onPrimary: Colors.white,
+                    onSurface: Color(0xFF2E2E2E),
+                  ),
+                ),
+                child: CalendarDatePicker(
+                  initialDate: _selectedDate,
+                  firstDate: widget.firstDate,
+                  lastDate: widget.lastDate,
+                  onDateChanged: (date) {
+                    setState(() {
+                      _selectedDate = date;
+                    });
+                  },
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.of(context).pop('all_past');
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFD45A00),
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 8,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  child: const Text(
+                    'Tampilkan semua dimasa lalu',
+                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800),
+                  ),
+                ),
+                const Spacer(),
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  style: TextButton.styleFrom(
+                    foregroundColor: const Color(0xFF666666),
+                  ),
+                  child: const Text(
+                    'Batal',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(_selectedDate),
+                  style: TextButton.styleFrom(
+                    foregroundColor: const Color(0xFFD45A00),
+                  ),
+                  child: const Text(
+                    'OK',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }

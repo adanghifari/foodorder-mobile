@@ -54,14 +54,15 @@ class _LoginPageState extends State<LoginPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const SizedBox(height: 24),
-                  _buildLabel('Username'),
+                  _buildLabel('Username atau Email'),
                   const SizedBox(height: 6),
                   _buildInput(
-                    hint: 'username',
+                    hint: 'username atau email',
                     controller: _usernameController,
+                    keyboardType: TextInputType.emailAddress,
                   ),
                   const SizedBox(height: 18),
-                  _buildLabel('Password'),
+                  _buildLabel('Kata sandi'),
                   const SizedBox(height: 6),
                   _buildPasswordInput(controller: _passwordController),
                   const SizedBox(height: 12),
@@ -83,16 +84,21 @@ class _LoginPageState extends State<LoginPage> {
                       ),
                       const SizedBox(width: 8),
                       const Text(
-                        'Remember me',
+                        'Ingat saya',
                         style: TextStyle(fontSize: 13, color: Colors.black54),
                       ),
                       const Spacer(),
-                      const Text(
-                        'Forgot Password ?',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Color(0xFF1565C0),
-                          fontWeight: FontWeight.w500,
+                      GestureDetector(
+                        onTap: () {
+                          Navigator.pushNamed(context, AppRoutes.forgotPassword);
+                        },
+                        child: const Text(
+                          'Lupa kata sandi?',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Color(0xFF1565C0),
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                       ),
                     ],
@@ -267,7 +273,7 @@ class _LoginPageState extends State<LoginPage> {
           ),
         ),
         child: Text(
-          _isSubmitting ? 'Loading...' : 'Log In',
+          _isSubmitting ? 'Masuk...' : 'Masuk',
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w600,
@@ -312,7 +318,7 @@ class _LoginPageState extends State<LoginPage> {
       if (!mounted) return;
       AppNotice.show(
         context,
-        'Login gagal: ${AppNotice.humanizeMessage(e)}',
+        'Masuk gagal: ${AppNotice.humanizeMessage(e)}',
         type: AppNoticeType.error,
       );
     } finally {

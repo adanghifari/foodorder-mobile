@@ -195,9 +195,9 @@ class _MenuPageState extends State<MenuPage> {
     final result = await AppNotice.confirm(
       context,
       type: AppNoticeType.info,
-      bodyTitle: 'Login Diperlukan',
+      bodyTitle: 'Masuk diperlukan',
       message: 'Anda belum login. Silakan login terlebih dahulu untuk melanjutkan.',
-      confirmLabel: 'Login',
+      confirmLabel: 'Masuk',
     );
     return result;
   }

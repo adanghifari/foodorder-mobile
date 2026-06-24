@@ -8,6 +8,7 @@ import '../../../../shared/config/api_config.dart';
 import '../../../../shared/widgets/app_notice.dart';
 import '../../domain/history_models.dart';
 import '../../../profile/presentation/payment_receipt_page.dart';
+import '../../../../shared/utils/status_localizer.dart';
 
 class PaymentHistoryList extends StatelessWidget {
   const PaymentHistoryList({
@@ -105,10 +106,10 @@ class _PaymentHistoryCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 10),
-          _kv('Order ID', order.orderCode),
-          _kv('Metode/Status', order.paymentMethodLabel),
+          _kv('ID Pesanan', order.orderCode),
+          _kv('Status Pembayaran', localizedPaymentStatusLabel(order.paymentMethodLabel)),
           _kv('Metode Bayar', order.paymentMethod),
-          _kv('Status Order', order.status),
+          _kv('Status Pesanan', localizedOrderStatusLabel(order.status)),
           const SizedBox(height: 10),
           Row(
             children: [
@@ -243,10 +244,10 @@ class _PaymentHistoryCard extends StatelessWidget {
                     children: [
                       _detailRow('Kode', order.orderCode),
                       _detailRow('Tanggal Bayar', order.dateLabel),
-                      _detailRow('Metode/Status', order.paymentMethodLabel),
-                      _detailRow('Payment Method', order.paymentMethod),
+                      _detailRow('Status Pembayaran', localizedPaymentStatusLabel(order.paymentMethodLabel)),
+                      _detailRow('Metode Bayar', order.paymentMethod),
                       _detailRow('Nomor VA', order.vaNumber),
-                      _detailRow('Status Order', order.status),
+                      _detailRow('Status Pesanan', localizedOrderStatusLabel(order.status)),
                       _detailRow('Nominal', idr(order.totalPrice), isLast: true),
                     ],
                   ),
@@ -293,7 +294,7 @@ class _PaymentHistoryCard extends StatelessWidget {
       buttons.add(const SizedBox(height: 8));
       buttons.add(
         _actionButton(
-          label: 'Pilih Payment Method',
+          label: 'Pilih Metode Bayar',
           onTap: () => _continuePayment(context),
         ),
       );
@@ -461,6 +462,43 @@ class _PaymentHistoryCard extends StatelessWidget {
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
+                    onPressed: () async {
+                      Navigator.of(sheetContext).pop();
+                      if (order.paymentUrl.isNotEmpty && order.paymentUrl != '-') {
+                        try {
+                          await _openMidtrans(context, order.paymentUrl);
+                        } catch (e) {
+                          if (context.mounted) {
+                            AppNotice.show(
+                              context,
+                              AppNotice.humanizeMessage(e),
+                              type: AppNoticeType.error,
+                            );
+                          }
+                        }
+                      } else {
+                        await _continuePayment(context);
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF1D4ED8),
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(vertical: 11),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    child: const Text(
+                      'Lanjut ke Pembayaran Midtrans',
+                      style: TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
                     onPressed: () => Navigator.of(sheetContext).pop(),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: _accent,
@@ -546,6 +584,9 @@ class _PaymentHistoryCard extends StatelessWidget {
     );
 
     if (result == true) {
+      // Sync status from Midtrans BEFORE refreshing the list
+      final api = _HistoryPaymentApi();
+      await api.checkStatus(orderId: order.orderId);
       await onRefreshRequested?.call();
     }
   }
@@ -698,8 +739,8 @@ class _PaymentHistoryCard extends StatelessWidget {
 class _HistoryPaymentApi {
   final Dio _dio = Dio(
     BaseOptions(
-      connectTimeout: const Duration(seconds: 10),
-      receiveTimeout: const Duration(seconds: 15),
+      connectTimeout: const Duration(seconds: 15),
+      receiveTimeout: const Duration(seconds: 60),
       headers: const {
         'Accept': 'application/json',
         'Content-Type': 'application/json',
@@ -733,6 +774,14 @@ class _HistoryPaymentApi {
 
   Future<void> cancel({required String orderId}) async {
     await _postPaymentAction(path: '/v1/payments/cancel/$orderId');
+  }
+
+  Future<void> checkStatus({required String orderId}) async {
+    // Best-effort: sync payment status from Midtrans after returning from webview.
+    // Ignore errors — list will still refresh.
+    try {
+      await _postPaymentAction(path: '/v1/payments/check-status/$orderId');
+    } catch (_) {}
   }
 
   Future<Map<String, dynamic>> _postPaymentAction({
@@ -789,7 +838,7 @@ class _PaymentStatusChip extends StatelessWidget {
         statusUp == 'PAID' || statusUp == 'SUCCESS' || statusUp == 'SETTLEMENT';
     final bg = isPaid ? const Color(0xFFE8F7EC) : const Color(0xFFFFF4E8);
     final fg = isPaid ? const Color(0xFF2E7D32) : const Color(0xFFAF5A00);
-
+    final label = localizedPaymentStatusLabel(status);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
@@ -797,7 +846,7 @@ class _PaymentStatusChip extends StatelessWidget {
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
-        status,
+        label,
         style: TextStyle(color: fg, fontSize: 11, fontWeight: FontWeight.w800),
       ),
     );

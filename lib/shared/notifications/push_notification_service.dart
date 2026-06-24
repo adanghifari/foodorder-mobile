@@ -16,7 +16,7 @@ final FlutterLocalNotificationsPlugin _localNotifications =
 
 const AndroidNotificationChannel _defaultAndroidChannel = AndroidNotificationChannel(
   'order_status_updates',
-  'Order & Pembayaran',
+  'Pesanan & Pembayaran',
   description: 'Notifikasi status pesanan dan pembayaran',
   importance: Importance.high,
 );
@@ -112,7 +112,7 @@ class PushNotificationService {
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
       final title = message.notification?.title?.trim().isNotEmpty == true
           ? message.notification!.title!.trim()
-          : 'Update KedaiKlik';
+          : 'Pembaruan KedaiKlik';
       final body = message.notification?.body?.trim().isNotEmpty == true
           ? message.notification!.body!.trim()
           : 'Ada pembaruan status pesanan.';

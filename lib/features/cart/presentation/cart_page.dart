@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../app/app_routes.dart';
 import '../../../shared/widgets/app_dropdown_field.dart';
 import '../../../shared/widgets/app_notice.dart';
+import '../../../shared/utils/indonesian_date_formatter.dart';
 import '../../landing/data/order_type_session.dart';
 import '../../payment/presentation/midtrans_webview_page.dart';
 import '../../scan/data/table_session.dart';
@@ -53,8 +54,10 @@ class _CartPageState extends State<CartPage> {
   int _extraCharge = 0;
 
   int get _subtotal => _items.fold(0, (sum, e) => sum + e.subtotal);
-  int get _totalPayment => _subtotal + _serviceFee + (_orderType == OrderType.bookingDineIn ? _extraCharge : 0);
-
+  int get _totalPayment =>
+      _subtotal +
+      _serviceFee +
+      (_orderType == OrderType.bookingDineIn ? _extraCharge : 0);
 
   @override
   void didChangeDependencies() {
@@ -404,6 +407,10 @@ class _CartPageState extends State<CartPage> {
       }
 
       setState(() => _isSubmitting = true);
+
+      // Sync status dari Midtrans ke DB sebelum ambil data struk
+      await _cartApiService.checkStatus(orderId: orderId);
+
       HistoryOrderItem? orderItem;
       try {
         orderItem = await _cartApiService.getOrderReceipt(orderId);
@@ -642,7 +649,7 @@ class _CartPageState extends State<CartPage> {
             const SizedBox(height: 12),
             ElevatedButton(
               onPressed: _goToMenuAndResetOrderType,
-              child: const Text('Pilih Menu'),
+              child: const Text('Pilih menu'),
             ),
           ],
         ),
@@ -664,7 +671,7 @@ class _CartPageState extends State<CartPage> {
                 border: Border.all(color: const Color(0xFFF0D7BB)),
               ),
               child: const Text(
-                'Ini keranjang anda!',
+                'Ini keranjangmu!',
                 style: TextStyle(
                   fontSize: 12,
                   color: Color(0xFF8A5A2B),
@@ -689,35 +696,35 @@ class _CartPageState extends State<CartPage> {
                 height: 52,
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(horizontal: 14),
-              decoration: BoxDecoration(
-                color: const Color(0xFFE8E8E8),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.grey.shade300),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    _orderType == OrderType.onSpotDineIn
-                        ? Icons.qr_code_scanner
-                        : Icons.restaurant,
-                    size: 18,
-                    color: const Color(0xFF9CA3AF),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE8E8E8),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey.shade300),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
                       _orderType == OrderType.onSpotDineIn
-                          ? 'Dine-in'
-                          : 'Booking meja',
-                      style: const TextStyle(
-                        color: Color(0xFF6B7280),
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
+                          ? Icons.qr_code_scanner
+                          : Icons.restaurant,
+                      size: 18,
+                      color: const Color(0xFF9CA3AF),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        _orderType == OrderType.onSpotDineIn
+                            ? 'Makan di tempat'
+                            : 'Booking meja',
+                        style: const TextStyle(
+                          color: Color(0xFF6B7280),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
-                  ),
-                ],
-              ),
+                  ],
+                ),
               )
             else
               AppDropdownField<OrderType>(
@@ -741,7 +748,7 @@ class _CartPageState extends State<CartPage> {
                   ),
                   AppDropdownOption<OrderType>(
                     value: OrderType.pickup,
-                    label: 'Pickup (tanpa QR)',
+                    label: 'Ambil sendiri (tanpa QR)',
                     icon: Icons.storefront,
                   ),
                 ],
@@ -810,17 +817,17 @@ class _CartPageState extends State<CartPage> {
             Row(
               children: [
                 Expanded(
-                child: OutlinedButton(
-                  onPressed: _goToMenuAndResetOrderType,
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: _lightBrownColor),
+                  child: OutlinedButton(
+                    onPressed: _goToMenuAndResetOrderType,
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: _lightBrownColor),
                       padding: const EdgeInsets.symmetric(vertical: 15),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
                     child: const Text(
-                      'Tambah Item',
+                      'Tambah menu',
                       style: TextStyle(
                         color: _lightBrownColor,
                         fontWeight: FontWeight.bold,
@@ -934,7 +941,7 @@ class _CartPageState extends State<CartPage> {
           Expanded(
             child: Text(
               tableNumber == null
-                  ? 'Belum ada meja. Scan QR meja dulu.'
+                  ? 'Belum ada meja. Pindai QR meja dulu.'
                   : 'Meja $tableNumber',
               style: TextStyle(
                 color: tableNumber == null
@@ -955,7 +962,7 @@ class _CartPageState extends State<CartPage> {
                   size: 20,
                   color: Color(0xFFC7985F),
                 ),
-                tooltip: 'Scan QR Meja',
+                tooltip: 'Pindai QR meja',
                 padding: EdgeInsets.zero,
               ),
             ),
@@ -965,8 +972,7 @@ class _CartPageState extends State<CartPage> {
   }
 
   Widget _buildDatePickerField() {
-    final displayDate =
-        '${_bookingDate.day.toString().padLeft(2, '0')}/${_bookingDate.month.toString().padLeft(2, '0')}/${_bookingDate.year}';
+    final displayDate = formatIndonesianDate(_bookingDate);
 
     return InkWell(
       onTap: _pickBookingDate,

@@ -46,11 +46,11 @@ class _RegisterPageState extends State<RegisterPage> {
                 padding: const EdgeInsets.all(20),
                 child: Column(
                   children: [
-                    _input('Name', _nameController),
+                    _input('Nama Lengkap', _nameController),
                     _input('Username', _usernameController),
                     _input('Email', _emailController),
                     _input('No. Telepon', _phoneController),
-                    _input('Password', _passwordController, obscure: true),
+                    _input('Kata sandi', _passwordController, obscure: true),
                     const SizedBox(height: 20),
                     _button(),
                     const SizedBox(height: 40),
@@ -58,13 +58,13 @@ class _RegisterPageState extends State<RegisterPage> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         const Text(
-                          'Already have an account? ',
+                          'Sudah punya akun? ',
                           style: TextStyle(color: Colors.grey),
                         ),
                         GestureDetector(
                           onTap: () => Navigator.pop(context),
                           child: const Text(
-                            'Log in',
+                            'Masuk',
                             style: TextStyle(
                               color: primaryBrown,
                               fontWeight: FontWeight.w600,
@@ -104,12 +104,12 @@ class _RegisterPageState extends State<RegisterPage> {
             ),
             SizedBox(height: 10),
             Text(
-              'Register',
+              'Daftar',
               style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
             ),
             SizedBox(height: 5),
             Text(
-              'Create an account to continue!',
+              'Buat akun untuk melanjutkan!',
               style: TextStyle(color: Colors.grey),
             ),
           ],
@@ -159,7 +159,7 @@ class _RegisterPageState extends State<RegisterPage> {
           ),
         ),
         child: Text(
-          _isSubmitting ? 'Loading...' : 'Sign Up',
+          _isSubmitting ? 'Mendaftar...' : 'Daftar',
           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
         ),
       ),
@@ -194,7 +194,7 @@ class _RegisterPageState extends State<RegisterPage> {
       if (!mounted) return;
       AppNotice.show(
         context,
-        'Registrasi berhasil. Silakan login.',
+        'Registrasi berhasil. Silakan masuk.',
         type: AppNoticeType.success,
       );
       Navigator.pop(context);

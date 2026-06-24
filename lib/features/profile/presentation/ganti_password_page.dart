@@ -48,7 +48,7 @@ class _GantiPasswordPageState extends State<GantiPasswordPage> {
     if (newPassword.length < 6) {
       AppNotice.show(
         context,
-        'Password baru minimal harus 6 karakter.',
+        'Kata sandi baru minimal harus 6 karakter.',
         type: AppNoticeType.error,
       );
       return;
@@ -57,7 +57,7 @@ class _GantiPasswordPageState extends State<GantiPasswordPage> {
     if (newPassword == currentPassword) {
       AppNotice.show(
         context,
-        'Password baru tidak boleh sama dengan password sekarang.',
+        'Kata sandi baru tidak boleh sama dengan kata sandi sekarang.',
         type: AppNoticeType.error,
       );
       return;
@@ -86,7 +86,7 @@ class _GantiPasswordPageState extends State<GantiPasswordPage> {
 
       AppNotice.show(
         context,
-        'Password berhasil diubah.',
+        'Kata sandi berhasil diubah.',
         type: AppNoticeType.success,
       );
 
@@ -114,7 +114,7 @@ class _GantiPasswordPageState extends State<GantiPasswordPage> {
           size: 20,
         ),
         title: const Text(
-          "Ganti Password",
+          "Ubah kata sandi",
           style: TextStyle(
             color: Colors.black,
             fontWeight: FontWeight.bold,
@@ -130,30 +130,30 @@ class _GantiPasswordPageState extends State<GantiPasswordPage> {
           children: [
             const SizedBox(height: 10),
 
-            _buildLabel('Password Sekarang'),
+            _buildLabel('Kata sandi sekarang'),
             const SizedBox(height: 6),
             _buildPasswordInput(
-              hint: 'Masukkan password saat ini',
+              hint: 'Masukkan kata sandi saat ini',
               controller: _currentPasswordController,
               isObscure: _isCurrentObscure,
               onToggleObscure: () => setState(() => _isCurrentObscure = !_isCurrentObscure),
             ),
             const SizedBox(height: 18),
 
-            _buildLabel('Password Baru'),
+            _buildLabel('Kata sandi baru'),
             const SizedBox(height: 6),
             _buildPasswordInput(
-              hint: 'Masukkan password baru',
+              hint: 'Masukkan kata sandi baru',
               controller: _newPasswordController,
               isObscure: _isNewObscure,
               onToggleObscure: () => setState(() => _isNewObscure = !_isNewObscure),
             ),
             const SizedBox(height: 18),
 
-            _buildLabel('Konfirmasi Password Baru'),
+            _buildLabel('Konfirmasi kata sandi baru'),
             const SizedBox(height: 6),
             _buildPasswordInput(
-              hint: 'Masukkan kembali password baru',
+              hint: 'Masukkan kembali kata sandi baru',
               controller: _confirmPasswordController,
               isObscure: _isConfirmObscure,
               onToggleObscure: () => setState(() => _isConfirmObscure = !_isConfirmObscure),
@@ -185,7 +185,7 @@ class _GantiPasswordPageState extends State<GantiPasswordPage> {
                         ),
                       )
                     : const Text(
-                        'Simpan Password',
+                        'Simpan kata sandi',
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,

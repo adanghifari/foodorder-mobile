@@ -183,7 +183,7 @@ class _LandingPageState extends State<LandingPage>
       return;
     }
 
-    // Immediately assume logged in since local token exists to prevent Login button flicker
+    // Langsung anggap login bila token lokal ada agar tombol tidak berkedip.
     setState(() {
       _isLoggedIn = true;
       _isAuthLoading = false;
@@ -750,7 +750,7 @@ class _LandingPageState extends State<LandingPage>
                             color: Colors.white,
                           ),
                         ),
-                        child: const Text('Login'),
+                        child: const Text('Masuk'),
                       ),
                     ),
                   ),
@@ -1095,7 +1095,7 @@ class _LandingPageState extends State<LandingPage>
   }
 
   Future<OrderType?> _pickOrderType(BuildContext context) async {
-    // Using a special sentinel value to detect "Scan QR" selection.
+    // Menggunakan nilai sentinel khusus untuk mendeteksi pilihan pindai QR.
     // We return null for cancel, an OrderType for normal selection,
     // and handle scan QR via a flag.
     var isScanQr = false;
@@ -1135,7 +1135,7 @@ class _LandingPageState extends State<LandingPage>
                 ),
                 ListTile(
                   leading: const Icon(Icons.qr_code_scanner, color: _accent),
-                  title: const Text('Scan QR'),
+                  title: const Text('Pindai QR'),
                   onTap: () {
                     isScanQr = true;
                     Navigator.pop(sheetContext, null);
@@ -1217,10 +1217,10 @@ class _LandingPageState extends State<LandingPage>
     final shouldLogin = await AppNotice.confirm(
       context,
       type: AppNoticeType.info,
-      bodyTitle: 'Login Diperlukan',
+      bodyTitle: 'Masuk diperlukan',
       message:
           'Anda belum login. Silakan login terlebih dahulu untuk melanjutkan pesanan.',
-      confirmLabel: 'Login',
+      confirmLabel: 'Masuk',
     );
 
     if (!context.mounted || shouldLogin != true) return;

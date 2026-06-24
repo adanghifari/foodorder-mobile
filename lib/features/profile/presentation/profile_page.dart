@@ -182,7 +182,7 @@ class _ProfilePageState extends State<ProfilePage> {
           if (_requireLogin)
             ElevatedButton(
               onPressed: () => Navigator.pushNamed(context, AppRoutes.login),
-              child: const Text('Login'),
+              child: const Text('Masuk'),
             )
           else
             ElevatedButton(

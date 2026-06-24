@@ -1,6 +1,5 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 
 import '../../../../shared/config/api_config.dart';
 import '../../../../shared/widgets/app_back_button.dart';
@@ -9,6 +8,9 @@ import '../../auth/data/auth_session.dart';
 import '../../../../app/app_routes.dart';
 import '../../history/domain/history_models.dart';
 import 'payment_receipt_page.dart';
+import '../../../../shared/widgets/app_dropdown_field.dart';
+import '../../../../shared/utils/indonesian_date_formatter.dart';
+import '../../../../shared/utils/status_localizer.dart';
 
 class StrukPage extends StatefulWidget {
   const StrukPage({super.key});
@@ -29,7 +31,8 @@ class _StrukPageState extends State<StrukPage> {
   bool _isLoading = true;
   String? _error;
   List<HistoryOrderItem> _paidOrders = const [];
-  bool _showPreviousStruk = false;
+  _FilterMode _mode = _FilterMode.today;
+  DateTime? _selectedPastDate;
 
   @override
   void initState() {
@@ -73,12 +76,23 @@ class _StrukPageState extends State<StrukPage> {
         final customerEmail = (customerMap['email'] ?? '').toString();
         final status = (item['status'] ?? '-').toString();
         final paymentStatus = (item['paymentStatus'] ?? '-').toString();
-        final paymentMethod = (item['paymentMethod'] ?? item['method'] ?? item['paymentType'] ?? '').toString();
+        final paymentMethod =
+            (item['paymentMethod'] ??
+                    item['method'] ??
+                    item['paymentType'] ??
+                    '')
+                .toString();
         final paymentUrl = (item['paymentUrl'] ?? '').toString();
         final midtransOrderId = (item['midtransOrderId'] ?? '').toString();
         final paymentExpiry = (item['paymentExpiry'] ?? '').toString();
         final qrisImageUrl = (item['qrisImageUrl'] ?? '').toString();
-        final vaNumber = (item['vaNumber'] ?? item['virtualAccountNumber'] ?? item['nomorVa'] ?? item['nomorVA'] ?? '').toString();
+        final vaNumber =
+            (item['vaNumber'] ??
+                    item['virtualAccountNumber'] ??
+                    item['nomorVa'] ??
+                    item['nomorVA'] ??
+                    '')
+                .toString();
         final orderTypeRaw = (item['orderType'] ?? 'dine_in').toString();
         final bookingStartAtRaw = (item['bookingStartAt'] ?? '').toString();
         final durationHours = _toInt(item['durationHours']);
@@ -100,14 +114,26 @@ class _StrukPageState extends State<StrukPage> {
         for (final e in items) {
           if (e is! Map<String, dynamic>) continue;
           final menu = e['menu'];
-          final menuName = menu is Map<String, dynamic> ? (menu['name'] ?? '').toString() : '';
-          final name = (e['name'] ?? e['menuName'] ?? e['itemName'] ?? e['foodName'] ?? menuName).toString();
+          final menuName = menu is Map<String, dynamic>
+              ? (menu['name'] ?? '').toString()
+              : '';
+          final name =
+              (e['name'] ??
+                      e['menuName'] ??
+                      e['itemName'] ??
+                      e['foodName'] ??
+                      menuName)
+                  .toString();
           final qty = _toInt(e['quantity']);
           final unitPriceRaw = _toInt(e['unitPrice']);
           final priceRaw = _toInt(e['price']);
           final subtotalRaw = _toInt(e['subtotal']);
-          final unitPrice = unitPriceRaw > 0 ? unitPriceRaw : (qty > 0 ? (priceRaw / qty).round() : priceRaw);
-          final subtotal = subtotalRaw > 0 ? subtotalRaw : (priceRaw > 0 ? priceRaw : unitPrice * qty);
+          final unitPrice = unitPriceRaw > 0
+              ? unitPriceRaw
+              : (qty > 0 ? (priceRaw / qty).round() : priceRaw);
+          final subtotal = subtotalRaw > 0
+              ? subtotalRaw
+              : (priceRaw > 0 ? priceRaw : unitPrice * qty);
           orderItems.add(
             HistoryLineItem(
               name: name.isEmpty ? 'Item' : name,
@@ -117,22 +143,29 @@ class _StrukPageState extends State<StrukPage> {
             ),
           );
         }
-        final totalItems = orderItems.fold<int>(0, (sum, e) => sum + e.quantity);
-        final orderTypeKey = orderTypeRaw == 'booking_dine_in' ? 'booking' : (orderTypeRaw == 'dine_in' ? 'dine_in' : 'pickup');
+        final totalItems = orderItems.fold<int>(
+          0,
+          (sum, e) => sum + e.quantity,
+        );
+        final orderTypeKey = orderTypeRaw == 'booking_dine_in'
+            ? 'booking'
+            : (orderTypeRaw == 'dine_in' ? 'dine_in' : 'pickup');
         final bookingScheduleLabel = _formatBookingSchedule(
           bookingStartAtRaw: bookingStartAtRaw,
           durationHours: durationHours,
         );
-        final orderTypeLabel = orderTypeKey == 'booking'
-            ? 'Booking${tableNumber != null ? ' • Meja $tableNumber' : ''}${bookingScheduleLabel.isNotEmpty ? ' • $bookingScheduleLabel' : ''}'
-            : (orderTypeKey == 'dine_in'
-                ? 'Dine In Langsung${tableNumber != null ? ' • Meja $tableNumber' : ''}'
-                : 'Takeaway/Pickup');
+        final orderTypeLabel = localizedOrderTypeLabel(
+          orderTypeKey,
+          tableNumber: tableNumber,
+          bookingScheduleLabel: bookingScheduleLabel,
+        );
         final tableLabel = tableNumber == null ? '-' : '$tableNumber';
 
         return HistoryOrderItem(
           orderId: orderId,
-          orderCode: orderId.isEmpty ? '-' : 'ORD-${orderId.substring(orderId.length > 6 ? orderId.length - 6 : 0).toUpperCase()}',
+          orderCode: orderId.isEmpty
+              ? '-'
+              : 'ORD-${orderId.substring(orderId.length > 6 ? orderId.length - 6 : 0).toUpperCase()}',
           dateLabel: displayDateLabel,
           eventAt: eventAt,
           orderTypeLabel: orderTypeLabel,
@@ -144,7 +177,9 @@ class _StrukPageState extends State<StrukPage> {
           paymentMethodLabel: paymentStatus,
           paymentMethod: paymentMethod.isEmpty ? '-' : paymentMethod,
           vaNumber: vaNumber.isEmpty ? '-' : vaNumber,
-          paymentExpiry: paymentExpiry.isEmpty ? '-' : paymentExpiry.replaceFirst('T', ' '),
+          paymentExpiry: paymentExpiry.isEmpty
+              ? '-'
+              : formatIndonesianDateTimeFromRaw(paymentExpiry),
           qrisImageUrl: qrisImageUrl,
           paymentUrl: paymentUrl,
           midtransOrderId: midtransOrderId,
@@ -157,7 +192,9 @@ class _StrukPageState extends State<StrukPage> {
 
       final paidOrders = allOrders.where((order) {
         final statusUp = order.paymentMethodLabel.toUpperCase();
-        return statusUp == 'PAID' || statusUp == 'SUCCESS' || statusUp == 'SETTLEMENT';
+        return statusUp == 'PAID' ||
+            statusUp == 'SUCCESS' ||
+            statusUp == 'SETTLEMENT';
       }).toList();
 
       if (!mounted) return;
@@ -186,7 +223,8 @@ class _StrukPageState extends State<StrukPage> {
     required String paidAtRaw,
     required String createdAtRaw,
   }) {
-    final isPaid = paymentStatus.toUpperCase() == 'PAID' ||
+    final isPaid =
+        paymentStatus.toUpperCase() == 'PAID' ||
         paymentStatus.toUpperCase() == 'SUCCESS' ||
         paymentStatus.toUpperCase() == 'SETTLEMENT';
     final selectedRaw = isPaid
@@ -203,7 +241,7 @@ class _StrukPageState extends State<StrukPage> {
 
   String _formatEventDateLabel(DateTime eventAt) {
     if (eventAt.millisecondsSinceEpoch == 0) return '-';
-    return DateFormat('dd-MM-yyyy (HH:mm:ss)').format(eventAt);
+    return formatIndonesianDateTime(eventAt);
   }
 
   String _formatBookingSchedule({
@@ -214,8 +252,9 @@ class _StrukPageState extends State<StrukPage> {
     final parsed = DateTime.tryParse(bookingStartAtRaw);
     if (parsed == null) return '';
     final local = parsed.toLocal();
-    final date = DateFormat('dd/MM/yyyy').format(local);
-    final startTime = DateFormat('HH:mm').format(local);
+    final date = formatIndonesianDate(local);
+    final startTime =
+        '${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
     return '$date $startTime • $durationHours jam';
   }
 
@@ -226,16 +265,10 @@ class _StrukPageState extends State<StrukPage> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        leading: const AppBackButton(
-          color: Colors.black,
-          size: 20,
-        ),
+        leading: const AppBackButton(color: Colors.black, size: 20),
         title: const Text(
           'Struk Saya',
-          style: TextStyle(
-            color: Colors.black,
-            fontWeight: FontWeight.bold,
-          ),
+          style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
         ),
         centerTitle: true,
       ),
@@ -268,10 +301,7 @@ class _StrukPageState extends State<StrukPage> {
             ),
             child: const Text(
               'Kembali ke Beranda',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w800,
-              ),
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
             ),
           ),
         ),
@@ -318,11 +348,7 @@ class _StrukPageState extends State<StrukPage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                Icons.receipt_outlined,
-                color: Colors.grey,
-                size: 48,
-              ),
+              Icon(Icons.receipt_outlined, color: Colors.grey, size: 48),
               SizedBox(height: 12),
               Text(
                 'Belum ada struk pembayaran yang berhasil.',
@@ -335,160 +361,169 @@ class _StrukPageState extends State<StrukPage> {
       );
     }
 
-    final todayOrders = _todayOrdersFrom(_paidOrders);
-    final previousOrders = _previousOrdersFrom(_paidOrders);
+    final filtered = _filteredOrders;
+    if (filtered.isEmpty) {
+      return Column(
+        children: [
+          _buildFilterBar(),
+          const Expanded(
+            child: Center(
+              child: Padding(
+                padding: EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.receipt_outlined, color: Colors.grey, size: 48),
+                    SizedBox(height: 12),
+                    Text(
+                      'Belum ada struk pembayaran pada tanggal ini.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.grey),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
 
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+    return Column(
       children: [
-        _buildUnifiedSection(
-          title: 'Struk Hari Ini',
-          subtitle: '${todayOrders.length} struk hari ini',
-          orders: todayOrders,
-          emptyMessage: 'Belum ada struk pembayaran hari ini',
-        ),
-        _buildUnifiedSection(
-          title: 'Struk Sebelum Hari Ini',
-          subtitle: previousOrders.isEmpty
-              ? 'Tidak ada struk hari sebelumnya'
-              : '${previousOrders.length} struk dari hari sebelumnya',
-          orders: previousOrders,
-          emptyMessage: 'Belum ada struk pembayaran hari sebelumnya',
-          isExpandable: true,
-          isExpanded: _showPreviousStruk,
-          onTap: previousOrders.isEmpty
-              ? null
-              : () => setState(() => _showPreviousStruk = !_showPreviousStruk),
-        ),
+        _buildFilterBar(),
+        Expanded(child: _buildReceiptsList(filtered)),
       ],
     );
   }
 
-  List<HistoryOrderItem> _todayOrdersFrom(List<HistoryOrderItem> source) {
+  List<HistoryOrderItem> get _filteredOrders {
+    final list = List<HistoryOrderItem>.from(_paidOrders);
     final now = DateTime.now();
-    return source.where((order) {
+
+    return list.where((order) {
       final d = order.eventAt;
-      return d.year == now.year && d.month == now.month && d.day == now.day;
+      final isToday =
+          d.year == now.year && d.month == now.month && d.day == now.day;
+
+      if (_mode == _FilterMode.today) {
+        return isToday;
+      } else {
+        if (_selectedPastDate == null) {
+          // Show all past orders (before today)
+          final todayStart = DateTime(now.year, now.month, now.day);
+          return d.isBefore(todayStart);
+        } else {
+          // Show orders on specific past date
+          return d.year == _selectedPastDate!.year &&
+              d.month == _selectedPastDate!.month &&
+              d.day == _selectedPastDate!.day;
+        }
+      }
     }).toList();
   }
 
-  List<HistoryOrderItem> _previousOrdersFrom(List<HistoryOrderItem> source) {
-    final now = DateTime.now();
-    return source.where((order) {
-      final d = order.eventAt;
-      final isToday = d.year == now.year && d.month == now.month && d.day == now.day;
-      return !isToday;
-    }).toList();
-  }
+  Widget _buildFilterBar() {
+    final todayStr = formatIndonesianDate(DateTime.now());
+    final pastStr = _selectedPastDate != null
+        ? formatIndonesianDate(_selectedPastDate!)
+        : '';
 
-  Widget _buildUnifiedSection({
-    required String title,
-    required String subtitle,
-    required List<HistoryOrderItem> orders,
-    required String emptyMessage,
-    bool isExpandable = false,
-    bool isExpanded = true,
-    VoidCallback? onTap,
-  }) {
-    final showContent = !isExpandable || isExpanded;
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 8),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
-        ],
+    final dropdownOptions = [
+      AppDropdownOption<String>(value: 'today', label: 'Hari ini ($todayStr)'),
+      AppDropdownOption<String>(
+        value: 'past',
+        label: _selectedPastDate != null ? pastStr : 'Sebelum Hari ini',
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+    ];
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+      child: Row(
         children: [
-          InkWell(
-            onTap: onTap,
-            borderRadius: BorderRadius.vertical(
-              top: const Radius.circular(15),
-              bottom: Radius.circular(showContent ? 0 : 15),
+          Expanded(
+            child: AppDropdownField<String>(
+              value: _mode == _FilterMode.today ? 'today' : 'past',
+              borderRadius: 10,
+              borderColor: const Color(0xFFE3E3E3),
+              textStyle: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF4B5563),
+              ),
+              options: dropdownOptions,
+              onChanged: (value) {
+                if (value == null) return;
+                setState(() {
+                  _mode = value == 'today'
+                      ? _FilterMode.today
+                      : _FilterMode.past;
+                  if (_mode == _FilterMode.past) {
+                    _selectedPastDate = null;
+                  }
+                });
+              },
             ),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF1F5F9),
-                borderRadius: BorderRadius.vertical(
-                  top: const Radius.circular(15),
-                  bottom: Radius.circular(showContent ? 0 : 15),
+          ),
+          if (_mode == _FilterMode.past) ...[
+            const SizedBox(width: 8),
+            SizedBox(
+              height: 40,
+              width: 40,
+              child: OutlinedButton(
+                onPressed: _selectPastDate,
+                style: OutlinedButton.styleFrom(
+                  padding: EdgeInsets.zero,
+                  side: const BorderSide(color: Color(0xFFD45A00)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                child: const Icon(
+                  Icons.calendar_month_rounded,
+                  color: Color(0xFFD45A00),
+                  size: 20,
                 ),
               ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          title,
-                          style: const TextStyle(
-                            color: Color(0xFF334155),
-                            fontSize: 14,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        const SizedBox(height: 3),
-                        Text(
-                          subtitle,
-                          style: const TextStyle(
-                            color: Color(0xFF64748B),
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (isExpandable && orders.isNotEmpty)
-                    Icon(
-                      isExpanded
-                          ? Icons.keyboard_arrow_up_rounded
-                          : Icons.keyboard_arrow_down_rounded,
-                      color: const Color(0xFF64748B),
-                    ),
-                ],
-              ),
             ),
-          ),
-          if (showContent)
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: orders.isEmpty
-                  ? Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 24),
-                      child: Center(
-                        child: Text(
-                          emptyMessage,
-                          style: const TextStyle(
-                            color: Color(0xFF94A3B8),
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    )
-                  : _buildReceiptsList(orders),
-            ),
+          ],
         ],
       ),
     );
   }
 
+  Future<void> _selectPastDate() async {
+    final yesterday = DateTime.now().subtract(const Duration(days: 1));
+    final initial =
+        _selectedPastDate != null && !_selectedPastDate!.isAfter(yesterday)
+        ? _selectedPastDate!
+        : yesterday;
+
+    final picked = await showDialog<dynamic>(
+      context: context,
+      builder: (context) {
+        return _CustomDatePickerDialog(
+          initialDate: initial,
+          firstDate: DateTime(2020),
+          lastDate: yesterday,
+        );
+      },
+    );
+
+    if (picked == 'all_past') {
+      setState(() {
+        _selectedPastDate = null;
+      });
+    } else if (picked is DateTime && picked != _selectedPastDate) {
+      setState(() {
+        _selectedPastDate = picked;
+      });
+    }
+  }
+
   Widget _buildReceiptsList(List<HistoryOrderItem> orders) {
     return ListView.separated(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      padding: EdgeInsets.zero,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       itemCount: orders.length,
       separatorBuilder: (context, index) => const SizedBox(height: 12),
       itemBuilder: (context, index) {
@@ -547,23 +582,139 @@ class _StrukPageState extends State<StrukPage> {
                   backgroundColor: const Color(0xFFD45A00),
                   foregroundColor: Colors.white,
                   elevation: 0,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 10,
+                  ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10),
                   ),
                 ),
                 child: const Text(
                   'Buka Struk',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w800,
-                  ),
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
                 ),
               ),
             ],
           ),
         );
       },
+    );
+  }
+}
+
+enum _FilterMode { today, past }
+
+class _CustomDatePickerDialog extends StatefulWidget {
+  final DateTime initialDate;
+  final DateTime firstDate;
+  final DateTime lastDate;
+
+  const _CustomDatePickerDialog({
+    required this.initialDate,
+    required this.firstDate,
+    required this.lastDate,
+  });
+
+  @override
+  State<_CustomDatePickerDialog> createState() =>
+      _CustomDatePickerDialogState();
+}
+
+class _CustomDatePickerDialogState extends State<_CustomDatePickerDialog> {
+  late DateTime _selectedDate;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedDate = widget.initialDate;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+      clipBehavior: Clip.antiAlias,
+      backgroundColor: Colors.white,
+      child: Container(
+        width: 328,
+        padding: const EdgeInsets.fromLTRB(12, 16, 12, 12),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SizedBox(
+              height: 300,
+              child: Theme(
+                data: Theme.of(context).copyWith(
+                  colorScheme: const ColorScheme.light(
+                    primary: Color(0xFFD45A00),
+                    onPrimary: Colors.white,
+                    onSurface: Color(0xFF2E2E2E),
+                  ),
+                ),
+                child: CalendarDatePicker(
+                  initialDate: _selectedDate,
+                  firstDate: widget.firstDate,
+                  lastDate: widget.lastDate,
+                  onDateChanged: (date) {
+                    setState(() {
+                      _selectedDate = date;
+                    });
+                  },
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.of(context).pop('all_past');
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFD45A00),
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 8,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  child: const Text(
+                    'Tampilkan semua dimasa lalu',
+                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800),
+                  ),
+                ),
+                const Spacer(),
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  style: TextButton.styleFrom(
+                    foregroundColor: const Color(0xFF666666),
+                  ),
+                  child: const Text(
+                    'Batal',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(_selectedDate),
+                  style: TextButton.styleFrom(
+                    foregroundColor: const Color(0xFFD45A00),
+                  ),
+                  child: const Text(
+                    'OK',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
