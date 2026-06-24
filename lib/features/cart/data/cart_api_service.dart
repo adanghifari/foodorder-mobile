@@ -67,8 +67,8 @@ class OnSpotTableAdvisoryDto {
 class CartApiService {
   final Dio _dio = Dio(
     BaseOptions(
-      connectTimeout: const Duration(seconds: 10),
-      receiveTimeout: const Duration(seconds: 15),
+      connectTimeout: const Duration(seconds: 15),
+      receiveTimeout: const Duration(seconds: 60),
       headers: const {
         'Accept': 'application/json',
         'Content-Type': 'application/json',
@@ -199,6 +199,19 @@ class CartApiService {
       return data['redirect_url']?.toString();
     } on DioException catch (e) {
       throw Exception(_extractDioMessage(e));
+    }
+  }
+
+  /// Sync status pembayaran dari Midtrans ke DB (dipanggil setelah webview selesai).
+  Future<void> checkStatus({required String orderId}) async {
+    final token = await _requireToken();
+    try {
+      await _dio.post<Map<String, dynamic>>(
+        '$_apiBaseUrl/v1/payments/check-status/$orderId',
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
+      );
+    } on DioException catch (_) {
+      // Best-effort — abaikan error, list tetap refresh
     }
   }
 

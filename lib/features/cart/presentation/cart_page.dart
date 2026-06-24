@@ -407,6 +407,10 @@ class _CartPageState extends State<CartPage> {
       }
 
       setState(() => _isSubmitting = true);
+
+      // Sync status dari Midtrans ke DB sebelum ambil data struk
+      await _cartApiService.checkStatus(orderId: orderId);
+
       HistoryOrderItem? orderItem;
       try {
         orderItem = await _cartApiService.getOrderReceipt(orderId);

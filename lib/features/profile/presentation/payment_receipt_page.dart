@@ -101,7 +101,13 @@ class _PaymentReceiptPageState extends State<PaymentReceiptPage> {
     }
 
     try {
-      final dio = Dio();
+      final dio = Dio(
+        BaseOptions(
+          connectTimeout: const Duration(seconds: 15),
+          receiveTimeout: const Duration(seconds: 30),
+          headers: const {'Accept': 'application/json'},
+        ),
+      );
       await dio.post(
         '${ApiConfig.apiBaseUrl}/v1/payments/cancel/${_order.orderId}',
         options: Options(headers: {'Authorization': 'Bearer $token'}),
@@ -122,6 +128,8 @@ class _PaymentReceiptPageState extends State<PaymentReceiptPage> {
     }
   }
 
+  static const String _finishRedirectUrl = 'https://mobile.kedaiklik.app/payment-finish';
+
   Future<void> _continueOrChangePayment() async {
     setState(() {
       _isLoadingAction = true;
@@ -139,14 +147,23 @@ class _PaymentReceiptPageState extends State<PaymentReceiptPage> {
     }
 
     try {
-      final dio = Dio();
+      final dio = Dio(
+        BaseOptions(
+          connectTimeout: const Duration(seconds: 15),
+          receiveTimeout: const Duration(seconds: 60),
+          headers: const {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+          },
+        ),
+      );
       final path = _order.paymentMethod == '-' || _order.paymentMethod.isEmpty
           ? '/v1/payments/continue/${_order.orderId}'
           : '/v1/payments/change-method/${_order.orderId}';
 
       final response = await dio.post<Map<String, dynamic>>(
         '${ApiConfig.apiBaseUrl}$path',
-        data: {'finish_redirect_url': 'foodorder://pembayaran/selesai'},
+        data: {'finish_redirect_url': _finishRedirectUrl},
         options: Options(headers: {'Authorization': 'Bearer $token'}),
       );
 
@@ -164,13 +181,14 @@ class _PaymentReceiptPageState extends State<PaymentReceiptPage> {
         MaterialPageRoute(
           builder: (_) => MidtransWebViewPage(
             url: redirectUrl,
-            finishRedirectUrl: 'foodorder://pembayaran/selesai',
+            finishRedirectUrl: _finishRedirectUrl,
           ),
         ),
       );
 
       if (result == true && mounted) {
-        _updateOrderStatus('PAID', 'CONFIRMED');
+        // Sync status dari Midtrans ke DB dulu, baru update UI dengan data real
+        await _checkStatusAndRefresh(token);
       }
     } catch (e) {
       if (!mounted) return;
@@ -181,6 +199,50 @@ class _PaymentReceiptPageState extends State<PaymentReceiptPage> {
           _isLoadingAction = false;
         });
       }
+    }
+  }
+
+  /// Panggil check-status ke backend (sync dari Midtrans) lalu fetch status terkini.
+  Future<void> _checkStatusAndRefresh(String token) async {
+    final dio = Dio(
+      BaseOptions(
+        connectTimeout: const Duration(seconds: 15),
+        receiveTimeout: const Duration(seconds: 60),
+        headers: const {'Accept': 'application/json'},
+      ),
+    );
+
+    // 1. Sync status dari Midtrans ke DB
+    try {
+      await dio.post(
+        '${ApiConfig.apiBaseUrl}/v1/payments/check-status/${_order.orderId}',
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
+      );
+    } catch (_) {
+      // Best-effort — lanjut fetch data terbaru walau sync gagal
+    }
+
+    if (!mounted) return;
+
+    // 2. Fetch status terkini dari DB
+    try {
+      final response = await dio.get<Map<String, dynamic>>(
+        '${ApiConfig.apiBaseUrl}/v1/orders/me',
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
+      );
+      final rows = (response.data?['data'] as List<dynamic>?) ?? [];
+      for (final row in rows) {
+        final item = row as Map<String, dynamic>;
+        if ((item['orderId'] ?? '').toString() != _order.orderId) continue;
+        final paymentStatus = (item['paymentStatus'] ?? 'PENDING').toString();
+        final orderStatus = (item['status'] ?? _order.status).toString();
+        if (mounted) {
+          _updateOrderStatus(paymentStatus, orderStatus);
+        }
+        return;
+      }
+    } catch (_) {
+      // Fallback: jika fetch gagal, setidaknya update UI supaya user tahu perlu refresh manual
     }
   }
 
