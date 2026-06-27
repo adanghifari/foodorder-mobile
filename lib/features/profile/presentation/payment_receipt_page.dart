@@ -11,6 +11,7 @@ import '../../auth/data/auth_session.dart';
 import '../../history/domain/history_models.dart';
 import '../../payment/presentation/midtrans_webview_page.dart';
 import '../../../../shared/utils/status_localizer.dart';
+import '../../cart/data/cart_api_service.dart';
 
 class PaymentReceiptPage extends StatefulWidget {
   const PaymentReceiptPage({super.key, required this.order});
@@ -26,6 +27,7 @@ class _PaymentReceiptPageState extends State<PaymentReceiptPage> {
   bool _isLoadingAction = false;
   bool _isDownloading = false;
   bool _hasChanges = false;
+  final CartApiService _cartApiService = CartApiService();
 
   static const Color _accent = Color(0xFFC8641E);
 
@@ -157,9 +159,10 @@ class _PaymentReceiptPageState extends State<PaymentReceiptPage> {
           },
         ),
       );
-      final path = _order.paymentMethod == '-' || _order.paymentMethod.isEmpty
-          ? '/v1/payments/continue/${_order.orderId}'
-          : '/v1/payments/change-method/${_order.orderId}';
+      
+      final path = isChangeMethod
+          ? '/v1/payments/change-method/${_order.orderId}'
+          : '/v1/payments/continue/${_order.orderId}';
 
       final response = await dio.post<Map<String, dynamic>>(
         '${ApiConfig.apiBaseUrl}$path',
@@ -176,7 +179,7 @@ class _PaymentReceiptPageState extends State<PaymentReceiptPage> {
       }
 
       if (!mounted) return;
-      final result = await Navigator.push<bool>(
+      await Navigator.push<bool>(
         context,
         MaterialPageRoute(
           builder: (_) => MidtransWebViewPage(
@@ -186,7 +189,7 @@ class _PaymentReceiptPageState extends State<PaymentReceiptPage> {
         ),
       );
 
-      if (result == true && mounted) {
+      if (mounted) {
         // Sync status dari Midtrans ke DB dulu, baru update UI dengan data real
         await _checkStatusAndRefresh(token);
       }
@@ -224,25 +227,17 @@ class _PaymentReceiptPageState extends State<PaymentReceiptPage> {
 
     if (!mounted) return;
 
-    // 2. Fetch status terkini dari DB
+    // 2. Fetch status terkini dari DB secara komplit
     try {
-      final response = await dio.get<Map<String, dynamic>>(
-        '${ApiConfig.apiBaseUrl}/v1/orders/me',
-        options: Options(headers: {'Authorization': 'Bearer $token'}),
-      );
-      final rows = (response.data?['data'] as List<dynamic>?) ?? [];
-      for (final row in rows) {
-        final item = row as Map<String, dynamic>;
-        if ((item['orderId'] ?? '').toString() != _order.orderId) continue;
-        final paymentStatus = (item['paymentStatus'] ?? 'PENDING').toString();
-        final orderStatus = (item['status'] ?? _order.status).toString();
-        if (mounted) {
-          _updateOrderStatus(paymentStatus, orderStatus);
-        }
-        return;
+      final updatedOrder = await _cartApiService.getOrderReceipt(_order.orderId);
+      if (updatedOrder != null && mounted) {
+        setState(() {
+          _order = updatedOrder;
+          _hasChanges = true;
+        });
       }
     } catch (_) {
-      // Fallback: jika fetch gagal, setidaknya update UI supaya user tahu perlu refresh manual
+      // Fallback silent
     }
   }
 
@@ -391,9 +386,11 @@ class _PaymentReceiptPageState extends State<PaymentReceiptPage> {
 
     final canResumePaymentMethod = isPending;
     final canCancelPayment = isPending;
-    final resumePaymentLabel = _order.paymentMethod == '-' || _order.paymentMethod.isEmpty
-        ? 'Pilih Metode Pembayaran'
-        : 'Ganti Metode Pembayaran';
+    final hasSelectedMethod = _order.paymentMethod != '-' && _order.paymentMethod.isNotEmpty;
+    final resumePaymentLabel = hasSelectedMethod
+        ? 'Lanjutkan Pembayaran'
+        : 'Pilih Metode Pembayaran';
+    final canForceChangeMethod = isPending && hasSelectedMethod;
 
     return PopScope(
       canPop: true,
@@ -722,8 +719,33 @@ class _PaymentReceiptPageState extends State<PaymentReceiptPage> {
                       SizedBox(
                         width: double.infinity,
                         height: 48,
+                        child: ElevatedButton(
+                          onPressed: () => _continueOrChangePayment(isChangeMethod: false),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: _accent,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            elevation: 0,
+                          ),
+                          child: Text(
+                            resumePaymentLabel,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+                    if (canForceChangeMethod) ...[
+                      SizedBox(
+                        width: double.infinity,
+                        height: 48,
                         child: OutlinedButton(
-                          onPressed: _continueOrChangePayment,
+                          onPressed: () => _continueOrChangePayment(isChangeMethod: true),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: _accent,
                             side: const BorderSide(color: _accent),
@@ -732,9 +754,9 @@ class _PaymentReceiptPageState extends State<PaymentReceiptPage> {
                               borderRadius: BorderRadius.circular(16),
                             ),
                           ),
-                          child: Text(
-                            resumePaymentLabel,
-                            style: const TextStyle(
+                          child: const Text(
+                            'Ganti Metode Pembayaran',
+                            style: TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 14,
                             ),
