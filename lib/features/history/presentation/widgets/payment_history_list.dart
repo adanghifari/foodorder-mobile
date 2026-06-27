@@ -583,10 +583,12 @@ class _PaymentHistoryCard extends StatelessWidget {
       ),
     );
 
-    if (result == true) {
-      // Sync status from Midtrans BEFORE refreshing the list
+    if (context.mounted) {
+      // Selalu jalankan sinkronisasi status pembayaran ketika kembali dari webview
       final api = _HistoryPaymentApi();
-      await api.checkStatus(orderId: order.orderId);
+      try {
+        await api.checkStatus(orderId: order.orderId);
+      } catch (_) {}
       await onRefreshRequested?.call();
     }
   }
