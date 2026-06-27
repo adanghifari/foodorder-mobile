@@ -132,7 +132,7 @@ class _PaymentReceiptPageState extends State<PaymentReceiptPage> {
 
   static const String _finishRedirectUrl = 'https://mobile.kedaiklik.app/payment-finish';
 
-  Future<void> _continueOrChangePayment() async {
+  Future<void> _continueOrChangePayment({bool isChangeMethod = false}) async {
     setState(() {
       _isLoadingAction = true;
     });
